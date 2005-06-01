@@ -1,0 +1,92 @@
+# Set the task name
+TASK = arc
+
+# Uncomment the correct choice indicating either SKA or TST flight environment
+FLIGHT_ENV = SKA
+
+# Set the names of all files that get installed
+#  Examples for celmon
+#  TASK = celmon
+#  BIN = celmon.pl 
+#  SHARE = calc_offset.pl
+#  DATA = CELMON_table.rdb ICRS_tables
+BIN = get_iFOT_events.pl get_web_content.pl arc.pl
+SHARE = 
+DATA = iFOT_queries.cfg arc.cfg web_content.cfg \
+	chandra.png ace.png goes.png \
+	task_schedule.cfg
+DOC = 
+
+# include /proj/sot/ska/include/Makefile.FLIGHT
+include /proj/sot/ska/include/Makefile.FLIGHT
+
+# Define outside data and bin dependencies required for testing,
+# i.e. all tools and data required by the task which are NOT 
+# created by or internal to the task itself.  These will be copied
+# from the ROOT_FLIGHT area.
+#
+# TEST_DEP = bin/skycoor data/EPHEM/gephem.dat
+TEST_DEP = data/arc/ data/snapshot/
+
+# To 'test', first check that the INSTALL root is not the same as the FLIGHT root
+# with 'check_install' (defined in Makefile.FLIGHT).  Typically this means doing
+#  setenv TST $PWD
+# Then copy any outside data or bin dependencies into local directory via
+# dependency rules defined in Makefile.FLIGHT
+
+# Testing no long creates a lib/perl link, since Perl should find the library
+# because perlska puts /proj/sot/ska/lib/perl (hardwired) into PERL5LIB.
+
+.PHONY: test test_char test_get test_scs107 t_scs107 test_current t_current clean
+
+test: test_scs107
+
+test_arc: t_now check_install $(BIN) install
+	$(INSTALL_BIN)/arc.pl
+
+test_get: check_install $(BIN) install $(TEST_DEP) 
+	$(INSTALL_BIN)/get_iFOT_events.pl
+
+test_scs107: t_scs107 check_install $(BIN) install $(TEST_DEP)
+	$(INSTALL_BIN)/arc.pl 2005:134:18:30:30
+
+test_get_web: check_install $(BIN) install
+	$(INSTALL_BIN)/get_web_content.pl
+
+t_scs107:
+	if [ -r t ] ; then rm t ; fi
+	ln -s t_scs107 t
+
+test_trouble: t_trouble check_install $(BIN) install $(TEST_DEP)
+#	$(INSTALL_BIN)/get_web_content.pl
+	$(INSTALL_BIN)/arc.pl 2005:151:12:03:18
+
+t_trouble:
+	if [ -r t ] ; then rm t ; fi
+	ln -s t_trouble t
+
+test_now: t_now check_install $(BIN) install
+	$(INSTALL_BIN)/get_iFOT_events.pl
+	$(INSTALL_BIN)/get_web_content.pl
+	$(INSTALL_BIN)/arc.pl
+
+t_now:
+	if [ -r t ] ; then rm t ; fi
+
+install:
+#  Uncomment the lines which apply for this task
+	mkdir -p $(INSTALL_BIN)
+	mkdir -p $(INSTALL_DATA)
+#	mkdir -p $(INSTALL_SHARE)
+#	mkdir -p $(INSTALL_DOC)
+#	mkdir -p $(INSTALL_LIB)
+	rsync --times --cvs-exclude $(BIN) $(INSTALL_BIN)/
+	rsync --times --cvs-exclude $(DATA) $(INSTALL_DATA)/
+#	rsync --times --cvs-exclude $(SHARE) $(INSTALL_SHARE)/
+#	rsync --times --cvs-exclude $(DOC) $(INSTALL_DOC)/
+#	rsync --times --cvs-exclude $(LIB) $(INSTALL_LIB)/
+#	pod2html task.pl > $(INSTALL_DOC)/doc.html
+
+clean:
+	rm -rf bin data
+

@@ -1,0 +1,136 @@
+*****************************************************************************
+**  To Do
+*****************************************************************************
+- Split out get_iFOT_events.pl into a separate task, or perhaps a module
+  which is generically usable.  Then re-integrate with r2d2.  But for now
+  just get r2d2 done and released.
+
+*****************************************************************************
+**  Things to include in SCS107 page:
+*****************************************************************************
+
+Overall:
+* State of Chandra (~10 key indicators) parsed from snapshot
+ - Include 'staleness' from current time
+  OBT
+  RadMon     
+  Obsid
+  RA,Dec,Roll
+  Altitude
+  SIM TTpos 
+  SIM FApos ?
+  CPE stat
+  HETG
+  LETG
+
+* Violations
+ - Earth, Moon, Sun
+ - Momentum (Check MCC) (have a box that can be filled? Yes)
+ - EPHIN (Check MCC, with entry box)
+
+* Timeline (includes UT, local, and rel times):
+ Current time
+ Comms
+ Rad zone entry, exits
+ Previously scheduled observations (?)
+
+* Radiation
+ - Plots ACE, GOES protons, GOES X-ray
+ - Values
+
+* Links
+Radiation level info
+
+*****************************************************************************
+**  ideas
+*****************************************************************************
+- Can be plain text or formatted
+- Which plots?
+- Cached plots?
+
+*****************************************************************************
+**  Snapshot dir and info
+*****************************************************************************
+/data/mta4/www/Snapshot
+
+*****************************************************************************
+**  Approved load products
+*****************************************************************************
+Constraints:
+
+http://occwww.cfa.harvard.edu/occweb/FOT/mission_planning/PRODUCTS/APPR_LOADS/2005/MAY/MAY0205B/output/MAY0205B.txt
+
+*****************************************************************************
+**  Lynx usage
+*****************************************************************************
+
+lynx -stdin -dump -nolist
+
+
+
+Critical items from snapshot:
+
+OBT
+ACE flux and fluence (vs. limits)
+GOES P2,P5
+EPHIN E1300,P4GM,P41GM
+
+UTC 2005:115:12:01:06 (Apr25) f_ACE 1.39e+01 F_CRM 0.00e+00 Kp 2.3 R km  91445A
+OBT 2005:115:11:57:45  CTUVCDU   874623  OBC s/w NRML  FMT1_NORM   CPEstat NORM
+OBT      230817465.22  ONLVCDU   874608  OBC Errs   0
+                                                     OBSID   4612  EPState  SUN
+SIM TTpos  -50505  HETG Angle 79.09  PCADMODE NPNT   RA   125.467  Bus V  30.08
+SIM FApos    -715  LETG Angle 77.59  PCONTROL NPNT   Dec  -42.987  Bus I  26.46
+                                     AOFSTAR  GUID   Roll 262.014
+ACA Object FFFSSSSS    Dither  ENAB                                HRC-I HV  ON
+ACA ImFunc TTTTTTTT    Dith Yang  17.03    Yaw Rate      0.03      HRC-S HV OFF
+ACA CCD Temp  -15.6    Dith Zang  11.54    Pitch Rate   -0.12      SHLD HV  8.0
+ACA Int Time  1.698                        Roll Rate     0.08      EVT RT     2
+AOACSTAT         OK    FSS SunBeta  SUN                            SHLD RT   16
+                       FSS Alfa   -0.49    Batt 1 SOC  100.00%
+Avg HRMA Temp 70.61    FSS Beta  -11.09    Batt 2 SOC  100.00%  ACIS Stat7-0 64
+Avg OBA Temp  51.85    SA Resolv 101.06    Batt 3 SOC  100.00%  Cold Rad -127.9
+OBA Tavg Fault NFLT    SA Sun Pres ILLM                         Warm Rad  -82.0
+OBA Trng Fault NFLT                        +Y SA Amps   12.76   RadMon     ENAB
+HRMA power    72.50    SCS 128   ACT       -Y SA Amps   13.33   EPHIN Geom LARG
+OBA power     67.80    SCS 129   ACT       +Y SA Temp  112.04   E150        0.3
+                       SCS 130   ACT       -Y SA Temp  112.04   E300        0.1
+Roll Mom.    -0.328    SCS 107  INAC                            E1300       0.0
+Pitch Mom.   17.015   UpL Cmd Acc  16735   EPH A-Leak  1.0200   P4GM        0.0
+Yaw Mom.      0.808   Cmd Rej A      254   EPH B-Leak  0.3880   P41GM       0.0
+                                           EPH temp     75.74
+Gyro 2 Curr 1 103.20   Roll Bias  -0.8774  EPH 27V      26.96   M Unload    MON
+Gyro 2 Curr 2  98.40   Pitch Bias -2.0303                       TSC Move   STOP
+Prop. line 03  89.78   Yaw Bias   -1.1429  CTX B PWR    36.69   FA Move    STOP
+Prop. line 04  66.25                       CTX B Volts   3.54   OTG Move   DISA
+
+*****************************************************************************
+**  iFOT queries
+*****************************************************************************
+
+wget 'http://occwww.cfa.harvard.edu/occweb/web/webapps/ifot/ifot.php?r=home&t=builder&format=list&e=RADZONE._TYPEDESC,PERIGEE._TYPEDESC,APOGEE._TYPEDESC,COM.PROP2,DSN_COMM.station,GRATING.GRATING,SIMFOCUS.POS,SIMTRANS.POS,SUNANGLE.SUNANGLE,MANVR,MANVR,INSTRUMENT_CAL.SI.MODE,TARGET_CAL.OBSID.TARGET,OBS.OBSID.TARGET&detail=type_desc,tstart,tstop,properties,srcref&highlight=now&trange=NEXT_24_HOURS&size=1000x560&fs=8&op=properties'
+
+
+http://occwww.cfa.harvard.edu/occweb/web/webapps/ifot/ifot.php?r=home&t=builder&a=show&format=list&columns=id,sheetlink,srcref,type_desc,tstart,tstop,properties&size=auto&e=LOADSEG.NAME.SCS&tstart=2005:001:00:00:00.000&tstop=2005:365:23:59:59.000
+
+Radzone:
+http://occwww.cfa.harvard.edu/occweb/web/webapps/ifot/ifot.php?r=home&t=builder&a=show&format=list&columns=id,sheetlink,srcref,type_desc,tstart,tstop,properties&size=auto&e=RADZONE.&tstart=2005:001:00:00:00.000&tstop=2005:365:23:59:59.000
+
+Observations:
+http://occwww.cfa.harvard.edu/occweb/web/webapps/ifot/ifot.php?r=home&t=builder&a=show&format=list&columns=type_desc,tstart,tstop,properties&size=auto&e=OBS.TARGET.MODE.OBSID.SI&tstart=2005:001:00:00:00.000&tstop=2005:003:00:00:00
+
+Comms:
+http://occwww.cfa.harvard.edu/occweb/web/webapps/ifot/ifot.php?r=home&t=builder&a=show&format=list&columns=type_desc,tstart,tstop,properties&size=auto&e=DSN_COMM.bot.eot.station&tstart=2005:001:00:00:00.000&tstop=2005:003:00:00:00
+
+http://occwww.cfa.harvard.edu/occweb/web/webapps/ifot/ifot.php?r=home&t=builder&format=chart&e=RADZONE._TYPEDESC,PERIGEE._TYPEDESC,APOGEE._TYPEDESC,COM.PROP2,DSN_COMM.station,GRATING.GRATING,SIMFOCUS.POS,SIMTRANS.POS,SUNANGLE.SUNANGLE,MANVR,MANVR,INSTRUMENT_CAL.SI.MODE,TARGET_CAL.OBSID.TARGET,OBS.OBSID.TARGET&detail=type_desc,tstart,tstop,properties,srcref&highlight=now&trange=NEXT_24_HOURS&size=1000x560&fs=8
+
+Radmon enable
+http://occwww.cfa.harvard.edu/occweb/web/webapps/ifot/ifot.php?r=home&t=builder&a=show&format=list&columns=id,sheetlink,srcref,type_desc,tstart,tstop,properties&size=auto&e=OORMPEN.&tstart=2005:001:00:00:00.000&tstop=2005:365:23:59:59.000
+
+
+*****************************************************************************
+**  Useful links
+*****************************************************************************
+
+http://occweb.cfa.harvard.edu/occweb/FOT/mission_planning/PRODUCTS/APPR_LOADS/2005/
+/occweb/FOT/mission_planning/PRODUCTS/APPR_LOADS/2005
