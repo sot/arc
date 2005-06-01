@@ -242,13 +242,22 @@ sub get_pcad_constraints {
     my ($mon, $day, $yr, $rev) = ($load_name =~ /(\w\w\w)(\d\d)(\d\d)(\w)/);
     my $year = $yr + 1900 + ($yr<97 ? 100 : 0);
     my $url = "$opt{url}{approved_loads}/$year/$mon/$load_name/output/$load_name.txt";
-    my $constraints;
-    
-    $constraints = get_url($url,
-			   user => $opt{authorization}{user},
-			   passwd => $opt{authorization}{passwd},
-			   timeout => $opt{timeout}
-			  );
+    my $file = io("$TaskData/$opt{file}{pcad_constraints}/$load_name.txt");
+    if (-r "$file") {
+	$file > $_;
+    } else {
+	my $error;
+	($_, $error) = get_url($url,
+			       user => $opt{authorization}{user},
+			       passwd => $opt{authorization}{passwd},
+			       timeout => $opt{timeout}
+			      );
+	if (defined $error) {
+	    warning("Could not get PCAD constraint check file for $load_name: $error");
+	    return;
+	}
+	$_ > $file->assert;	# Write content to file.  Assert ensures that path exists
+    }
 
     # Parse the constraints
     #  Target Start Time:  2005:129:13:00:49.299
@@ -256,7 +265,6 @@ sub get_pcad_constraints {
     #  Target RA/Dec/Roll: 252.80 5.00 131.34 
     #  Attitude Violation: SPM 2005:135:06:20:49.000
     #  High Momentum:      2005:134:12:15:49.299
-    $_ = $constraints;
 
     my @match;
     /Attitude Hold violation predictions\s*/g; 
@@ -362,8 +370,11 @@ sub make_web_page {
     $html .= make_snap_table($snap) . $q->p;
     $html .= make_event_table($event) . $q->p;
 
-    $html .= make_ephin_goes_table($snap, $web_data) . $q->p;
-    $html .= make_ace_table($snap, $web_data) . $q->p;
+    $html .= HTML::Table->new(-align => 'center',
+			      -padding => 2,
+			      -data   => [[make_ephin_goes_table($snap, $web_data),
+					   make_ace_table($snap, $web_data)]]
+			      )->getTable;
 
     my $image_title_style = "text-align:center;$opt{web_page}{table_caption_style}";
     $html .= $q->p({style => $image_title_style},
@@ -377,6 +388,10 @@ sub make_web_page {
 		   $q->br,
 		   $q->img({style=>"margin-top:0.35em", src => $web_data->{goes}{image}{five_min}{file}})
 		  );
+
+    $html .= $q->span({style => 'width:30%'},
+		   make_solar_forecast_table($web_data)
+		   );
 
     $html .= $q->p({style => $image_title_style},
 		   $q->a({href => $opt{url}{todays_space_weather}}, "Solar X-ray Activity"),
@@ -445,11 +460,33 @@ sub make_warning_table {
 				-style => 'color:red',
 				-rules => 'none',
 				-data  => \@table,
+				-width => '75%',
 			       );
     
     $table->setColStyle(1,"font-size:120%");
     $table->setCaption("<span style=$opt{web_page}{table_caption_style}> " .
 		       " Processing Warnings</span>", 'TOP');
+    return $table->getTable;
+}
+
+####################################################################################
+sub make_solar_forecast_table {
+####################################################################################
+    my $web_data = shift;
+    my @table = ([ 'Geophysical Activity', $web_data->{space_weather}{content}{geophys_forecast}{content} ],
+		 [ 'Solar Activity', $web_data->{space_weather}{content}{solar_forecast}{content} ]);
+    my $table = new HTML::Table(-align => 'center',
+				-spacing => 0,
+				-padding => 2,
+				-rules => 'none',
+				-border => 2,
+				-data  => \@table,
+				-width => '75%',
+			       );
+    
+    $table->setColHead(1);
+    $table->setCaption("<span style=$opt{web_page}{table_caption_style}> " .
+		       " 3-day Solar-Geophysical Forecast</span>", 'TOP');
     return $table->getTable;
 }
 
@@ -635,13 +672,12 @@ sub parse_mta_rad_data {
     my @dat;
 
 
-    /$start\s*/gx;
-    
+    return unless /$start\s*/gx;
     while (/\G \s* (\d\d\d\d .+) \s*/gx) {
 	my @val = split ' ', $1;
 	my $all_ok = 1;
 	for my $i (0..$#col) {
-	    if ($val[$col[$i]] > 0) {
+	    if ($val[$col[$i]] >= 0) {
 		push @{$dat[$i]}, $val[$col[$i]] ;
 	    } else {
 		$all_ok = 0;
