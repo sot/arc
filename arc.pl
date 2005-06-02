@@ -187,7 +187,7 @@ sub make_maneuver_obsid_links {
 	}
 	if ($evt->type eq 'maneuver' 
 	    and defined ($evt2 = $link{target_quat})
-	    and abs($evt->tstart - $evt2->tstop) < 30) {
+	    and abs($evt->tstart - $evt2->tstart) < 30) {
 	    $evt->target_quat($evt2);
 	    $evt2->maneuver($evt);
 	}
