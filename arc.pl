@@ -361,27 +361,11 @@ sub make_web_page {
     my $table;
     local $_;
 
-#<img src="chandra_trw_small.gif" style="text-align:left; position:absolute; left:250px;top:70px" />
-#<img src="goes_small.png" style="position:absolute; left:0px;top:0px" />
-#n<img src="ace_small.png" style="align:right; position:absolute; left:550px; top:60px" />
-#<span style="position:absolute; left:250px;top:15px;color:#cc0066;font-size:250%; font-weight:bold">Replan Central</span>
-#<pre style="margin:100px"> </pre>
-
     $html .= $q->start_html(-title => $opt{web_page}{title_short},
 			   -style => {-code => $opt{web_page}{style} }
 			   );
-    $html .= $q->img({src => "$opt{file}{goes_image}",
-		      style => "position:absolute; left:0px;top:0px"});
-    $html .= $q->img({src => "$opt{file}{chandra_image}",
-		      style => "position:absolute; left:250px;top:70px"});
-    $html .= $q->img({src => "$opt{file}{ace_image}",
-		      style => "position:absolute; left:550px;top:60px"});
-#    $html .= $q->img({src=>$web_data->{orbit_image}{content}{orbit}{file},
-#		      style => "position:absolute; left:0px;top:0px"});
-
-    $html .= $q->span({style=>"position:absolute;left:250px;top:15px;color:#cc0066;font-size:250%; font-weight:bold"},
-		      $opt{web_page}{title});
-    $html .= $q->pre({style=>"margin:220px"}, "");
+    $html .= $q->p({style => "text-align:center"},
+		   $q->img({src => "$opt{file}{title_image}"}));
 
     $html .= $q->p({style => 'font-size:130%; font-weight:bold; text-align:center'},
 		       "Page updated: ",
@@ -446,7 +430,8 @@ sub install_web_files {
 
     $html > io("$opt{file}{web_dir}/$opt{file}{web_page}");
 
-    foreach (qw(chandra_image ace_image goes_image)) {
+    # (Used to have several images..)
+    foreach (qw(title_image)) {
 	my $in = io("$TaskData/$opt{file}{$_}");
 	my $out =io("$opt{file}{web_dir}/$opt{file}{$_}");
 	$in > $out if (not -e "$out" or $in->mtime > $out->mtime);
@@ -800,7 +785,7 @@ sub make_event_table {
 }
 
 ####################################################################################
-sub make_snap_table {
+sub make_snap_table_OLD {
 ####################################################################################
     my $snap = shift;
     my @table;
@@ -832,6 +817,60 @@ sub make_snap_table {
 
     $table->setCellColSpan($#row+2, 1, $#cols+1);
     $table->setCellStyle($#row+2, 1, "font-size:85%");
+
+    $table->setCaption("<span style=$opt{web_page}{table_caption_style}>" .
+		       "Key <a href=\"$opt{url}{mta_snapshot}\">Snapshot</a>" . 
+		       " Values ($delta_time)" .
+		       "</span>", 'TOP');
+    return $table->getTable;
+}
+
+####################################################################################
+sub make_snap_table {
+####################################################################################
+    my $snap = shift;
+    my @table;
+    my $date = $snap->{obt}{value};
+    my $dt = Event::calc_delta_date($snap->{obt}{value});
+    my $local_date = Event::calc_local_date($snap->{obt}{value});
+    my $delta_time = "&Delta;t = $dt"; 
+    if ($CurrentTime - date2time($date, 'unix') < 100) {
+	$delta_time = "from current comm";
+    }
+
+    my @row = split "\n", $opt{snap_format};
+    my @cols;
+    for my $row (@row) {
+	@cols = split(/\s*\|\s*/, $row);
+	push @table, [ map { defined $snap->{$_} ? "$snap->{$_}{full_name}=$snap->{$_}{value}" : '' } @cols ];
+    }
+
+    my @table_col;
+    foreach my $j (0..$#cols) {
+	my $table_col =  new HTML::Table(-align => 'center',
+					 -rules => 'none',
+					 -border => 0,
+					 -spacing => 0,
+					 -padding => 2,
+					 -data  => [ map { [ split('=', $table[$_][$j]) ] } (0..$#row) ]
+					);
+	$table_col->setColStyle(1, 'padding-left: 0cm; padding-right: 0.1cm; text-align:left');
+	$table_col->setColStyle(2, 'padding-left: 0.1cm; padding-right: 0cm; text-align:right');
+	push @table_col, $table_col->getTable;
+
+    }
+
+    my $footnotes = "Snapshot from $date ($delta_time) ";
+
+    my $table = new HTML::Table(-align => 'center',
+			     -rules => 'all',
+			     -border => 2,
+			     -spacing => 0,
+			     -padding => 2,
+			     -data  => [[ @table_col ], [$footnotes]],
+			    );
+    $table->setCellColSpan(2, 1, $#cols+1);
+    $table->setCellStyle(2, 1, "font-size:85%");
 
     $table->setCaption("<span style=$opt{web_page}{table_caption_style}>" .
 		       "Key <a href=\"$opt{url}{mta_snapshot}\">Snapshot</a>" . 

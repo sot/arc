@@ -13,7 +13,7 @@ FLIGHT_ENV = SKA
 BIN = get_iFOT_events.pl get_web_content.pl arc.pl
 SHARE = 
 DATA = iFOT_queries.cfg arc.cfg web_content.cfg \
-	chandra.png ace.png goes.png \
+	title_image.png \
 	task_schedule.cfg
 DOC = 
 
@@ -26,7 +26,7 @@ include /proj/sot/ska/include/Makefile.FLIGHT
 # from the ROOT_FLIGHT area.
 #
 # TEST_DEP = bin/skycoor data/EPHEM/gephem.dat
-TEST_DEP = data/arc/ data/snapshot/
+TEST_DEP = data/arc/
 
 # To 'test', first check that the INSTALL root is not the same as the FLIGHT root
 # with 'check_install' (defined in Makefile.FLIGHT).  Typically this means doing
@@ -37,20 +37,21 @@ TEST_DEP = data/arc/ data/snapshot/
 # Testing no long creates a lib/perl link, since Perl should find the library
 # because perlska puts /proj/sot/ska/lib/perl (hardwired) into PERL5LIB.
 
-.PHONY: test test_char test_get test_scs107 t_scs107 test_current t_current clean
+.PHONY: test test_char test_get test_scs107 t_scs107 test_current t_current clean t_now
 
 test: test_scs107
 
-test_arc: t_now check_install $(BIN) install
+test_arc: t_now check_install $(BIN) install $(TEST_DEP)
 	$(INSTALL_BIN)/arc.pl
 
-test_get: check_install $(BIN) install $(TEST_DEP) 
+test_get: check_install $(BIN) install $(TEST_DEP)
 	$(INSTALL_BIN)/get_iFOT_events.pl
 
-test_scs107: t_scs107 check_install $(BIN) install $(TEST_DEP)
+test_scs107: t_scs107 check_install $(BIN) install $(TEST_DEP) data/snapshot/
+	$(INSTALL_BIN)/get_web_content.pl 2005:134:18:30:30
 	$(INSTALL_BIN)/arc.pl 2005:134:18:30:30
 
-test_get_web: check_install $(BIN) install
+test_get_web: check_install $(BIN) install $(TEST_DEP)
 	$(INSTALL_BIN)/get_web_content.pl
 
 t_scs107:
@@ -65,13 +66,14 @@ t_trouble:
 	if [ -r t ] ; then rm t ; fi
 	ln -s t_trouble t
 
-test_now: t_now check_install $(BIN) install
+test_now: t_now check_install $(BIN) install $(TEST_DEP)
 	$(INSTALL_BIN)/get_iFOT_events.pl
 	$(INSTALL_BIN)/get_web_content.pl
 	$(INSTALL_BIN)/arc.pl
 
 t_now:
 	if [ -r t ] ; then rm t ; fi
+	ln -s t_now t
 
 install:
 #  Uncomment the lines which apply for this task
