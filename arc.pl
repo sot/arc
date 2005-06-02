@@ -4,10 +4,11 @@ use warnings;
 use strict;
 use IO::All;
 use Ska::RDB qw(read_rdb);
+use Ska::Run;
+use Ska::Convert qw(time2date date2time);
 use Config::General;
 use Data::Dumper;
 use HTML::Table;
-use Ska::Convert qw(time2date date2time);
 use CGI;
 use LWP::UserAgent;
 use HTML::TableExtract;
@@ -167,6 +168,7 @@ sub make_maneuver_obsid_links {
     my @link_types = qw(load_segment maneuver target_quat);
     my %link;
     local $_;
+    my $evt2;
 
     for my $evt (@{$event}) {
 	foreach (@link_types) {
@@ -182,8 +184,20 @@ sub make_maneuver_obsid_links {
 	    # if (defined $load_segment
 	    #	  and $load_segment->tstart <= $evt->tstart
 	    #	  and $load_segment->tstop  >= $evt->tstart);
-	    dbg Dumper $evt if $evt->obsid == 5658;
 	}
+	if ($evt->type eq 'maneuver' 
+	    and defined ($evt2 = $link{target_quat})
+	    and abs($evt->tstart - $evt2->tstop) < 30) {
+	    $evt->target_quat($evt2);
+	    $evt2->maneuver($evt);
+	}
+	if ($evt->type eq 'target_quat' 
+	    and defined ($evt2 = $link{maneuver})
+	    and abs($evt->tstart - $evt2->tstart) < 30) {
+	    $evt->maneuver($evt2);
+	    $evt2->target_quat($evt);
+	}
+		
     }
 }
 
@@ -362,12 +376,28 @@ sub make_web_page {
 		      style => "position:absolute; left:250px;top:70px"});
     $html .= $q->img({src => "$opt{file}{ace_image}",
 		      style => "position:absolute; left:550px;top:60px"});
-    $html .= $q->span({style=>"position:absolute;left:250px;top:15px;color:#cc0066;font-size:250%; font-weight:bold"}, $opt{web_page}{title});
+#    $html .= $q->img({src=>$web_data->{orbit_image}{content}{orbit}{file},
+#		      style => "position:absolute; left:0px;top:0px"});
+
+    $html .= $q->span({style=>"position:absolute;left:250px;top:15px;color:#cc0066;font-size:250%; font-weight:bold"},
+		      $opt{web_page}{title});
     $html .= $q->pre({style=>"margin:220px"}, "");
 
+    $html .= $q->p({style => 'font-size:130%; font-weight:bold; text-align:center'},
+		       "Page updated: ",
+		       Event::format_date(time2date($CurrentTime, 'unix_time')),
+		       " (", Event::calc_local_date($CurrentTime), ")"
+		      );
     $html .= make_warning_table(@warn) . $q->p if (@warn);
-    $html .= make_report_times_table($snap) . $q->p;
-    $html .= make_snap_table($snap) . $q->p;
+
+    my $snap_table = make_snap_table($snap) . $q->p;
+
+    $html .= HTML::Table->new(-align => 'center',
+			      -padding => 2,
+			      -data   => [[$q->img({src=>$web_data->{orbit_image}{content}{orbit}{file}}),
+					  $snap_table]],
+			     )->getTable;
+
     $html .= make_event_table($event) . $q->p;
 
     $html .= HTML::Table->new(-align => 'center',
@@ -396,7 +426,7 @@ sub make_web_page {
     $html .= $q->p({style => $image_title_style},
 		   $q->a({href => $opt{url}{todays_space_weather}}, "Solar X-ray Activity"),
 		   $q->br,
-		   $q->img({style=>"margin-top:0.35em", src => $web_data->{space_weather}{image}{GOES_xray}{file}})
+		   $q->img({style=>"margin-top:0.35em", src => $web_data->{solar_xray}{image}{GOES_xray}{file}})
 		  );
 
     $html .= $q->end_html;
@@ -417,13 +447,15 @@ sub install_web_files {
     $html > io("$opt{file}{web_dir}/$opt{file}{web_page}");
 
     foreach (qw(chandra_image ace_image goes_image)) {
-	io("$TaskData/$opt{file}{$_}") > io("$opt{file}{web_dir}/$opt{file}{$_}");
+	my $in = io("$TaskData/$opt{file}{$_}");
+	my $out =io("$opt{file}{web_dir}/$opt{file}{$_}");
+	$in > $out if (not -e "$out" or $in->mtime > $out->mtime);
     }
 
     # Go through each web site where data/images were retrieved
     foreach my $web (values %{$web_content}) {
 	next if defined $web->{warn}; # Skip if there was a warning
-	foreach my $image (values %{$web->{image}}) {
+	foreach my $image (values %{$web->{image}}, values %{$web->{content}}) {
 	    next if defined $image->{warn};
 	    next unless defined $image->{outfile};
 
@@ -431,8 +463,15 @@ sub install_web_files {
 	    # or is older than infile
 	    my $in = io($image->{outfile});
 	    my $out = io($opt{file}{web_dir} . "/" . $image->{file});
-	    $in > $out if (defined $in->mtime
-			   and ((not defined $out->mtime) or $in->mtime > $out->mtime));
+	    next unless -e "$in";
+	    if ((not -e "$out") or $in->mtime > $out->mtime) {
+		if ($image->{convert}) {
+		    my ($status) = run("convert $in $image->{convert} $out");
+		    warning($status) if $status;
+		} else {
+		    $in > $out ;
+		}
+	    }
 	}
     }
 }
@@ -564,6 +603,7 @@ sub make_ace_table {
 
     my $footnotes = "ACE data from $ace_date";
     $footnotes .= "<br>Orbital fluence: integrated attenuated ACE flux";
+    $footnotes .= "<br>Grating attenuation not factored into current or 2hr flux numbers";
     $table[$n_row][0] = $footnotes;
 
     my $table = new HTML::Table(-align => 'center',
@@ -620,7 +660,7 @@ sub make_ephin_goes_table {
     $val{Limit}{E1300} = 10.0;
     $val{Limit}{P4GM} = 300.0;
     $val{Limit}{P41GM} = 8.47;
-	
+
     my $n_row = @{$tab_def{row}}+1; # Including row and col headers
     my $n_col = @{$tab_def{col}}+1;
 
@@ -637,7 +677,8 @@ sub make_ephin_goes_table {
     }
 
     my $footnotes = "EPHIN: from snapshot at $ephin_date<br />";
-    $footnotes .= "GOES: scaled two hour average of GOES-11 <br /><span style=\"padding:1.6em\"></span>from $goes_date";
+    $footnotes .= "RadMon: DISABLED<br />" if ($snap->{radmon}{value} ne 'ENAB');
+    $footnotes .= "GOES: scaled two hour average of GOES-11 <br /><span style=\"padding:1.7em\"></span>from $goes_date";
     $table[$n_row][0] = $footnotes;
 
     my $table = new HTML::Table(-align => 'center',
@@ -649,6 +690,9 @@ sub make_ephin_goes_table {
 			       );
     $table->setCellHead(1,$_) foreach (1..$n_col);
     $table->setCellHead($_,1) foreach (1..$n_row);
+    $table->setColStyle(2, "color:#$opt{color}{event_disabled}")
+      if ($snap->{radmon}{value} ne 'ENAB');
+	
     for $i (2..$n_row) {
 	for my $j (2..$n_col) {
 	    $table->setCellAlign($i,$j,'RIGHT');
@@ -760,10 +804,23 @@ sub make_snap_table {
 ####################################################################################
     my $snap = shift;
     my @table;
-    for my $row (split "\n", $opt{snap_format}) {
-	my @cols = split(/\s*\|\s*/, $row);
+    my $date = $snap->{obt}{value};
+    my $dt = Event::calc_delta_date($snap->{obt}{value});
+    my $local_date = Event::calc_local_date($snap->{obt}{value});
+    my $delta_time = "&Delta;t = $dt"; 
+    if ($CurrentTime - date2time($date, 'unix') < 100) {
+	$delta_time = "from current comm";
+    }
+
+    my @row = split "\n", $opt{snap_format};
+    my @cols;
+    for my $row (@row) {
+	@cols = split(/\s*\|\s*/, $row);
 	push @table, [ map { defined $snap->{$_} ? "$snap->{$_}{full_name} = $snap->{$_}{value}" : '' } @cols ];
     }
+
+    my $footnotes = "Snapshot from $date ($delta_time) ";
+    $table[$#row+1][0] = $footnotes;
 
     my $table = new HTML::Table(-align => 'center',
 			     -rules => 'all',
@@ -772,9 +829,14 @@ sub make_snap_table {
 			     -padding => 2,
 			     -data  => \@table,
 			    );
-    $table->setCaption("<span style=$opt{web_page}{table_caption_style}>Key " .
-		       "<a href=\"$opt{url}{mta_snapshot}\">Snapshot</a>" . 
-		       " Values</span>", 'TOP');
+
+    $table->setCellColSpan($#row+2, 1, $#cols+1);
+    $table->setCellStyle($#row+2, 1, "font-size:85%");
+
+    $table->setCaption("<span style=$opt{web_page}{table_caption_style}>" .
+		       "Key <a href=\"$opt{url}{mta_snapshot}\">Snapshot</a>" . 
+		       " Values ($delta_time)" .
+		       "</span>", 'TOP');
     return $table->getTable;
 }
 
@@ -1047,7 +1109,7 @@ sub format_number {
     $_ = sprintf("%.${nsig1}e", $num);
     my ($mant, $exp) = /([-.\d]+)e([-+]\d+)/;
     if ($type eq 'auto') {
-	$type = ($num != 0 and (abs($num) >= 1e6 or abs($num) < 1e-3)) ? 'scientific' : 'normal';
+	$type = ($num != 0 and (abs($num) >= 1e5 or abs($num) < 1e-3)) ? 'scientific' : 'normal';
     }
 
     if ($type eq 'scientific') {
@@ -1123,6 +1185,7 @@ sub new {
 		      'Bright Star Hold'          => 'bright_star_hold',
 		      'Safe Mode'                 => 'safe_mode',
 		      'Now'                       => 'now',
+		      'Grating Moves'             => 'grating',
 		     );
 
     # Set up some convenient values
@@ -1207,6 +1270,11 @@ sub load_name {
 sub init_violation {
     my $evt = shift;
     $evt->{summary} = $evt->{violation};
+}
+
+sub init_grating {
+    my $evt = shift;
+    $evt->{summary} = "Grating: " . $evt->{'GRATING.GRATING'};
 }
 
 sub init_er {

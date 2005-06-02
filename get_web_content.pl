@@ -25,6 +25,12 @@ our %web_data = %{ clone(\%web_content_cfg) };
 
 while (my ($web_name, $web) = each %web_data) {
     my $url = $web->{url};
+    if (exists $web->{add_tstart_tstop}) { # Ugh, custom code for chandra image
+	my $tstart = time2date($CurrentTime, 'unix');
+	my $tstop = time2date($CurrentTime+228600, 'unix');
+	$url .= "&tstart=$tstart&tstop=$tstop";
+    }
+
     my %web_opt = map { $_ => $web->{$_} } grep {not ref($web->{$_})} keys %{$web};
     my ($html, $error) = get_url($url, %web_opt);
 
@@ -41,7 +47,13 @@ while (my ($web_name, $web) = each %web_data) {
 	if ($error) {
 	    warning($content, "$error for web content $content_name ($url)");
 	}
-	$content->{content} = $html_content;
+
+	if ($content->{file}) {
+	    $content->{outfile} = "$TaskData/".$content->{file};
+	    $html_content > io($content->{outfile});
+	} else {
+	    $content->{content} = $html_content;
+	}
     }
 
     # Grab each image
@@ -59,8 +71,8 @@ while (my ($web_name, $web) = each %web_data) {
 	my $img_file = $image->{file};
 	if (@image == 1) {
 	    if (length $image[0]->{data} > 100) {
-		$image[0]->{data} > io("$TaskData/$img_file");
 		$image->{outfile} = "$TaskData/$img_file";
+		$image[0]->{data} > io($image->{outfile});
 	    } else {
 	        warning($image, "Retrieved malformed $img_file image")
 		  if $image->{warn_bad_image};
@@ -73,10 +85,6 @@ while (my ($web_name, $web) = each %web_data) {
 
 # Save the data.
 Config::General->new(\%web_data)->save_file("$TaskData/$opt{file}{web_content}");
-
-#my $io = io()->lock;
-#$save_string > $io;
-#$io->unlock;
 
 print STDERR join("\n", @warn), "\n" if @warn;
 

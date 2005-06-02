@@ -127,6 +127,12 @@ http://occwww.cfa.harvard.edu/occweb/web/webapps/ifot/ifot.php?r=home&t=builder&
 Radmon enable
 http://occwww.cfa.harvard.edu/occweb/web/webapps/ifot/ifot.php?r=home&t=builder&a=show&format=list&columns=id,sheetlink,srcref,type_desc,tstart,tstop,properties&size=auto&e=OORMPEN.&tstart=2005:001:00:00:00.000&tstop=2005:365:23:59:59.000
 
+Orbit Plot
+http://occweb.cfa.harvard.edu/occweb/web/webapps/ifot/ifot.php?r=home&t=qserver&format=orbit&tstart=2005:152:13:00:00&tstop=2005:155:04:27:00.000&detail=properties&fg=000000&bg=FFFFFF&size=300x180&border=false&ul=6
+
+http://occweb.cfa.harvard.edu/occweb/web/webapps/ifot/ifot.php?r=home&t=qserver&format=orbit&tstart=2005:152:13:00:00&tstop=2005:155:04:27:00.000&e=PASSPLAN.station,OBS.TARGET&detail=properties&fg=000000&bg=FFFFFF&size=380x230&title=Chandra+Orbit+Plot+(Read+counterclockwise+from+current+position)&showtimes=true&scale=1400&border=false&ul=6
+
+http://occweb.cfa.harvard.edu/occweb/web/webapps/ifot/ifot.php?r=home&t=qserver&format=orbit&tstart=2005:152:13:00:00&tstop=2005:155:04:27:00.000&e=PASSPLAN.station&detail=properties&fg=000000&bg=FFFFFF&size=300x230&showtimes=false&scale=1400&border=true&ul=6
 
 *****************************************************************************
 **  Useful links
