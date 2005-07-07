@@ -1472,7 +1472,7 @@ sub calc_delta_date {
     my $t2 = shift || $CurrentTime;
     
     $t1 = date2time($t1, 'unix') if ($t1 =~ /$DateRE/);
-    $t2 = date2time($t2, 'unix') if ($t1 =~ /$DateRE/);
+    $t2 = date2time($t2, 'unix') if ($t2 =~ /$DateRE/);
 
     my $dt = abs($t1 - $t2);
     my $day  = floor($dt / (60*60*24));
