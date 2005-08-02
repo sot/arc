@@ -326,9 +326,9 @@ sub get_url {
     
     my $response = $user_agent->request($req);
     if ($response->is_success) {
-	return $response->content;
+	return ($response->content, undef);
     } else {
-	croak $response->status_line;
+	return (undef, $response->status_line . "\n$url\n");
     }
 }
 
@@ -1206,7 +1206,8 @@ sub new {
     my $evt = { @_ };
     bless ($evt, $class);
 
-    my %event_type = ('DSN Comm Time'             => 'comm_pass'   ,
+    my %event_type = ('Pass Plan'                 => 'comm_pass'   ,
+#		      'DSN Comm Time'             => 'comm_pass'   ,
 		      'Observation'               => 'observation' ,
 		      'Target Quaternion'         => 'target_quat' ,
 		      'Maneuver'                  => 'maneuver'    ,
@@ -1374,8 +1375,9 @@ sub init_comm_pass {
     # not a full date, so we need to worry about day rollovers.
 
     my %track;
-    $track{start} = $evt->{'DSN_COMM.bot'};
-    $track{stop} = $evt->{'DSN_COMM.eot'};
+    my $ifot_evt_id = 'PASSPLAN';  # or 'DSN_COMM'
+    $track{start} = $evt->{"${ifot_evt_id}.bot"};
+    $track{stop} = $evt->{"${ifot_evt_id}.eot"};
 
     for (qw(start stop)) {
 	my ($year, $doy, $hour, $min, $sec) = split ':', $evt->{"date_$_"};
@@ -1393,7 +1395,7 @@ sub init_comm_pass {
     }
 
     $evt->{summary} = sprintf("Comm pass on %s (duration %s)",
-			      $evt->{'DSN_COMM.station'},
+			      $evt->{"${ifot_evt_id}.station"},
 			      calc_delta_date($evt->{tstop}, $evt->{tstart}),
 			     );
 }
