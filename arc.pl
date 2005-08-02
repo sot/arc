@@ -403,9 +403,9 @@ sub make_web_page {
 		   $q->img({style=>"margin-top:0.35em", src => $web_data->{goes}{image}{five_min}{file}})
 		  );
 
-    $html .= $q->span({style => 'width:30%'},
-		   make_solar_forecast_table($web_data)
-		   );
+    $html .= # $q->div({style => 'width:700'},
+		   make_solar_forecast_table($web_data);
+#		   );
 
     $html .= $q->p({style => $image_title_style},
 		   $q->a({href => $opt{url}{todays_space_weather}}, "Solar X-ray Activity"),
@@ -505,7 +505,7 @@ sub make_solar_forecast_table {
 				-rules => 'none',
 				-border => 2,
 				-data  => \@table,
-				-width => '75%',
+				-width => '700',
 			       );
     
     $table->setColHead(1);
