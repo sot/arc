@@ -489,7 +489,7 @@ sub make_warning_table {
     
     $table->setColStyle(1,"font-size:120%");
     $table->setCaption("<span style=$opt{web_page}{table_caption_style}> " .
-		       " Processing Warnings</span>", 'TOP');
+		       " Warnings</span>", 'TOP');
     return $table->getTable;
 }
 
@@ -1088,7 +1088,7 @@ SNAP: for my $snap (@snap) {
 
     get_scs107_runtime($event, $scs107_history_file, \%scs_state) if ($scs107_detected_date);
 
-    print "SCS107 detected at $scs107_detected_date\n" if $Debug and $scs107_detected_date;
+    warning("SCS 107 detected at $scs107_detected_date") if $scs107_detected_date;
     return $scs107_detected_date, %scs_state;
 }
 
