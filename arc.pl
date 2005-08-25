@@ -19,19 +19,10 @@ use Time::Local;
 use POSIX qw(floor);
 use subs qw(dbg);
 
-# Tasks:
-# - Parse snapshot and get key values
-# - Get iFOT data (radmon, comms, observations, load info)
-# - Determine if SCS107 has likely run
-# - Determine violations for current attitude (needs load info
-#   to point into correct noodle location)
-# - Generate timeline 
-
 # ToDo:
 # - Fix Ska::Convert to make time2date having configurable format
 #   via { } at end.  Maintain stupid 2nd arg scalar for back-comp.
-
-our %event_var = ();
+# - Improve get_obsid_event so that it does violation checks during manv'r
 
 our $Task     = 'arc';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
@@ -44,17 +35,7 @@ our $CurrentTime = @ARGV ? date2time(shift @ARGV, 'unix') : time;
 our $SCS107date;
 our $Debug = 0;
 our @warn;	# Global set of processing warnings (warn but don't die)
-our %opt;
-
-# Read in config options and an optional test config options
-Hash::Merge::set_behavior( 'RIGHT_PRECEDENT' );
-foreach (qw(.cfg _test.cfg)) {
-    my $cfg_file = "$TaskData/$Task$_";
-    if (-e $cfg_file) {
-	my %new_opt = ParseConfig(-ConfigFile => $cfg_file);
-	%opt = %{ Hash::Merge::merge(\%opt, \%new_opt)};
-    }
-}
+our %opt = get_config_options();
 
 {
     ($SCS107date, my %scs_state) = check_for_scs107();
@@ -65,7 +46,6 @@ foreach (qw(.cfg _test.cfg)) {
     my %web_content = ParseConfig(-ConfigFile => "$TaskData/$opt{file}{web_content}");
 
     my $obsid = $snap{obsid}{value};
-    print STDERR Dumper(\%snap) unless (defined $obsid);
     my @event = get_iFOT_events(@{$opt{query_name}});
 
     make_maneuver_obsid_links(\@event);
@@ -90,6 +70,22 @@ sub warning {
     my $warning = shift;
     push @warn, $warning;
     print STDERR "$warning\n" if $Debug;
+}
+
+####################################################################################
+sub get_config_options {
+####################################################################################
+# Read in config options and an optional test config options
+    my %opt;
+    Hash::Merge::set_behavior( 'RIGHT_PRECEDENT' );
+    foreach (qw(.cfg _test.cfg)) {
+	my $cfg_file = "$TaskData/$Task$_";
+	if (-r $cfg_file) {
+	    my %new_opt = ParseConfig(-ConfigFile => $cfg_file);
+	    %opt = %{ Hash::Merge::merge(\%opt, \%new_opt)};
+	}
+    }
+    return %opt;
 }
 
 ####################################################################################
@@ -413,6 +409,12 @@ sub make_web_page {
 		   $q->img({style=>"margin-top:0.35em", src => $web_data->{solar_xray}{image}{GOES_xray}{file}})
 		  );
 
+    $html .= $q->p({style => $image_title_style},
+		   $q->a({href => $opt{url}{solar_wind}}, "Solar Wind Data"),
+		   $q->br,
+		   $q->img({style=>"margin-top:0.35em", src => $web_data->{solar_wind}{content}{solar_wind}{file}})
+		  );
+
     $html .= $q->end_html;
     
     return $html;
@@ -532,7 +534,7 @@ sub make_ace_table {
 						 $web_data->{ace}{content}{flux}{content},
 						7);
 
-    return '<h2 style="color:red;text-align:center">NO RECENT ACE DATA</h2>' unless (@{$ace_p3});
+    return '<h2 style="color:red;text-align:center">NO RECENT ACE DATA</h2>' unless (defined $ace_p3 and @{$ace_p3});
 
     my ($fluence_date, $orbital_fluence) = parse_mta_rad_data(qr/ACIS Fluence data...Start DOY,SOD/,
 							      $web_data->{acis_ace}{content}{ace_fluence}{content},
@@ -631,7 +633,7 @@ sub make_ephin_goes_table {
 						   5, 6,
 						  );
     
-    my $warning = (@{$p2} == 0 || @{$p5} == 0) ?
+    my $warning = (not defined $p2 || not defined $p5 || @{$p2} == 0 || @{$p5} == 0) ?
       '<h2 style="color:red;text-align:center">NO RECENT GOES DATA</h2>' : '';
 
     my $ephin_date = $snap->{obt}{value} . ' (' .
@@ -785,47 +787,6 @@ sub make_event_table {
 }
 
 ####################################################################################
-sub make_snap_table_OLD {
-####################################################################################
-    my $snap = shift;
-    my @table;
-    my $date = $snap->{obt}{value};
-    my $dt = Event::calc_delta_date($snap->{obt}{value});
-    my $local_date = Event::calc_local_date($snap->{obt}{value});
-    my $delta_time = "&Delta;t = $dt"; 
-    if ($CurrentTime - date2time($date, 'unix') < 100) {
-	$delta_time = "from current comm";
-    }
-
-    my @row = split "\n", $opt{snap_format};
-    my @cols;
-    for my $row (@row) {
-	@cols = split(/\s*\|\s*/, $row);
-	push @table, [ map { defined $snap->{$_} ? "$snap->{$_}{full_name} = $snap->{$_}{value}" : '' } @cols ];
-    }
-
-    my $footnotes = "Snapshot from $date ($delta_time) ";
-    $table[$#row+1][0] = $footnotes;
-
-    my $table = new HTML::Table(-align => 'center',
-			     -rules => 'all',
-			     -border => 2,
-			     -spacing => 0,
-			     -padding => 2,
-			     -data  => \@table,
-			    );
-
-    $table->setCellColSpan($#row+2, 1, $#cols+1);
-    $table->setCellStyle($#row+2, 1, "font-size:85%");
-
-    $table->setCaption("<span style=$opt{web_page}{table_caption_style}>" .
-		       "Key <a href=\"$opt{url}{mta_snapshot}\">Snapshot</a>" . 
-		       " Values ($delta_time)" .
-		       "</span>", 'TOP');
-    return $table->getTable;
-}
-
-####################################################################################
 sub make_snap_table {
 ####################################################################################
     my $snap = shift;
@@ -975,25 +936,15 @@ sub print_iFOT_events {
 sub check_for_scs107 {
 ####################################################################################
     my $event = shift;
-    my %scs_state;		
+    my %scs_state;
     local $_;
+    my @snap;
+    my $have_scs_states;
 
-    my $snap_archive;
-    foreach (glob "$opt{file}{snap_archive}.???????") {
-	next unless /\d{7}\Z/;	# Make sure it ends with something like 2005128
-	print "Snap archive file: $_\n" if $Debug;
-	$snap_archive .= io($_)->slurp;
+    unless (@snap = get_snap_archive()) {
+	warning("Could not get snapshot data so SCS107 history not being checked");
+	return;
     }
-    $snap_archive =~ s/<.*?>//g;	# Do the stupidest possible HTML tag removal.
-				# since it's fast and works for snarc files
-    # See HTML::FormatText for the "right" way to do it,  except that the damn 
-    # thing doesn't work for <pre> with HTML formatting tags!
- 
-    # Split on the UTC key, but then put it back into each snapshot
-    my @snap_archive = map { "UTC $_" } split /^UTC/m, $snap_archive;
-
-    my @snap = map { { get_snapshot_data($_) } } @snap_archive;
-    @snap = reverse grep { defined $_->{utc}{value} } @snap;
 
     # Most recent state of SCS slots 107, 128, 129, 130.  But back up as far
     # as possible in time to get the earliest detection of SCS107 run.
@@ -1002,7 +953,7 @@ SNAP: for my $snap (@snap) {
 	# Don't use a snapshot newer than CurrentTime (mostly relevant for testing)
 	next SNAP unless date2time($snap->{obt}{value}, 'unix') < $CurrentTime;
 
-	my $have_scs_states = defined $scs_state{scs107};
+	$have_scs_states = defined $scs_state{scs107};
 	if ($snap->{format}{value} =~ /_eps/i) {
 	    my %curr_scs_state = map { $_ => $snap->{$_}{value} } qw(scs107 scs128 scs129 scs130 obt utc);
 	    print Dumper \%curr_scs_state if $Debug;
@@ -1019,6 +970,7 @@ SNAP: for my $snap (@snap) {
 	}
     }
 
+    @scs_state{qw(scs107 scs128 scs129 scs130)} = qw(??? ??? ??? ???) unless $have_scs_states;
     print Dumper \%scs_state if $Debug;
 
 # The algorithms below require that this code be run frequently (at least every 5 minutes)
@@ -1117,12 +1069,61 @@ sub array_eq {
 }
 
 ####################################################################################
+sub get_snap_archive {
+####################################################################################
+    local $_;
+    my $snap_archive;
+    foreach (glob "$opt{file}{snap_archive}.???????") {
+	next unless /\d{7}\Z/;	# Make sure it ends with something like 2005128
+	print "Snap archive file: $_\n" if $Debug;
+	$snap_archive .= io($_)->slurp; # can't use << because of emacs parsing
+    }
+
+    unless ($snap_archive) {
+	warning("No files snapshot archive file $opt{file}{snap_archive} found,");
+	warning("   trying most recent or cached snapshot instead");
+
+	return unless defined ($snap_archive = get_snapshot_data());
+    }
+	
+    $snap_archive =~ s/<.*?>//g;	# Do the stupidest possible HTML tag removal.
+				# since it's fast and works for snarc files
+    # See HTML::FormatText for the "right" way to do it,  except that the damn 
+    # thing doesn't work for <pre> with HTML formatting tags!
+ 
+    # Split on the UTC key, but then put it back into each snapshot
+    my @snap_archive = map { "UTC $_" } split /^UTC/m, $snap_archive;
+
+    my @snap = map { { get_snapshot_data($_) } } @snap_archive;
+    @snap = reverse grep { defined $_->{utc}{value} } @snap;
+
+    return @snap;
+}
+
+
+####################################################################################
 sub get_snapshot_data {
 ####################################################################################
     local $_;
-    my $snap = shift || io($opt{file}{snap})->slurp;
-    my %snap;
+    my $snap;
 
+    # If not called with an argument then look in the default places
+    unless ($snap = shift) {
+      SNAPFILE:	foreach my $file ($opt{file}{snap}, "$TaskData/chandra.snapshot") {
+	    if (-e $file) {
+		$snap < io($file);
+		last SNAPFILE;
+	    } else {
+		warning("Could not find snapshot file $file");
+	    }
+	}
+    }
+
+    # If called in scalar context just return the string
+    return $snap unless wantarray;
+
+    # Otherwise parse the snapshot string into desired key/value pairs
+    my %snap;
     $snap =~ s/\s+/ /g;
     while (my ($name, $delim) = each %{$opt{snap}}) {
 	my ($full_name, $prec, $post) = split /\s* : \s*/x, $delim;
@@ -1367,7 +1368,7 @@ sub init_load_segment {
 
 sub init_comm_pass {
     my $evt = shift;
-    my $sec_per_day = 86400;
+    my $SEC_PER_DAY = 86400;
     local $_;
     # Change date_start, date_stop, (and tstart and tstop) to correspond to
     # BOT and EOT instead of station callup.  Some shenanigans are required
@@ -1379,15 +1380,18 @@ sub init_comm_pass {
     $track{start} = $evt->{"${ifot_evt_id}.bot"};
     $track{stop} = $evt->{"${ifot_evt_id}.eot"};
 
+    # Do the actual changes
     for (qw(start stop)) {
+	next unless $track{$_} =~ /\d{4}/; # IGNORE the bot or eot value if not in expected format
+
 	my ($year, $doy, $hour, $min, $sec) = split ':', $evt->{"date_$_"};
 	$hour = substr $track{$_}, 0, 2;
 	$min  = substr $track{$_}, 2, 2;
 	my $track_time = date2time(join(":", ($year, $doy, $hour, $min, $sec)), 'unix_time');
 
 	# Correct for any possible day rollover in the bot/eot time specification
-	if (abs(my $time_delta = $track_time - $evt->{"t$_"}) > $sec_per_day/2) {
-	    $track_time += $sec_per_day * ($time_delta > 0 ? -1 : 1);
+	if (abs(my $time_delta = $track_time - $evt->{"t$_"}) > $SEC_PER_DAY/2) {
+	    $track_time += $SEC_PER_DAY * ($time_delta > 0 ? -1 : 1);
 	}
 
 	$evt->{"date_$_"} = format_date(time2date($track_time, 'unix_time'));
