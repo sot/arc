@@ -11,7 +11,7 @@ FLIGHT_ENV = SKA
 #  SHARE = calc_offset.pl
 #  DATA = CELMON_table.rdb ICRS_tables
 BIN = get_iFOT_events.pl get_web_content.pl arc.pl
-SHARE = 
+SHARE = Event.pm Snap.pm
 DATA = iFOT_queries.cfg arc.cfg web_content.cfg \
 	title_image.png \
 	task_schedule.cfg
@@ -79,12 +79,12 @@ install:
 #  Uncomment the lines which apply for this task
 	mkdir -p $(INSTALL_BIN)
 	mkdir -p $(INSTALL_DATA)
-#	mkdir -p $(INSTALL_SHARE)
+	mkdir -p $(INSTALL_SHARE)
 #	mkdir -p $(INSTALL_DOC)
 #	mkdir -p $(INSTALL_LIB)
 	rsync --times --cvs-exclude $(BIN) $(INSTALL_BIN)/
 	rsync --times --cvs-exclude $(DATA) $(INSTALL_DATA)/
-#	rsync --times --cvs-exclude $(SHARE) $(INSTALL_SHARE)/
+	rsync --times --cvs-exclude $(SHARE) $(INSTALL_SHARE)/
 #	rsync --times --cvs-exclude $(DOC) $(INSTALL_DOC)/
 #	rsync --times --cvs-exclude $(LIB) $(INSTALL_LIB)/
 #	pod2html task.pl > $(INSTALL_DOC)/doc.html

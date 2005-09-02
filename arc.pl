@@ -19,13 +19,18 @@ use Time::Local;
 use POSIX qw(floor);
 use subs qw(dbg);
 
+
 # ToDo:
 # - Fix Ska::Convert to make time2date having configurable format
 #   via { } at end.  Maintain stupid 2nd arg scalar for back-comp.
 # - Improve get_obsid_event so that it does violation checks during manv'r
+# - Make sure logs and all other files w/ passwd are secure
 
 our $Task     = 'arc';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
+
+require "$ENV{SKA_SHARE}/$Task/Event.pm";
+require "$ENV{SKA_SHARE}/$Task/Snap.pm";
 
 our $FloatRE = qr/[+-]?(?:\d+[.]?\d*|[.]\d+)(?:[dDeE][+-]?\d+)?/;
 our $DateRE  = qr/\d\d\d\d:\d+:\d+:\d+:\d\d\.?\d*/;
@@ -37,13 +42,22 @@ our $Debug = 0;
 our @warn;	# Global set of processing warnings (warn but don't die)
 our %opt = get_config_options();
 
-{
-    ($SCS107date, my %scs_state) = check_for_scs107();
-    my %snap = get_snapshot_data();
-    $snap{$_}{value} = $scs_state{$_} foreach qw(scs107 scs128 scs129 scs130 scs_obt);
+Event::set_CurrentTime($CurrentTime);
+Snap::set_CurrentTime($CurrentTime);
+Snap::set_snap_definition($opt{snap_definition});
 
+{
     # Get web data & pointers to downloaded image files from get_web_content.pl task
     my %web_content = ParseConfig(-ConfigFile => "$TaskData/$opt{file}{web_content}");
+
+    my ($snap_warning_ref, %snap) = Snap::get_snap( $opt{file}{snap_archive},
+						    [ $opt{file}{snap},
+						      $web_content{snapshot}{content}{snapshot}{outfile},
+						    ],
+						  );
+    warning(@{$snap_warning_ref});
+
+    $SCS107date = check_for_scs107(\%snap);
 
     my $obsid = $snap{obsid}{value};
     my @event = get_iFOT_events(@{$opt{query_name}});
@@ -67,9 +81,10 @@ our %opt = get_config_options();
 ####################################################################################
 sub warning {
 ####################################################################################
-    my $warning = shift;
-    push @warn, $warning;
-    print STDERR "$warning\n" if $Debug;
+    while (my $warning = shift) {
+	push @warn, $warning;
+	print STDERR "$warning\n" if $Debug;
+    }
 }
 
 ####################################################################################
@@ -248,20 +263,26 @@ sub get_pcad_constraints {
     my @constraint;
     local $_;
 
-    # First get the PCAD constraint check file
+    # Get the PCAD constraint check file.  Try a pre-existing local version
+    # first, then try approved products, and finally the backstop products
+
     my ($mon, $day, $yr, $rev) = ($load_name =~ /(\w\w\w)(\d\d)(\d\d)(\w)/);
     my $year = $yr + 1900 + ($yr<97 ? 100 : 0);
-    my $url = "$opt{url}{approved_loads}/$year/$mon/$load_name/output/$load_name.txt";
+    my $path_approved = "PRODUCTS/APPR_LOADS/$year/$mon/$load_name/output/$load_name.txt";
+    my $path_backstop = "Backstop/$load_name/output/$load_name.txt";
     my $file = io("$TaskData/$opt{file}{pcad_constraints}/$load_name.txt");
     if (-r "$file") {
 	$file > $_;
     } else {
 	my $error;
-	($_, $error) = get_url($url,
-			       user => $opt{authorization}{user},
-			       passwd => $opt{authorization}{passwd},
-			       timeout => $opt{timeout}
+	foreach my $path ($path_approved, $path_backstop) {
+	    ($_, $error) = get_url("$opt{url}{mission_planning}/$path",
+				   user => $opt{authorization}{user},
+				   passwd => $opt{authorization}{passwd},
+				   timeout => $opt{timeout}
 			      );
+	    last if not defined $error;
+	}
 	if (defined $error) {
 	    warning("Could not get PCAD constraint check file for $load_name: $error");
 	    return;
@@ -935,43 +956,11 @@ sub print_iFOT_events {
 ####################################################################################
 sub check_for_scs107 {
 ####################################################################################
-    my $event = shift;
-    my %scs_state;
+    my $snap  = shift;
     local $_;
-    my @snap;
-    my $have_scs_states;
 
-    unless (@snap = get_snap_archive()) {
-	warning("Could not get snapshot data so SCS107 history not being checked");
-	return;
-    }
-
-    # Most recent state of SCS slots 107, 128, 129, 130.  But back up as far
-    # as possible in time to get the earliest detection of SCS107 run.
-
-SNAP: for my $snap (@snap) {
-	# Don't use a snapshot newer than CurrentTime (mostly relevant for testing)
-	next SNAP unless date2time($snap->{obt}{value}, 'unix') < $CurrentTime;
-
-	$have_scs_states = defined $scs_state{scs107};
-	if ($snap->{format}{value} =~ /_eps/i) {
-	    my %curr_scs_state = map { $_ => $snap->{$_}{value} } qw(scs107 scs128 scs129 scs130 obt utc);
-	    print Dumper \%curr_scs_state if $Debug;
-	    if ($have_scs_states) {
-		# Check that the SCS state values are the same (guarding against invalid telem in snap)
-		foreach (qw(scs107 scs128 scs129 scs130)) {
-		    last SNAP if ($scs_state{$_} ne $curr_scs_state{$_});
-		} 
-	    }
-	    %scs_state = %curr_scs_state;
-	} elsif (defined $scs_state{scs107}) {
-	    # Went back beyond contiguous segment of EPS subformat data, so bail out
-	    last SNAP;
-	}
-    }
-
-    @scs_state{qw(scs107 scs128 scs129 scs130)} = qw(??? ??? ??? ???) unless $have_scs_states;
-    print Dumper \%scs_state if $Debug;
+    # Make a more convenient hash with SCS state information
+    my %scs_state = map { $_ => $snap->{$_}{value} } qw(scs107 scs128 scs129 scs130 scs_obt);
 
 # The algorithms below require that this code be run frequently (at least every 5 minutes)
 # to ensure "seeing" the initial detection of SCS107 in the event of switching in and out
@@ -987,9 +976,9 @@ SNAP: for my $snap (@snap) {
     my $scs107_detected_date;
     if (my $scs107_history = io($scs107_history_file)->[-1]) {
 	dbg "scs107_history last line = $scs107_history\n";
-	my ($date, $event) = split /\s*::\s*/, $scs107_history;
-	dbg "event = $event\n";
-	if ($event =~ /detected/i) {
+	my ($date, $history_event) = split /\s*::\s*/, $scs107_history;
+	dbg "event = $history_event\n";
+	if ($history_event =~ /detected/i) {
 	    $scs107_detected_date = $date;
 	    $scs107_detected = 1;
 	}
@@ -1013,35 +1002,28 @@ SNAP: for my $snap (@snap) {
     } elsif (array_eq(\@a, [0,0,1])) {
 	# No action req'd
     } elsif (array_eq(\@a, [0,1,0])) {
-	$scs107_detected_date = $scs_state{obt};
+	$scs107_detected_date = $scs_state{scs_obt};
 	"$scs107_detected_date :: SCS107 detected\n" >> io($scs107_history_file);
     } elsif (array_eq(\@a, [0,1,1])) {
 	# No action req'd
     } elsif (array_eq(\@a, [1,0,0])) {
 	# No action req'd
     } elsif (array_eq(\@a, [1,0,1])) {
-	"$scs_state{obt} :: Loads running\n" >> io($scs107_history_file);
+	"$scs_state{scs_obt} :: Loads running\n" >> io($scs107_history_file);
 	undef $scs107_detected_date;
     } elsif (array_eq(\@a, [1,1,0])) {
-	warning("Loads apparently running and SCS107 not INAC at $scs_state{obt}");
-	$scs107_detected_date = $scs_state{obt};
+	warning("Loads apparently running and SCS107 not INAC at $scs_state{scs_obt}");
+	$scs107_detected_date = $scs_state{scs_obt};
 	"$scs107_detected_date :: SCS107 detected\n" >> io($scs107_history_file);
     } elsif (array_eq(\@a, [1,1,1])) {
-	warning("Loads apparently running and SCS107 not INAC at $scs_state{obt}");
+	warning("Loads apparently running and SCS107 not INAC at $scs_state{scs_obt}");
 	# (scs107_detected_date already set)
     } 
 
-    # Clean up %scs_state a bit so it can be easily merged with %snap to force
-    # "good" values of the SCS status flags, without clobbering the existing OBT,UTC
-    for (qw(obt utc)) {
-	$scs_state{"scs_$_"} = $scs_state{$_};
-	delete $scs_state{$_};
-    }
-
-    get_scs107_runtime($event, $scs107_history_file, \%scs_state) if ($scs107_detected_date);
+#   get_scs107_runtime($event, $scs107_history_file, \%scs_state) if ($scs107_detected_date);
 
     warning("SCS 107 detected at $scs107_detected_date") if $scs107_detected_date;
-    return $scs107_detected_date, %scs_state;
+    return $scs107_detected_date;
 }
 
 ####################################################################################
@@ -1067,75 +1049,6 @@ sub array_eq {
     }
     return 1;
 }
-
-####################################################################################
-sub get_snap_archive {
-####################################################################################
-    local $_;
-    my $snap_archive;
-    foreach (glob "$opt{file}{snap_archive}.???????") {
-	next unless /\d{7}\Z/;	# Make sure it ends with something like 2005128
-	print "Snap archive file: $_\n" if $Debug;
-	$snap_archive .= io($_)->slurp; # can't use << because of emacs parsing
-    }
-
-    unless ($snap_archive) {
-	warning("No files snapshot archive file $opt{file}{snap_archive} found,");
-	warning("   trying most recent or cached snapshot instead");
-
-	return unless defined ($snap_archive = get_snapshot_data());
-    }
-	
-    $snap_archive =~ s/<.*?>//g;	# Do the stupidest possible HTML tag removal.
-				# since it's fast and works for snarc files
-    # See HTML::FormatText for the "right" way to do it,  except that the damn 
-    # thing doesn't work for <pre> with HTML formatting tags!
- 
-    # Split on the UTC key, but then put it back into each snapshot
-    my @snap_archive = map { "UTC $_" } split /^UTC/m, $snap_archive;
-
-    my @snap = map { { get_snapshot_data($_) } } @snap_archive;
-    @snap = reverse grep { defined $_->{utc}{value} } @snap;
-
-    return @snap;
-}
-
-
-####################################################################################
-sub get_snapshot_data {
-####################################################################################
-    local $_;
-    my $snap;
-
-    # If not called with an argument then look in the default places
-    unless ($snap = shift) {
-      SNAPFILE:	foreach my $file ($opt{file}{snap}, "$TaskData/chandra.snapshot") {
-	    if (-e $file) {
-		$snap < io($file);
-		last SNAPFILE;
-	    } else {
-		warning("Could not find snapshot file $file");
-	    }
-	}
-    }
-
-    # If called in scalar context just return the string
-    return $snap unless wantarray;
-
-    # Otherwise parse the snapshot string into desired key/value pairs
-    my %snap;
-    $snap =~ s/\s+/ /g;
-    while (my ($name, $delim) = each %{$opt{snap}}) {
-	my ($full_name, $prec, $post) = split /\s* : \s*/x, $delim;
-	my ($value) = ($snap =~ /${prec}\s*(\S+)\s*${post}/);
-	$snap{$name} = { full_name => $full_name,
-			 name      => $name,
-			 value     => $value,
-		       };
-    }
-    return %snap;
-}
-
 
 ####################################################################################
 sub format_number {
@@ -1180,324 +1093,3 @@ sub dbg  {
   }
 }
 
-#----------------------------------------------------------------------------------
-#----------------------------------------------------------------------------------
-package Event;
-#----------------------------------------------------------------------------------
-#----------------------------------------------------------------------------------
-use warnings;
-use strict;
-use IO::All;
-use Ska::RDB qw(read_rdb);
-use Config::General;
-use Data::Dumper;
-use HTML::Table;
-use Ska::Convert qw(date2time time2date);
-use Quat;
-use Carp;
-use POSIX qw(floor strftime);
-use Class::MakeMethods::Standard::Hash ( 
-  scalar => [ qw(date_start date_stop delta_date local_date type tstart tstop
-		 target_quat maneuver load_segment) ] );
-
-##***************************************************************************
-sub new {
-##***************************************************************************
-    my $class = shift;
-    my $evt = { @_ };
-    bless ($evt, $class);
-
-    my %event_type = ('Pass Plan'                 => 'comm_pass'   ,
-#		      'DSN Comm Time'             => 'comm_pass'   ,
-		      'Observation'               => 'observation' ,
-		      'Target Quaternion'         => 'target_quat' ,
-		      'Maneuver'                  => 'maneuver'    ,
-		      'Acquisition Sequence'      => 'acq_seq'     ,
-		      'Radmon Processing Enable'  => 'radmon_enab' ,
-		      'Radmon Processing Disable' => 'radmon_dis'  ,
-		      'Load Uplink'               => 'load_uplink' ,
-		      'Load Segment'              => 'load_segment',
-                      'Target Calibration'        => 'er'          ,
-		      'Violation'                 => 'violation'   ,
-		      'SCS-107 (Commanded)'       => 'scs107_cmd',
-		      'SCS-107 (Autonomous)'      => 'scs107_auto',
-		      'SCS-107 (Detected)'        => 'scs107_det',
-		      'Normal Sun Mode'           => 'normal_sun_mode',
-		      'Bright Star Hold'          => 'bright_star_hold',
-		      'Safe Mode'                 => 'safe_mode',
-		      'Now'                       => 'now',
-		      'Grating Moves'             => 'grating',
-		     );
-
-    # Set up some convenient values
-    $evt->{type} = $event_type{$evt->{'Type Description'}}
-      or croak("Unexpected event type: " . Dumper($evt) . "\n");
-    $evt->{date_start} = format_date($evt->{'TStart (GMT)'});
-    $evt->{date_stop}  = format_date($evt->{'TStop (GMT)'});
-    $evt->{tstart} = date2time($evt->{'date_start'}, 'unix_time');
-    $evt->{tstop} = date2time($evt->{'date_stop'}, 'unix_time');
-    $evt->{summary} = $evt->{'Type Description'} unless defined $evt->{summary};
-
-    my $init = "init_" . $evt->{type};
-    eval { $evt->$init };
-
-    $evt->set_dates($CurrentTime);
-
-    return $evt;
-}
-
-##***************************************************************************
-sub get {
-##***************************************************************************
-    my $evt = shift;
-    my $param = shift;
-
-    return $evt->{$param};
-}
-
-##***************************************************************************
-sub summary {
-##***************************************************************************
-    my $evt = shift;
-
-    if ($evt->type eq 'maneuver') {
-	if (defined (my $targ = $evt->target_quat)) {
-	    $evt->{summary} = sprintf("Maneuver to %.5f %.5f %.3f",
-				      $targ->{ra},
-				      $targ->{dec},
-				      $targ->{roll});
-	}
-    }
-
-    return $evt->{summary};
-}
-
-##***************************************************************************
-sub obsid {
-##***************************************************************************
-    my $evt = shift;
-
-    if ($evt->{type} eq 'observation') {
-	return $evt->{'OBS.OBSID'};
-    } elsif ($evt->{type} eq 'er') {
-	return $evt->{'TARGET_CAL.OBSID'};
-    }
-
-    return;
-}
-
-##***************************************************************************
-sub quat {
-##***************************************************************************
-    my $evt = shift;
-    
-    return ($evt->type eq 'target_quat') ? $evt->{quat} : undef;
-}
-
-##***************************************************************************
-sub load_name {
-##***************************************************************************
-    my $evt = shift;
-
-    if ($evt->{type} eq 'load_segment') {
-	return $evt->{'LOADSEG.LOAD_NAME'};
-    }
-
-    return;
-}
-
-
-
-sub init_violation {
-    my $evt = shift;
-    $evt->{summary} = $evt->{violation};
-}
-
-sub init_grating {
-    my $evt = shift;
-    $evt->{summary} = "Grating: " . $evt->{'GRATING.GRATING'};
-}
-
-sub init_er {
-    my $evt = shift;
-    $evt->{summary} = sprintf("ER Obsid: %d  (%d ksec) Purpose: %s ",
-			      $evt->{'TARGET_CAL.OBSID'},
-			      ($evt->{tstop} - $evt->{tstart})/1000,
-			      substr($evt->{'TARGET_CAL.TARGET'}, 0, 20),
-			     );
-}
-
-sub init_load_uplink {
-    my $evt = shift;
-    local $_;
-
-    my $delta_date_start = calc_delta_date(date2time($evt->{'LOAD_UPLINK.loadseg_as_planned_tstart'},'unix'),
-					   $CurrentTime);
-    my $delta_date_stop  = calc_delta_date(date2time($evt->{'LOAD_UPLINK.loadseg_as_planned_tstop'},'unix'),
-					   $CurrentTime);
-    $delta_date_start =~ s/\A\s+|\s+\Z//g;
-    $delta_date_stop =~ s/\A\s+|\s+\Z//g;
-
-    $evt->{summary} = sprintf("Uplink %s:%s (%s to %s)",
-			      $evt->{'LOAD_UPLINK.LOAD_NAME'},
-			      $evt->{'LOAD_UPLINK.NAME'},
-			      $delta_date_start,
-			      $delta_date_stop
-			     );
-}
-			      
-			      
-sub init_load_segment {
-    my $evt = shift;
-    local $_;
-
-    my $delta_date_start = calc_delta_date(date2time($evt->{tstart},'unix'), $CurrentTime);
-    my $delta_date_stop  = calc_delta_date(date2time($evt->{tstop},'unix'), $CurrentTime);
-    $delta_date_start =~ s/\A\s+|\s+\Z//g;
-    $delta_date_stop =~ s/\A\s+|\s+\Z//g;
-
-    $evt->{summary} = sprintf("Load %s:%s (%s to %s)",
-			      $evt->{'LOADSEG.LOAD_NAME'},
-			      $evt->{'LOADSEG.NAME'},
-			      $delta_date_start,
-			      $delta_date_stop
-			     );
-}
-			      
-			      
-
-sub init_comm_pass {
-    my $evt = shift;
-    my $SEC_PER_DAY = 86400;
-    local $_;
-    # Change date_start, date_stop, (and tstart and tstop) to correspond to
-    # BOT and EOT instead of station callup.  Some shenanigans are required
-    # because the iFOT values DSN_COMM.bot/eot are just 24 hour times and
-    # not a full date, so we need to worry about day rollovers.
-
-    my %track;
-    my $ifot_evt_id = 'PASSPLAN';  # or 'DSN_COMM'
-    $track{start} = $evt->{"${ifot_evt_id}.bot"};
-    $track{stop} = $evt->{"${ifot_evt_id}.eot"};
-
-    # Do the actual changes
-    for (qw(start stop)) {
-	next unless $track{$_} =~ /\d{4}/; # IGNORE the bot or eot value if not in expected format
-
-	my ($year, $doy, $hour, $min, $sec) = split ':', $evt->{"date_$_"};
-	$hour = substr $track{$_}, 0, 2;
-	$min  = substr $track{$_}, 2, 2;
-	my $track_time = date2time(join(":", ($year, $doy, $hour, $min, $sec)), 'unix_time');
-
-	# Correct for any possible day rollover in the bot/eot time specification
-	if (abs(my $time_delta = $track_time - $evt->{"t$_"}) > $SEC_PER_DAY/2) {
-	    $track_time += $SEC_PER_DAY * ($time_delta > 0 ? -1 : 1);
-	}
-
-	$evt->{"date_$_"} = format_date(time2date($track_time, 'unix_time'));
-	$evt->{"t$_"} = $track_time;
-    }
-
-    $evt->{summary} = sprintf("Comm pass on %s (duration %s)",
-			      $evt->{"${ifot_evt_id}.station"},
-			      calc_delta_date($evt->{tstop}, $evt->{tstart}),
-			     );
-}
-
-sub init_observation {
-    my $evt = shift;
-    $evt->{summary} = sprintf("Obsid: %d  SI: %s (%d ksec) Target: %s ",
-			      $evt->{'OBS.OBSID'},
-			      $evt->{'OBS.SI'},
-			      ($evt->{tstop} - $evt->{tstart})/1000,
-			      substr($evt->{'OBS.TARGET'}, 0, 15),
-			     );
-}
-
-sub init_target_quat {
-    my $evt = shift;
-    local $_;
-
-    my $quat = Quat->new($evt->{'TARGQUAT.Q1'},
-			 $evt->{'TARGQUAT.Q2'},
-			 $evt->{'TARGQUAT.Q3'},
-			 $evt->{'TARGQUAT.Q4'});
-
-    $evt->{$_} = $quat->{$_} foreach qw(ra dec roll);
-    $evt->{quat} = $quat;
-
-    $evt->{summary} = sprintf("Set target attitude to %.5f %.5f %.2f",
-			      $evt->{ra}, $evt->{dec}, $evt->{roll}
-			     );
-}
-
-sub init_acq_seq {
-    my $evt = shift;
-    $evt->{summary} = sprintf("Star acqusition sequence");
-}
-
-sub init_maneuver {
-    my $evt = shift;
-    $evt->{summary} = sprintf("Maneuver"); # Updated later if possible
-}
-
-sub init_radmon_enab {
-    my $evt = shift;
-    $evt->{summary} = sprintf("RADMON Enable");
-}
-
-sub init_radmon_dis {
-    my $evt = shift;
-    $evt->{summary} = sprintf("RADMON Disable");
-}
-
-##***************************************************************************
-sub format_date {
-# This will eventually clip off the decimal seconds
-##***************************************************************************
-    my $date = shift;
-    $date =~ s/\.\d+\Z//;
-    return $date;
-}
-
-##***************************************************************************
-sub set_dates {
-##***************************************************************************
-    my $evt = shift;
-    my $time = shift;
-    
-    $evt->{delta_date} = calc_delta_date($evt->{tstart}, $time);
-    $evt->{local_date} = calc_local_date($evt->{tstart});
-}
-
-# Class methods
-##***************************************************************************
-sub calc_delta_date {
-##***************************************************************************
-    my $t1 = shift;
-    my $t2 = shift || $CurrentTime;
-    
-    $t1 = date2time($t1, 'unix') if ($t1 =~ /$DateRE/);
-    $t2 = date2time($t2, 'unix') if ($t2 =~ /$DateRE/);
-
-    my $dt = abs($t1 - $t2);
-    my $day  = floor($dt / (60*60*24));
-    my $hour = floor(($dt - $day * 60*60*24) / (60*60));
-    my $min  = floor(($dt - $day * 60*60*24 - $hour * 60*60) / 60);
-    my $sign = ($t1 > $t2 or ($hour == 0 && $min == 0)) ? ' ' : '-';
-
-    my $day_string = $day > 0 ? sprintf("%dd ", $day) : '';
-    my $hourmin_string = sprintf($day > 0 ? "%02d:%02d" : "%2d:%02d", $hour, $min);
-    
-    return $sign . $day_string . $hourmin_string;
-#    return sprintf("%12s", $sign . $day_string . $hourmin_string);
-}
-
-##***************************************************************************
-sub calc_local_date {
-##***************************************************************************
-    my $t1 = shift;
-
-    $t1 = date2time($t1, 'unix') if ($t1 =~ /$DateRE/);
-    return strftime "%l:%M %p %a %d-%b", localtime($t1);
-}
