@@ -35,7 +35,9 @@ sub get_snap {
 	    $snap < io($file);
 	    last SNAPFILE;
 	} else {
-	    push @warn, "Could not find snapshot file $file";
+	    my $msg = "Could not find snapshot file $file";
+	    push @warn, $msg;
+	    print STDERR "Error - $msg\n";
 	}
     }
 
@@ -45,13 +47,17 @@ sub get_snap {
 
     # Get all the snapshots from the last few days in reverse time order. 
     # If get_snap_archive fails then just use the single most recent snap
-    my $snarc_ref = get_snap_archive($snarc_dir) || ( { %snap } );
+    my $snarc_ref = get_snap_archive($snarc_dir) || [ { %snap } ];
     
     # Use get_scs_states to determine the correct SCS state values 
     my %scs_state = get_scs_states($snarc_ref);
 
     # Copy SCS state values into the final snapshot hash
     $snap{$_}{value} = $scs_state{$_} foreach qw(scs107 scs128 scs129 scs130 scs_obt);
+
+    unless (defined $snap{obsid}{value}) {
+	print STDERR "Error - no obsid parsed from snapshot string: \n'$snap'\n";
+    }
 
     return \@warn, %snap;
 }
@@ -88,7 +94,9 @@ sub get_snap_archive {
     }
 
     unless ($snap_archive) {
-	push @warn, "No files in snapshot archive dir $snarc_dir found";
+	my $msg = "No files in snapshot archive dir $snarc_dir found";
+	push @warn, $msg;
+	print STDERR "$msg\n";
 	return;
     }
 	

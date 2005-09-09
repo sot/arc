@@ -18,7 +18,7 @@ use Hash::Merge;
 use Time::Local;
 use POSIX qw(floor);
 use subs qw(dbg);
-
+use Chandra::Time;
 
 # ToDo:
 # - Fix Ska::Convert to make time2date having configurable format
@@ -37,6 +37,9 @@ our $DateRE  = qr/\d\d\d\d:\d+:\d+:\d+:\d\d\.?\d*/;
 
 # Set global current time at beginning of execution
 our $CurrentTime = @ARGV ? date2time(shift @ARGV, 'unix') : time;	
+our $CURRENT_TIME = Chandra::Time->new($CurrentTime, {format => 'unix'});
+our $conv_time = Chandra::Time->new({format => 'unix'}); # Generic time converter box
+
 our $SCS107date;
 our $Debug = 0;
 our @warn;	# Global set of processing warnings (warn but don't die)
@@ -226,7 +229,9 @@ sub get_violation_events {
     my $time_maneuver = $obsid_evt->maneuver->tstop;
     my $date_maneuver = $obsid_evt->maneuver->date_stop;
     my $load_name = $obsid_evt->load_segment->load_name;
-    my @constraints = get_pcad_constraints($load_name);
+    my @constraints;
+    push @constraints, get_constraints($load_name, '');	        # PCAD constraints
+    push @constraints, get_constraints($load_name, 'therm_');	# Thermal constraints
 
     my $constraint;
     for $constraint (@constraints) {
@@ -239,16 +244,15 @@ sub get_violation_events {
 		print " manv: $date_maneuver\n";
 	    }
 
-	    push @violation, Event->new('Type Description' => 'Violation',
-					'TStart (GMT)'     => $constraint->{high_mom},
-					'TStop (GMT)'     => $constraint->{high_mom},
-					'violation' => 'High momentum'
-				       );
+	    my $violation_descr = $constraint->{violation}{type};
+	    if ($constraint->{violation}{subtype}) {
+		$violation_descr .= ": $constraint->{violation}{subtype}";
+	    }
 
-	    push @violation, Event->new('Type Description' => 'Violation',
-					'TStart (GMT)'     => $constraint->{attitude}{date},
-					'TStop (GMT)'     => $constraint->{attitude}{date},
-					'violation' => "Attitude violation: $constraint->{attitude}{type}"
+	    push @violation, Event->new('Type Description'=> 'Violation',
+					'TStart (GMT)'    => $constraint->{violation}{date},
+					'TStop (GMT)'     => $constraint->{violation}{date},
+					'violation'       => $violation_descr,
 				       );
 	}
     }
@@ -257,9 +261,10 @@ sub get_violation_events {
 }
 
 ####################################################################################
-sub get_pcad_constraints {
+sub get_constraints {
 ####################################################################################
     my $load_name = shift;
+    my $prefix = shift;
     my @constraint;
     local $_;
 
@@ -267,10 +272,11 @@ sub get_pcad_constraints {
     # first, then try approved products, and finally the backstop products
 
     my ($mon, $day, $yr, $rev) = ($load_name =~ /(\w\w\w)(\d\d)(\d\d)(\w)/);
+    my $occ_web_name = "${prefix}${load_name}.txt";
     my $year = $yr + 1900 + ($yr<97 ? 100 : 0);
-    my $path_approved = "PRODUCTS/APPR_LOADS/$year/$mon/$load_name/output/$load_name.txt";
-    my $path_backstop = "Backstop/$load_name/output/$load_name.txt";
-    my $file = io("$TaskData/$opt{file}{pcad_constraints}/$load_name.txt");
+    my $path_approved = "PRODUCTS/APPR_LOADS/$year/$mon/$load_name/output/$occ_web_name";
+    my $path_backstop = "Backstop/$load_name/output/$occ_web_name";
+    my $file = io("$TaskData/$opt{file}{pcad_constraints}/$occ_web_name");
     if (-r "$file") {
 	$file > $_;
     } else {
@@ -284,46 +290,64 @@ sub get_pcad_constraints {
 	    last if not defined $error;
 	}
 	if (defined $error) {
-	    warning("Could not get PCAD constraint check file for $load_name: $error");
+	    warning("Could not get PCAD constraint check file for $occ_web_name: $error");
 	    return;
 	}
 	$_ > $file->assert;	# Write content to file.  Assert ensures that path exists
     }
 
-    # Parse the constraints
-    #  Target Start Time:  2005:129:13:00:49.299
-    #  Target Quaternion:  0.52572223 -0.74339168 -0.30769906 0.27623582 
-    #  Target RA/Dec/Roll: 252.80 5.00 131.34 
-    #  Attitude Violation: SPM 2005:135:06:20:49.000
-    #  High Momentum:      2005:134:12:15:49.299
+# Parse the constraints
+#
+# Attitude Hold violation predictions
+# %-----------------------------------------------------------
+# Target Start Time:  2005:247:23:31:33.993
+# Target Quaternion:  0.46452128 0.21824985 -0.03489846 0.85753663 
+# Target RA/Dec/Roll: 9.00 -24.00 58.80 
+# PLINE Violation:    2005:251:18:16:33.000
+# TEPHIN Violation:   +Inf
+# 
+# Target Start Time:  2005:247:23:31:33.993
+# Target Quaternion:  0.46452128 0.21824985 -0.03489846 0.85753663 
+# Target RA/Dec/Roll: 9.00 -24.00 58.80 
+# Attitude Violation: SPM 2005:253:09:06:33.000
+# High Momentum:      2005:250:07:41:33.993
 
     my @match;
-    /Attitude Hold violation predictions\s*/g; 
-    /\G%-+\s*/g;
+    s/.+?Attitude Hold violation predictions//s; # Chuck everything before the att. viol. predicts
+    my @constraint_lines = split "\n", $_;
 
-    while (1) {
-	my ($date, $quat, $att, $att_viol, $high_mom);
-	
-	if (/\G\s*Target Start Time:\s*($DateRE)\s*/g) { $date = $1 } else { last }
-	if (/\GTarget Quaternion:\s*($FloatRE)\s+($FloatRE)\s+($FloatRE)\s+($FloatRE)\s*/g) {
-	    $quat = [$1, $2, $3, $4]; } else { last }
-	if (/\GTarget RA\/Dec\/Roll:\s*($FloatRE)\s+($FloatRE)\s+($FloatRE)\s*/g) {
-	    $att = [$1, $2, $3] } else { last; }
-	if (/\GAttitude Violation:\s*(\S+)\s+($DateRE).*\s*/g) {
-	    $att_viol = { type => $1, date => $2 } } else { last }
-	if (/\GHigh Momentum:\s*($DateRE).*/g) {
-	    $high_mom = $1 } else { last }
-	  
-	# Could clean this up to make a more extensible structure (e.g. thermal)
-	# Then need to adjust corresponding bit in get_violation_events
-	push @constraint, {date   => $date,
-			   quat   => $quat,
-			   att    => $att,
-			   attitude => $att_viol ,
-			   high_mom => $high_mom
-			  };
+    my ($date, $quat, $att);
+    my $violation_RE = qr/Attitude Violation|High Momentum|PLINE Violation|TEPHIN Violation/;
+
+    foreach (@constraint_lines) {
+	if (/^Target Start Time:\s*($DateRE)\s*\z/) {
+	    $date = $1;
+	}
+	if (/^Target Quaternion:\s*($FloatRE)\s+($FloatRE)\s+($FloatRE)\s+($FloatRE)\s*\z/) {
+	    $quat = [$1, $2, $3, $4];
+	}
+	if (/^Target RA\/Dec\/Roll:\s*($FloatRE)\s+($FloatRE)\s+($FloatRE)\s*\z/) {
+	    $att = [$1, $2, $3];
+	}
+	if (/^($violation_RE):\s*(\S*?)\s+($DateRE|\+Inf)/) {
+	    my $viol = { type    => $1,
+			 subtype => $2, # Sub-type of violation, e.g. SPM = Sun Position Monitor
+			 date    => $3 };
+
+	    if ($viol->{date} eq '+Inf') {  # Add 12 days to current time if constraint date = +Inf
+		$viol->{date} = $conv_time->date($CURRENT_TIME->unix + 86400*12);
+		$viol->{subtype} = 'NONE';
+	    }
+
+	    push @constraint, {date      => $date,
+			       quat      => $quat,
+			       att       => $att,
+			       violation => $viol ,
+			      };
+	}
     }
-
+	    
+	  
     return @constraint;
 }
 
@@ -379,13 +403,26 @@ sub make_web_page {
     local $_;
 
     $html .= $q->start_html(-title => $opt{web_page}{title_short},
-			   -style => {-code => $opt{web_page}{style} }
+			    -style => {-code => $opt{web_page}{style} },
+			    -noScript => $opt{web_refresh}{NoScript},
+			    -script => [
+					{ -language => 'JavaScript',
+					  -code     => $opt{web_refresh}{JavaScript},
+					},
+					{ -language => 'JavaScript1.1',
+					  -code     => $opt{web_refresh}{JavaScript11},
+					},
+					{ -language => 'JavaScript1.2',
+					  -code     => $opt{web_refresh}{JavaScript12},
+					},
+				       ],
+			    -onLoad => 'doLoad()',
 			   );
     $html .= $q->p({style => "text-align:center"},
 		   $q->img({src => "$opt{file}{title_image}"}));
 
     $html .= $q->p({style => 'font-size:130%; font-weight:bold; text-align:center'},
-		       "Page updated: ",
+		       "Page content updated: ",
 		       Event::format_date(time2date($CurrentTime, 'unix_time')),
 		       " (", Event::calc_local_date($CurrentTime), ")"
 		      );
@@ -409,7 +446,10 @@ sub make_web_page {
 
     my $image_title_style = "text-align:center;$opt{web_page}{table_caption_style}";
     $html .= $q->p({style => $image_title_style},
-		   $q->a({href=>$opt{url}{mta_ace}}, "ACE particle Rates"),
+		   "ACE particle rates (",
+		   $q->a({href=>$opt{url}{mta_ace}}, "MTA"),
+		   $q->a({href=>$opt{url}{sec_ace}}, "SEC"),
+		   ")",
 		   $q->br, 
 		   $q->img({style=>"margin-top:0.35em", src => $web_data->{ace}{image}{five_min}{file}}),
 		  );
@@ -856,6 +896,7 @@ sub make_snap_table {
 
     $table->setCaption("<span style=$opt{web_page}{table_caption_style}>" .
 		       "Key <a href=\"$opt{url}{mta_snapshot}\">Snapshot</a>" . 
+		       " and <a href=\"$opt{url}{mta_soh}\">SOH</a>" . 
 		       " Values ($delta_time)" .
 		       "</span>", 'TOP');
     return $table->getTable;
