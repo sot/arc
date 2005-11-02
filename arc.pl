@@ -28,9 +28,11 @@ use Chandra::Time;
 
 our $Task     = 'arc';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
+our $VERSION = '$Id: arc.pl,v 1.13 2005-11-02 22:51:44 aldcroft Exp $';
 
 require "$ENV{SKA_SHARE}/$Task/Event.pm";
 require "$ENV{SKA_SHARE}/$Task/Snap.pm";
+require "$ENV{SKA_SHARE}/$Task/parse_cm_file.pl";
 
 our $FloatRE = qr/[+-]?(?:\d+[.]?\d*|[.]\d+)(?:[dDeE][+-]?\d+)?/;
 our $DateRE  = qr/\d\d\d\d:\d+:\d+:\d+:\d\d\.?\d*/;
@@ -48,6 +50,8 @@ our %opt = get_config_options();
 Event::set_CurrentTime($CurrentTime);
 Snap::set_CurrentTime($CurrentTime);
 Snap::set_snap_definition($opt{snap_definition});
+
+umask 002;
 
 {
     # Get web data & pointers to downloaded image files from get_web_content.pl task
@@ -240,6 +244,7 @@ sub get_violation_events {
 	if (abs($delta_t) < 60) {
 	    if ($Debug) {
 		print "Found matching PCAD constraint record (delta = $delta_t):\n";
+		print " type: ", $constraint->{violation}{type}, "\n";
 		print " pcad: ", $constraint->{date}, "\n";
 		print " manv: $date_maneuver\n";
 	    }
@@ -333,6 +338,8 @@ sub get_constraints {
 	    my $viol = { type    => $1,
 			 subtype => $2, # Sub-type of violation, e.g. SPM = Sun Position Monitor
 			 date    => $3 };
+
+	    $viol->{type} .= ' (POSSIBLY UNRELIABLE)' if ($viol->{type} =~ /TEPHIN Violation/);
 
 	    if ($viol->{date} eq '+Inf') {  # Add 12 days to current time if constraint date = +Inf
 		$viol->{date} = $conv_time->date($CURRENT_TIME->unix + 86400*12);

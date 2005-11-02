@@ -11,7 +11,7 @@ FLIGHT_ENV = SKA
 #  SHARE = calc_offset.pl
 #  DATA = CELMON_table.rdb ICRS_tables
 BIN = get_iFOT_events.pl get_web_content.pl arc.pl
-SHARE = Event.pm Snap.pm
+SHARE = Event.pm Snap.pm parse_cm_file.pl
 DATA = iFOT_queries.cfg arc.cfg web_content.cfg \
 	title_image.png \
 	task_schedule.cfg
