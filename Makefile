@@ -75,6 +75,14 @@ t_now:
 	if [ -r t ] ; then rm t ; fi
 	ln -s t_now t
 
+# Install to run in test area (typically /proj/sot/ska/test) and write to
+# $WWW/arcx
+installx: t_arcx check_install $(BIN) install $(TEST_DEP)
+
+t_arcx:
+	if [ -r t ] ; then rm t ; fi
+	ln -s t_arcx t
+
 install:
 #  Uncomment the lines which apply for this task
 	mkdir -p $(INSTALL_BIN)
