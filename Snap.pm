@@ -17,6 +17,9 @@ our $snap_definition;		# Global hash ref specifying how to parse snapshot
 
 ####################################################################################
 sub get_snap {
+#
+# Get Chandra snapshot and parse.  Failing to do this is fatal since processing
+# really needs an obsid
 ####################################################################################
     my $snarc_dir = shift;
     my @snap_files = @{ shift() };
@@ -56,7 +59,9 @@ sub get_snap {
     $snap{$_}{value} = $scs_state{$_} foreach qw(scs107 scs128 scs129 scs130 scs_obt);
 
     unless (defined $snap{obsid}{value}) {
-	print STDERR "Error - no obsid parsed from snapshot string: \n'$snap'\n";
+	my $msg = "Error - no obsid parsed from snapshot string: \n'$snap'\n";
+	push @warn, $msg;
+	print STDERR $msg;
     }
 
     return \@warn, %snap;

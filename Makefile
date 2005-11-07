@@ -37,7 +37,7 @@ TEST_DEP = data/arc/
 # Testing no long creates a lib/perl link, since Perl should find the library
 # because perlska puts /proj/sot/ska/lib/perl (hardwired) into PERL5LIB.
 
-.PHONY: test test_char test_get test_scs107 t_scs107 test_current t_current clean t_now
+.PHONY: test test_char test_get test_scs107 t_scs107 test_current t_current clean t_now t_arcx
 
 test: test_scs107
 

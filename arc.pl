@@ -28,7 +28,7 @@ use Chandra::Time;
 
 our $Task     = 'arc';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
-our $VERSION = '$Id: arc.pl,v 1.13 2005-11-02 22:51:44 aldcroft Exp $';
+our $VERSION = '$Id: arc.pl,v 1.14 2005-11-07 22:27:53 aldcroft Exp $';
 
 require "$ENV{SKA_SHARE}/$Task/Event.pm";
 require "$ENV{SKA_SHARE}/$Task/Snap.pm";
@@ -62,7 +62,9 @@ umask 002;
 						      $web_content{snapshot}{content}{snapshot}{outfile},
 						    ],
 						  );
-    warning(@{$snap_warning_ref});
+    # Info from snapshot is *req'd* for subsequent processing.  Snapshot unavailability
+    # is almost always transient
+    die(@{$snap_warning_ref}) if @{$snap_warning_ref};
 
     $SCS107date = check_for_scs107(\%snap);
 
