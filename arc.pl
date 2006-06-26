@@ -28,7 +28,7 @@ use Chandra::Time;
 
 our $Task     = 'arc';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
-our $VERSION = '$Id: arc.pl,v 1.14 2005-11-07 22:27:53 aldcroft Exp $';
+our $VERSION = '$Id: arc.pl,v 1.15 2006-06-26 14:21:14 aldcroft Exp $';
 
 require "$ENV{SKA_SHARE}/$Task/Event.pm";
 require "$ENV{SKA_SHARE}/$Task/Snap.pm";
@@ -232,9 +232,17 @@ sub get_violation_events {
     local $_;
     
     my $obsid_evt = get_obsid_event($obsid, $snap, $event) or return;
-    my $time_maneuver = $obsid_evt->maneuver->tstop;
-    my $date_maneuver = $obsid_evt->maneuver->date_stop;
-    my $load_name = $obsid_evt->load_segment->load_name;
+    my ($time_maneuver, $date_maneuver, $load_name);
+    eval {
+	$time_maneuver = $obsid_evt->maneuver->tstop;
+	$date_maneuver = $obsid_evt->maneuver->date_stop;
+	$load_name = $obsid_evt->load_segment->load_name;
+    };
+    if ($@) {
+	warning("Problem in get_violation_events, no PCAD or thermal violation events");
+	print STDERR "ERROR - $@";
+	return;
+    }
     my @constraints;
     push @constraints, get_constraints($load_name, '');	        # PCAD constraints
     push @constraints, get_constraints($load_name, 'therm_');	# Thermal constraints
