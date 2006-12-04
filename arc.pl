@@ -19,6 +19,7 @@ use Time::Local;
 use POSIX qw(floor);
 use subs qw(dbg);
 use Chandra::Time;
+use Safe;
 
 # ToDo:
 # - Fix Ska::Convert to make time2date having configurable format
@@ -28,7 +29,7 @@ use Chandra::Time;
 
 our $Task     = 'arc';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
-our $VERSION = '$Id: arc.pl,v 1.15 2006-06-26 14:21:14 aldcroft Exp $';
+our $VERSION = '$Id: arc.pl,v 1.16 2006-12-04 20:02:13 aldcroft Exp $';
 
 require "$ENV{SKA_SHARE}/$Task/Event.pm";
 require "$ENV{SKA_SHARE}/$Task/Snap.pm";
@@ -54,6 +55,9 @@ Snap::set_snap_definition($opt{snap_definition});
 umask 002;
 
 {
+    # Substitute any ENV vars in $opt{file}.  Do this in a Safe way.
+    interpolate_config_file_options();
+
     # Get web data & pointers to downloaded image files from get_web_content.pl task
     my %web_content = ParseConfig(-ConfigFile => "$TaskData/$opt{file}{web_content}");
 
@@ -93,6 +97,21 @@ sub warning {
     while (my $warning = shift) {
 	push @warn, $warning;
 	print STDERR "$warning\n" if $Debug;
+    }
+}
+
+####################################################################################
+sub interpolate_config_file_options {
+# Substitute any ENV vars in $opt{file}.  Do this in a Safe way.
+####################################################################################
+    my $safe = new Safe;
+    $safe->share('%ENV');
+    $safe->permit_only(qw(:base_core :base_mem :base_orig));
+    foreach (values %{$opt{file}}) {
+	if (defined $_) {
+	    $_ = $safe->reval(qq{"$_"});
+	    die "ERROR - problem in safe eval of file option: $@\n" if $@;
+	}
     }
 }
 
@@ -506,7 +525,8 @@ sub install_web_files {
     local $_;
 
     # Ensure that web dir exists
-    return unless (-d $opt{file}{web_dir});
+    eval { io($opt{file}{web_dir})->mkpath };
+    die "ERROR - could not create web directory $opt{file}{web_dir}: $@\n" if $@;
 
     $html > io("$opt{file}{web_dir}/$opt{file}{web_page}");
 

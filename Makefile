@@ -39,7 +39,12 @@ TEST_DEP = data/arc/
 
 .PHONY: test test_char test_get test_scs107 t_scs107 test_current t_current clean t_now t_arcx
 
-test: test_scs107
+test: test_now
+
+test_now: t_now check_install $(BIN) install $(TEST_DEP)
+	$(INSTALL_BIN)/get_iFOT_events.pl
+	$(INSTALL_BIN)/get_web_content.pl
+	$(INSTALL_BIN)/arc.pl
 
 test_arc: t_now check_install $(BIN) install $(TEST_DEP)
 	$(INSTALL_BIN)/arc.pl
@@ -55,6 +60,7 @@ test_get_web: check_install $(BIN) install $(TEST_DEP)
 	$(INSTALL_BIN)/get_web_content.pl
 
 t_scs107:
+	if [ ! -d t_scs107 ] ; then gtar zxvf t_scs107.tgz ; fi
 	if [ -r t ] ; then rm t ; fi
 	ln -s t_scs107 t
 
@@ -63,15 +69,12 @@ test_trouble: t_trouble check_install $(BIN) install $(TEST_DEP)
 	$(INSTALL_BIN)/arc.pl 2005:151:12:03:18
 
 t_trouble:
+	if [ ! -d t_trouble ] ; then gtar zxvf t_trouble.tgz ; fi
 	if [ -r t ] ; then rm t ; fi
 	ln -s t_trouble t
 
-test_now: t_now check_install $(BIN) install $(TEST_DEP)
-	$(INSTALL_BIN)/get_iFOT_events.pl
-	$(INSTALL_BIN)/get_web_content.pl
-	$(INSTALL_BIN)/arc.pl
-
 t_now:
+	if [ ! -d t_now ] ; then gtar zxvf t_now.tgz ; fi
 	if [ -r t ] ; then rm t ; fi
 	ln -s t_now t
 
