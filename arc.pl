@@ -29,7 +29,7 @@ use Safe;
 
 our $Task     = 'arc';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
-our $VERSION = '$Id: arc.pl,v 1.16 2006-12-04 20:02:13 aldcroft Exp $';
+our $VERSION = '$Id: arc.pl,v 1.17 2006-12-10 00:37:46 aca Exp $';
 
 require "$ENV{SKA_SHARE}/$Task/Event.pm";
 require "$ENV{SKA_SHARE}/$Task/Snap.pm";
@@ -742,7 +742,7 @@ sub make_ephin_goes_table {
     $val{EPHIN}{E1300} = sprintf("%.1f", $snap->{E1300}{value});
     $val{EPHIN}{P4GM}  = sprintf("%.1f",$snap->{P4GM}{value});
     $val{EPHIN}{P41GM} = sprintf("%.1f",$snap->{P41GM}{value});
-    $val{Limit}{E1300} = 10.0;
+    $val{Limit}{E1300} = 20.0;
     $val{Limit}{P4GM} = 300.0;
     $val{Limit}{P41GM} = 8.47;
 
