@@ -35,8 +35,8 @@ sub new {
     my $evt = { @_ };
     bless ($evt, $class);
 
-    my %event_type = ('Pass Plan'                 => 'comm_pass'   ,
-#		      'DSN Comm Time'             => 'comm_pass'   ,
+    my %event_type = (#'Pass Plan'                 => 'comm_pass'   ,
+		      'DSN Comm Time'             => 'comm_pass'   ,
 		      'Observation'               => 'observation' ,
 		      'Target Quaternion'         => 'target_quat' ,
 		      'Maneuver'                  => 'maneuver'    ,
@@ -204,7 +204,7 @@ sub init_comm_pass {
     # not a full date, so we need to worry about day rollovers.
 
     my %track;
-    my $ifot_evt_id = 'PASSPLAN';  # or 'DSN_COMM'
+    my $ifot_evt_id = 'DSN_COMM';  # or  'PASSPLAN'
     $track{start} = $evt->{"${ifot_evt_id}.bot"};
     $track{stop} = $evt->{"${ifot_evt_id}.eot"};
 
