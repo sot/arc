@@ -30,7 +30,7 @@ use Getopt::Long;
 
 our $Task     = 'arc';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
-our $VERSION = '$Id: arc.pl,v 1.18 2007-07-03 16:33:21 aldcroft Exp $';
+our $VERSION = '$Id: arc.pl,v 1.19 2007-07-03 22:34:13 aldcroft Exp $';
 
 require "$ENV{SKA_SHARE}/$Task/Event.pm";
 require "$ENV{SKA_SHARE}/$Task/Snap.pm";
@@ -47,6 +47,7 @@ our $CURRENT_TIME = Chandra::Time->new($CurrentTime, {format => 'unix'});
 our $conv_time = Chandra::Time->new({format => 'unix'}); # Generic time converter box
 
 our $SCS107date;
+our %load_info;
 our $Debug = 0;
 our @warn;	# Global set of processing warnings (warn but don't die)
 
@@ -313,15 +314,18 @@ sub get_constraints {
     my ($mon, $day, $yr, $rev) = ($load_name =~ /(\w\w\w)(\d\d)(\d\d)(\w)/);
     my $occ_web_name = "${prefix}${load_name}.txt";
     my $year = $yr + 1900 + ($yr<97 ? 100 : 0);
-    my $path_approved = "PRODUCTS/APPR_LOADS/$year/$mon/$load_name/output/$occ_web_name";
-    my $path_backstop = "Backstop/$load_name/output/$occ_web_name";
+    my $path_approved = "PRODUCTS/APPR_LOADS/$year/$mon/$load_name";
+    my $path_backstop = "Backstop/$load_name";
     my $file = io("$TaskData/$opt{file}{pcad_constraints}/$occ_web_name");
+    $load_info{name} = $load_name;
     if (-r "$file") {
 	$file > $_;
+	$load_info{URL} = (/% URL: (.+)/) ? $1 : 'NotFound';
     } else {
 	my $error;
 	foreach my $path ($path_approved, $path_backstop) {
-	    ($_, $error) = get_url("$opt{url}{mission_planning}/$path",
+	    $load_info{URL} = "$opt{url}{mission_planning}/$path";
+	    ($_, $error) = get_url("$load_info{URL}/output/$occ_web_name",
 				   user => $opt{authorization}{user},
 				   passwd => $opt{authorization}{passwd},
 				   timeout => $opt{timeout}
@@ -329,10 +333,13 @@ sub get_constraints {
 	    last if not defined $error;
 	}
 	if (defined $error) {
+	    $load_info{URL} = 'NotFound';
 	    warning("Could not get PCAD constraint check file for $occ_web_name: $error");
 	    return;
 	}
-	$_ > $file->assert;	# Write content to file.  Assert ensures that path exists
+	# Write content to file.  Assert ensures that path exists
+	"% URL: $load_info{URL}\n" > $file->assert;
+	$_ >> $file;	
     }
 
 # Parse the constraints
@@ -885,7 +892,10 @@ sub make_event_table {
     }
 
     $table->setRowAlign(1, 'CENTER');
-    $table->setCaption("<span style=$opt{web_page}{table_caption_style}>Chandra Events</span>", 'TOP');
+    $table->setCaption("<span style=$opt{web_page}{table_caption_style}>"
+		       . "Chandra Events"
+		       . " (Load: <a href=\"$load_info{URL}/$load_info{name}.html\">$load_info{name}</a>)"
+		       . "</span>", 'TOP');
     return $table->getTable;
 }
 

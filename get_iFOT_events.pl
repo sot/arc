@@ -14,7 +14,7 @@ use Carp;
 
 our $Task     = 'arc';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
-our $Debug    = 1;
+our $Debug    = 0;
 our $CurrentTime = time;	# Use time at start of program for output names
 
 # Global task options
