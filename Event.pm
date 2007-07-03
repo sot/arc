@@ -43,6 +43,10 @@ sub new {
 		      'Acquisition Sequence'      => 'acq_seq'     ,
 		      'Radmon Processing Enable'  => 'radmon_enab' ,
 		      'Radmon Processing Disable' => 'radmon_dis'  ,
+		      'Sun Position Monitor Enable'   => 'sun_pos_mon_enab' ,
+		      'Sun Position Monitor Disable'  => 'sun_pos_mon_dis' ,
+		      'Momentum Monitor Enable'   => 'momentum_mon_enab' ,
+		      'Momentum Monitor Disable'  => 'momentum_mon_dis' ,
 		      'Load Uplink'               => 'load_uplink' ,
 		      'Load Segment'              => 'load_segment',
                       'Target Calibration'        => 'er'          ,
@@ -55,6 +59,8 @@ sub new {
 		      'Safe Mode'                 => 'safe_mode',
 		      'Now'                       => 'now',
 		      'Grating Moves'             => 'grating',
+		      'SIM Translation'           => 'sim_trans',
+		      'SIM Focus'                 => 'sim_focus',
 		     );
 
     # Set up some convenient values
@@ -90,10 +96,12 @@ sub summary {
 
     if ($evt->type eq 'maneuver') {
 	if (defined (my $targ = $evt->target_quat)) {
-	    $evt->{summary} = sprintf("Maneuver to %.5f %.5f %.3f",
+	    $evt->{summary} = sprintf("Maneuver to %.5f %.5f %.3f [%s]",
 				      $targ->{ra},
 				      $targ->{dec},
-				      $targ->{roll});
+				      $targ->{roll},
+				      $evt->{date_stop},
+				     );
 	}
     }
 
@@ -146,6 +154,16 @@ sub init_grating {
     $evt->{summary} = "Grating: " . $evt->{'GRATING.GRATING'};
 }
 
+sub init_sim_trans {
+    my $evt = shift;
+    $evt->{summary} = "SIM translation to " . $evt->{'SIMTRANS.POS'};
+}
+
+sub init_sim_focus {
+    my $evt = shift;
+    $evt->{summary} = "SIM focus to " . $evt->{'SIMFOCUS.POS'};
+}
+
 sub init_er {
     my $evt = shift;
     $evt->{summary} = sprintf("ER Obsid: %d  (%d ksec) Purpose: %s ",
@@ -166,11 +184,16 @@ sub init_load_uplink {
     $delta_date_start =~ s/\A\s+|\s+\Z//g;
     $delta_date_stop =~ s/\A\s+|\s+\Z//g;
 
-    $evt->{summary} = sprintf("Uplink %s:%s (%s to %s)",
+#    $evt->{summary} = sprintf("Uplink %s:%s (%s to %s)",
+#			      $evt->{'LOAD_UPLINK.LOAD_NAME'},
+#			      $evt->{'LOAD_UPLINK.NAME'},
+#			      $delta_date_start,
+#			      $delta_date_stop
+#			     );
+    $evt->{summary} = sprintf("Uplink %s:%s [%s]",
 			      $evt->{'LOAD_UPLINK.LOAD_NAME'},
 			      $evt->{'LOAD_UPLINK.NAME'},
-			      $delta_date_start,
-			      $delta_date_stop
+			      $evt->{date_stop},
 			     );
 }
 			      
@@ -184,12 +207,14 @@ sub init_load_segment {
     $delta_date_start =~ s/\A\s+|\s+\Z//g;
     $delta_date_stop =~ s/\A\s+|\s+\Z//g;
 
-    $evt->{summary} = sprintf("Load %s:%s (%s to %s)",
+    $evt->{summary} = sprintf("Load %s:%s [%s]", #  to %s)",
 			      $evt->{'LOADSEG.LOAD_NAME'},
 			      $evt->{'LOADSEG.NAME'},
-			      $delta_date_start,
-			      $delta_date_stop
+			      $evt->{date_stop},
+#			      $delta_date_start,
+#			      $delta_date_stop
 			     );
+
 }
 			      
 			      
@@ -277,6 +302,26 @@ sub init_radmon_enab {
 sub init_radmon_dis {
     my $evt = shift;
     $evt->{summary} = sprintf("RADMON Disable");
+}
+
+sub init_sun_pos_mon_enab {
+    my $evt = shift;
+    $evt->{summary} = sprintf("Sun Position Monitor Enable");
+}
+
+sub init_sun_pos_mon_dis {
+    my $evt = shift;
+    $evt->{summary} = sprintf("Sun Position Monitor Disable");
+}
+
+sub init_momentum_mon_enab {
+    my $evt = shift;
+    $evt->{summary} = sprintf("Momentum Monitor Enable");
+}
+
+sub init_momentum_mon_dis {
+    my $evt = shift;
+    $evt->{summary} = sprintf("Momentum Monitor Disable");
 }
 
 ##***************************************************************************

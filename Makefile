@@ -12,7 +12,7 @@ FLIGHT_ENV = SKA
 #  DATA = CELMON_table.rdb ICRS_tables
 BIN = get_iFOT_events.pl get_web_content.pl arc.pl
 SHARE = Event.pm Snap.pm parse_cm_file.pl
-DATA = iFOT_queries.cfg arc.cfg web_content.cfg \
+DATA = iFOT_queries.cfg arc*.cfg web_content.cfg \
 	title_image.png \
 	task_schedule.cfg
 DOC = 
@@ -45,6 +45,7 @@ test_now: t_now check_install $(BIN) install $(TEST_DEP)
 	$(INSTALL_BIN)/get_iFOT_events.pl
 	$(INSTALL_BIN)/get_web_content.pl
 	$(INSTALL_BIN)/arc.pl
+	$(INSTALL_BIN)/arc.pl -config arc:arc_ops:arc_test
 
 test_arc: t_now check_install $(BIN) install $(TEST_DEP)
 	$(INSTALL_BIN)/arc.pl
@@ -55,6 +56,7 @@ test_get: check_install $(BIN) install $(TEST_DEP)
 test_scs107: t_scs107 check_install $(BIN) install $(TEST_DEP) data/snapshot/
 	$(INSTALL_BIN)/get_web_content.pl 2005:134:18:30:30
 	$(INSTALL_BIN)/arc.pl 2005:134:18:30:30
+	$(INSTALL_BIN)/arc.pl -config arc:arc_ops:arc_test  2005:134:18:30:30
 
 test_get_web: check_install $(BIN) install $(TEST_DEP)
 	$(INSTALL_BIN)/get_web_content.pl

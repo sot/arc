@@ -20,6 +20,7 @@ use POSIX qw(floor);
 use subs qw(dbg);
 use Chandra::Time;
 use Safe;
+use Getopt::Long;
 
 # ToDo:
 # - Fix Ska::Convert to make time2date having configurable format
@@ -29,7 +30,7 @@ use Safe;
 
 our $Task     = 'arc';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
-our $VERSION = '$Id: arc.pl,v 1.17 2006-12-10 00:37:46 aca Exp $';
+our $VERSION = '$Id: arc.pl,v 1.18 2007-07-03 16:33:21 aldcroft Exp $';
 
 require "$ENV{SKA_SHARE}/$Task/Event.pm";
 require "$ENV{SKA_SHARE}/$Task/Snap.pm";
@@ -37,6 +38,8 @@ require "$ENV{SKA_SHARE}/$Task/parse_cm_file.pl";
 
 our $FloatRE = qr/[+-]?(?:\d+[.]?\d*|[.]\d+)(?:[dDeE][+-]?\d+)?/;
 our $DateRE  = qr/\d\d\d\d:\d+:\d+:\d+:\d\d\.?\d*/;
+
+our %opt = get_config_options();
 
 # Set global current time at beginning of execution
 our $CurrentTime = @ARGV ? date2time(shift @ARGV, 'unix') : time;	
@@ -46,7 +49,6 @@ our $conv_time = Chandra::Time->new({format => 'unix'}); # Generic time converte
 our $SCS107date;
 our $Debug = 0;
 our @warn;	# Global set of processing warnings (warn but don't die)
-our %opt = get_config_options();
 
 Event::set_CurrentTime($CurrentTime);
 Snap::set_CurrentTime($CurrentTime);
@@ -119,10 +121,13 @@ sub interpolate_config_file_options {
 sub get_config_options {
 ####################################################################################
 # Read in config options and an optional test config options
-    my %opt;
+    my %opt = ('config' => "arc:arc_test");
+    GetOptions(\%opt,
+	       'config=s');
+
     Hash::Merge::set_behavior( 'RIGHT_PRECEDENT' );
-    foreach (qw(.cfg _test.cfg)) {
-	my $cfg_file = "$TaskData/$Task$_";
+    foreach (split(':', $opt{config})) {
+	my $cfg_file = "$TaskData/$_.cfg";
 	if (-r $cfg_file) {
 	    my %new_opt = ParseConfig(-ConfigFile => $cfg_file);
 	    %opt = %{ Hash::Merge::merge(\%opt, \%new_opt)};

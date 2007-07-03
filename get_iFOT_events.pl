@@ -14,7 +14,7 @@ use Carp;
 
 our $Task     = 'arc';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
-our $Debug    = 0;
+our $Debug    = 1;
 our $CurrentTime = time;	# Use time at start of program for output names
 
 # Global task options
@@ -27,6 +27,7 @@ foreach my $query_id (@{$opt{query_name}}) {
     print "Getting $query_id from iFOT\n" if $Debug;
     # Make HTTP web query for iFOT and do it  (NEED to set timeout and deal with it)
     my $query = make_iFOT_query($query_id);
+    print "Query = '$query'\n" if $Debug;
 #    my $req_html = get_iFOT_request($query);
     my $req_html = get_url($query,
 			   user => $ifot{authorization}{user},
