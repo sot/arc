@@ -61,6 +61,7 @@ sub new {
 		      'Grating Moves'             => 'grating',
 		      'SIM Translation'           => 'sim_trans',
 		      'SIM Focus'                 => 'sim_focus',
+		      'Eclipse'                   => 'eclipse',
 		     );
 
     # Set up some convenient values
@@ -322,6 +323,11 @@ sub init_momentum_mon_enab {
 sub init_momentum_mon_dis {
     my $evt = shift;
     $evt->{summary} = sprintf("Momentum Monitor Disable");
+}
+
+sub init_eclipse {
+    my $evt = shift;
+    $evt->{summary} = sprintf("Eclipse [%s]", $evt->{date_stop});
 }
 
 ##***************************************************************************
