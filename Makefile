@@ -14,6 +14,8 @@ BIN = get_iFOT_events.pl get_web_content.pl arc.pl
 SHARE = Event.pm Snap.pm parse_cm_file.pl
 DATA = iFOT_queries.cfg arc*.cfg web_content.cfg \
 	title_image.png \
+	blue_paper.gif \
+	blue_paper_test.gif \
 	task_schedule.cfg
 DOC = 
 

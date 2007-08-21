@@ -30,7 +30,7 @@ use Getopt::Long;
 
 our $Task     = 'arc';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
-our $VERSION = '$Id: arc.pl,v 1.20 2007-08-21 14:36:41 aldcroft Exp $';
+our $VERSION = '$Id: arc.pl,v 1.21 2007-08-21 15:47:50 aldcroft Exp $';
 
 require "$ENV{SKA_SHARE}/$Task/Event.pm";
 require "$ENV{SKA_SHARE}/$Task/Snap.pm";
@@ -543,7 +543,7 @@ sub install_web_files {
     $html > io("$opt{file}{web_dir}/$opt{file}{web_page}");
 
     # (Used to have several images..)
-    foreach (qw(title_image)) {
+    foreach (qw(title_image blue_paper blue_paper_test)) {
 	my $in = io("$TaskData/$opt{file}{$_}");
 	my $out =io("$opt{file}{web_dir}/$opt{file}{$_}");
 	$in > $out if (not -e "$out" or $in->mtime > $out->mtime);
