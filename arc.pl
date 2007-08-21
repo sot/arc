@@ -30,7 +30,7 @@ use Getopt::Long;
 
 our $Task     = 'arc';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
-our $VERSION = '$Id: arc.pl,v 1.19 2007-07-03 22:34:13 aldcroft Exp $';
+our $VERSION = '$Id: arc.pl,v 1.20 2007-08-21 14:36:41 aldcroft Exp $';
 
 require "$ENV{SKA_SHARE}/$Task/Event.pm";
 require "$ENV{SKA_SHARE}/$Task/Snap.pm";
@@ -743,14 +743,14 @@ sub make_ephin_goes_table {
 						   5, 6,
 						  );
     
-    my $warning = (not defined $p2 || not defined $p5 || @{$p2} == 0 || @{$p5} == 0) ?
+    my $warning = ((not defined $p2) || (not defined $p5) || @{$p2} == 0 || @{$p5} == 0) ?
       '<h2 style="color:red;text-align:center">NO RECENT GOES DATA</h2>' : '';
 
     my $ephin_date = $snap->{obt}{value} . ' (' .
 		  Event::calc_delta_date($snap->{obt}{value}) . ')';
 
-    $val{GOES}{P4GM}  = @{$p2} ? format_number(average($p2) * 3.3, 2) : '---'; # See http://asc.harvard.edu/mta/G10.html
-    $val{GOES}{P41GM} = @{$p5} ? format_number(average($p5) * 12,2) : '---'; # ditto
+    $val{GOES}{P4GM}  = (defined $p2 and @{$p2}) ? format_number(average($p2) * 3.3, 2) : '---'; # See http://asc.harvard.edu/mta/G10.html
+    $val{GOES}{P41GM} = (defined $p5 and @{$p5}) ? format_number(average($p5) * 12,2) : '---'; # ditto
     $val{EPHIN}{E1300} = sprintf("%.1f", $snap->{E1300}{value});
     $val{EPHIN}{P4GM}  = sprintf("%.1f",$snap->{P4GM}{value});
     $val{EPHIN}{P41GM} = sprintf("%.1f",$snap->{P41GM}{value});
@@ -892,9 +892,12 @@ sub make_event_table {
     }
 
     $table->setRowAlign(1, 'CENTER');
+    my $load_link = ((defined $load_info{URL}) and (defined $load_info{name})) ?
+      " (Load: <a href=\"$load_info{URL}/$load_info{name}.html\">$load_info{name}</a>)"
+	: " (Load link unavailable)";
     $table->setCaption("<span style=$opt{web_page}{table_caption_style}>"
 		       . "Chandra Events"
-		       . " (Load: <a href=\"$load_info{URL}/$load_info{name}.html\">$load_info{name}</a>)"
+		       . $load_link
 		       . "</span>", 'TOP');
     return $table->getTable;
 }
