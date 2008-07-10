@@ -10,6 +10,7 @@ use Config::General;
 use Data::Dumper;
 use Ska::Convert qw(:all);
 use Ska::RDB qw(write_rdb);
+use Ska::Web;
 use Carp;
 
 our $Task     = 'arc';
@@ -28,12 +29,12 @@ foreach my $query_id (@{$opt{query_name}}) {
     # Make HTTP web query for iFOT and do it  (NEED to set timeout and deal with it)
     my $query = make_iFOT_query($query_id);
     print "Query = '$query'\n" if $Debug;
-#    my $req_html = get_iFOT_request($query);
-    my $req_html = get_url($query,
-			   user => $ifot{authorization}{user},
-			   passwd => $ifot{authorization}{passwd},
-			   timeout => $ifot{timeout}
-			  );
+    my ($ifot_user, $ifot_passwd) = Ska::Web::get_user_passwd($ifot{auth_file});
+    my $req_html = Ska::Web::get_url($query,
+                                     user => $ifot_user,
+                                     passwd => $ifot_passwd,
+                                     timeout => $ifot{timeout}
+                                    );
 
     # Extract the desired table
     my ($table, $cols) = extract_iFOT_table($req_html);
@@ -181,5 +182,3 @@ sub make_iFOT_query {
 
     return $http;
 }
-
-    

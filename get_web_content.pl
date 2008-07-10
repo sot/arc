@@ -7,7 +7,7 @@ use IO::All;
 use Config::General;
 use Data::Dumper;
 use Ska::Convert qw(time2date date2time);
-use Ska::Web qw(:all);
+use Ska::Web;
 use Clone qw(clone);
 use Carp;
 
@@ -32,7 +32,13 @@ while (my ($web_name, $web) = each %web_data) {
     }
 
     my %web_opt = map { $_ => $web->{$_} } grep {not ref($web->{$_})} keys %{$web};
-    my ($html, $error) = get_url($url, %web_opt);
+
+    # Get username and password from authorization file(s) (which might be a glob)
+    if (defined $web_opt{auth_file}) {
+        ($web_opt{user}, $web_opt{passwd}) = Ska::Web::get_user_passwd($web_opt{auth_file})
+    }
+        
+    my ($html, $error) = Ska::Web::get_url($url, %web_opt);
 
     if ($error) {
 	warning($web, "$error for web data $web_name ($url)");
@@ -41,7 +47,7 @@ while (my ($web_name, $web) = each %web_data) {
 
     # Parse each bit of 'content' (i.e. text)
     while (my ($content_name, $content) = each %{$web->{content}}) {
-	my ($html_content, $error) = get_html_content($html,
+	my ($html_content, $error) = Ska::Web::get_html_content($html,
 						      url    => $url,
 						      %{$content});
 	if ($error) {
@@ -58,7 +64,7 @@ while (my ($web_name, $web) = each %web_data) {
 
     # Grab each image
     while (my ($image_name, $image) = each %{$web->{image}}) {
-	my ($html_content, $error, @image) = get_html_content($html,
+	my ($html_content, $error, @image) = Ska::Web::get_html_content($html,
 							      url    => $url,
 							      filter => $image->{filter});
 
@@ -96,7 +102,3 @@ sub warning {
     push @{$h->{warn}}, $msg;
     push @warn, "Warning: $msg";
 }
-
-    
-
-

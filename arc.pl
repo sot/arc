@@ -6,6 +6,7 @@ use IO::All;
 use Ska::RDB qw(read_rdb);
 use Ska::Run;
 use Ska::Convert qw(time2date date2time);
+use Ska::Web;
 use Config::General;
 use Data::Dumper;
 use HTML::Table;
@@ -56,6 +57,10 @@ Snap::set_CurrentTime($CurrentTime);
 Snap::set_snap_definition($opt{snap_definition});
 
 umask 002;
+
+# Get authorization for access to OCCweb
+($opt{authorization}{occweb}{user},
+ $opt{authorization}{occweb}{passwd}) = Ska::Web::get_user_passwd($opt{authorization}{occweb}{file});
 
 {
     # Substitute any ENV vars in $opt{file}.  Do this in a Safe way.
@@ -326,8 +331,8 @@ sub get_constraints {
 	foreach my $path ($path_approved, $path_backstop) {
 	    $load_info{URL} = "$opt{url}{mission_planning}/$path";
 	    ($_, $error) = get_url("$load_info{URL}/output/$occ_web_name",
-				   user => $opt{authorization}{user},
-				   passwd => $opt{authorization}{passwd},
+				   user => $opt{authorization}{occweb}{user},
+				   passwd => $opt{authorization}{occweb}{passwd},
 				   timeout => $opt{timeout}
 			      );
 	    last if not defined $error;
