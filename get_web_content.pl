@@ -64,28 +64,35 @@ while (my ($web_name, $web) = each %web_data) {
 
     # Grab each image
     while (my ($image_name, $image) = each %{$web->{image}}) {
-	my ($html_content, $error, @image) = Ska::Web::get_html_content($html,
-							      url    => $url,
-							      filter => $image->{filter});
+        my $tries = $image->{tries} || 1;
+      TRY: for my $try (1 .. $tries) {
+            my ($html_content, $error, @image) = Ska::Web::get_html_content($html,
+                                                                            url    => $url,
+                                                                            filter => $image->{filter});
 
-	if ($error) {
-	    warning($image, "$error for web image $image_name ($url)");
-	}
+            if ($error) {
+                warning($image, "$error for web image $image_name ($url)");
+            }
 
-	$image->{content} = $html_content;
+            $image->{content} = $html_content;
 
-	my $img_file = $image->{file};
-	if (@image == 1) {
-	    if (length $image[0]->{data} > 100) {
-		$image->{outfile} = "$TaskData/$img_file";
-		$image[0]->{data} > io($image->{outfile});
-	    } else {
-	        warning($image, "Retrieved malformed $img_file image")
-		  if $image->{warn_bad_image};
-	    }
-	} else {
-	    warning($image, "Did not get exactly one $img_file image");
-	}
+            my $img_file = $image->{file};
+            if (@image == 1) {
+                if (length $image[0]->{data} > 100) {
+                    $image->{outfile} = "$TaskData/$img_file";
+                    $image[0]->{data} > io($image->{outfile});
+                    last TRY;   # Got a good image so bail from TRY loop
+                } else {
+                    if ($image->{warn_bad_image} and $try == $tries) {
+                        warning($image, "Retrieved malformed $img_file image after $tries try(s)")
+                    }
+                    sleep($image->{'sleep'} || 10) if $try < $tries;
+                }
+            } else {
+                warning($image, "Did not get exactly one $img_file image");
+                last TRY;  # Too many images, bail from TRY loop
+            }
+        }
     }
 }
 
