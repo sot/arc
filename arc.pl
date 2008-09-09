@@ -747,7 +747,8 @@ sub make_ephin_goes_table {
 						   $web_data->{goes}{content}{flux}{content},
 						   5, 6,
 						  );
-    
+    $goes_date = 'UNAVAILABLE' unless defined $goes_date;
+
     my $warning = ((not defined $p2) || (not defined $p5) || @{$p2} == 0 || @{$p5} == 0) ?
       '<h2 style="color:red;text-align:center">NO RECENT GOES DATA</h2>' : '';
 
