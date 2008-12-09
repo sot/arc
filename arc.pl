@@ -757,10 +757,14 @@ sub make_ephin_goes_table {
 
     $val{GOES}{P4GM}  = (defined $p2 and @{$p2}) ? format_number(average($p2) * 3.3, 2) : '---'; # See http://asc.harvard.edu/mta/G10.html
     $val{GOES}{P41GM} = (defined $p5 and @{$p5}) ? format_number(average($p5) * 12,2) : '---'; # ditto
-    $val{EPHIN}{E1300} = sprintf("%.1f", $snap->{E1300}{value});
-    $val{EPHIN}{P4GM}  = sprintf("%.1f",$snap->{P4GM}{value});
-    $val{EPHIN}{P41GM} = sprintf("%.1f",$snap->{P41GM}{value});
-    $val{Limit}{E1300} = 20.0;
+    $val{CXO}{"HRC MCP"} = $snap->{hrcmcp}{value};
+    $val{CXO}{E150} = sprintf("%.0f", $snap->{E150}{value});
+    $val{CXO}{E1300} = sprintf("%.1f", $snap->{E1300}{value});
+    $val{CXO}{P4GM}  = '---';
+    $val{CXO}{P41GM} = '---';
+    $val{Limit}{"HRC MCP"} = 30;
+    $val{Limit}{E150} = 800000;
+    $val{Limit}{E1300} = 1000;
     $val{Limit}{P4GM} = 300.0;
     $val{Limit}{P41GM} = 8.47;
 
@@ -779,7 +783,7 @@ sub make_ephin_goes_table {
 	$i++;
     }
 
-    my $footnotes = "EPHIN: from snapshot at $ephin_date<br />";
+    my $footnotes = "CXO: from snapshot at $ephin_date<br />";
     $footnotes .= "RadMon: DISABLED<br />" if ($snap->{radmon}{value} ne 'ENAB');
     $footnotes .= "GOES: scaled two hour average of GOES-11 <br /><span style=\"padding:1.7em\"></span>from $goes_date";
     $table[$n_row][0] = $footnotes;
@@ -804,7 +808,7 @@ sub make_ephin_goes_table {
     $table->setCellColSpan($n_row+1, 1, $n_col);
     $table->setCellStyle($n_row+1, 1, $tab_def{footnote_style});
     $table->setCaption("<span style=$opt{web_page}{table_caption_style}> " .
-		       " EPHIN and GOES rates</span>", 'TOP');
+		       " CXO and GOES rates</span>", 'TOP');
     return $warning . $table->getTable;
 }
 
