@@ -864,7 +864,7 @@ sub make_event_table {
     foreach my $evt (@{$event}) {
 	next unless exists $opt{event_table}{$evt->type};
 	next unless (($CurrentTime - $evt->tstart < $opt{event_table}{display_range}{hours_pre}*3600
-		      and $evt->tstop - $CurrentTime < $opt{event_table}{display_range}{hours_post}*3600)
+		      and $evt->tstart - $CurrentTime < $opt{event_table}{display_range}{hours_post}*3600)
 		     or $evt->type eq 'violation');
 	push @table, [ map { $evt->$_ } @col ];
 	push @row_bg_color, $opt{event_table}{$evt->type};

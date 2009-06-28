@@ -162,8 +162,8 @@ sub make_iFOT_query {
 
     # Finally make sure there is a tstart, tstop or trange
     unless (($query{tstart} and $query{tstop}) or $query{trange}) {
-	$query{tstart} = time2date(time + $ifot{query_date_start}*86400, 'unix');
-	$query{tstop} = time2date(time + $ifot{query_date_stop}*86400, 'unix');
+	$query{tstart} = time2date(time + $query{rel_date_start}*86400, 'unix');
+	$query{tstop} = time2date(time + $query{rel_date_stop}*86400, 'unix');
     }
 	
     # Now make the actual http query, starting with the http address. 
