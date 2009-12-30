@@ -1,18 +1,20 @@
 #!/usr/bin/env perl
 
+# copy newest dated files from the get_iFOT_events directory to a iFOT_time_machine directory
+# use mercurial to "check in" change
+# the iFOT_time_machine mercurial repository can then be used to get the iFOT status
+# at any time with something like:
+# 
+# hg pull -u $ska/data/arc/iFOT_time_machine
+# hg update --date " < <date-time> "
+
+
+
 use strict;
 use warnings;
 
-#use LWP::UserAgent;
-#use HTML::TableExtract;
-#use IO::All;
-use Config::General;
-use Data::Dumper;
 use Ska::Convert qw( time2date );
-#use Ska::RDB qw(write_rdb);
-#use Ska::Web;
 use Carp;
-use File::Copy;
 use Ska::Run qw( run );
 use File::chdir;
 
