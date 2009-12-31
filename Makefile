@@ -10,8 +10,8 @@ FLIGHT_ENV = SKA
 #  BIN = celmon.pl 
 #  SHARE = calc_offset.pl
 #  DATA = CELMON_table.rdb ICRS_tables
-BIN = get_iFOT_events.pl get_web_content.pl arc.pl arc_time_machine.pl
-SHARE = Event.pm Snap.pm parse_cm_file.pl 
+BIN = get_iFOT_events.pl get_web_content.pl arc.pl 
+SHARE = Event.pm Snap.pm parse_cm_file.pl arc_time_machine.pl
 DATA = iFOT_queries.cfg arc*.cfg web_content.cfg \
 	title_image.png \
 	blue_paper.gif \
