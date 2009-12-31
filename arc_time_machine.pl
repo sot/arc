@@ -17,16 +17,20 @@ use Carp;
 use Ska::Run qw( run );
 use Ska::Convert qw( time2date );
 use File::chdir;
+use Getopt::Long;
 
-our $Task     = 'arc';
-our $TaskData = "$ENV{SKA_DATA}/$Task";
-our $Debug    = 0;
-our $CurrentTime = time;	# Use time at start of program for output names
+my $Task     = 'arc';
+my $TaskData = "$ENV{SKA_DATA}/$Task";
+my $CurrentTime = time;	# Use time at start of program for output names
 my $date = time2date($CurrentTime, 'unix_time');
 my $time_machine_dir = "$TaskData/iFOT_time_machine";
 
 # Global task options
-our %opt  = ParseConfig(-ConfigFile => "$TaskData/$Task.cfg");
+my %opt  = ParseConfig(-ConfigFile => "$TaskData/$Task.cfg");
+
+my %cmd_opt = ( verbose => 0 );
+GetOptions( \%cmd_opt,
+	    "verbose!");
 
 foreach my $query_id (@{$opt{query_name}}) {
     # find arc iFOT file for query
@@ -36,7 +40,9 @@ foreach my $query_id (@{$opt{query_name}}) {
     my $recent_file = $query_files[-1];
 
     # copy file to time machine directory
-    print "Syncing ${time_machine_dir}/${query_id}.rdb \n";
+    if ($cmd_opt{verbose}){
+	print "Syncing ${time_machine_dir}/${query_id}.rdb \n";
+    }
     my $status = run("rsync -aruvz $recent_file ${time_machine_dir}/${query_id}.rdb");
     if ($status){
 	croak("failed to copy over $recent_file \n");
@@ -46,5 +52,5 @@ foreach my $query_id (@{$opt{query_name}}) {
 # have mercurial commit the changes as needed
 {
     local $CWD = $time_machine_dir;
-    run("hg commit -m \"${date}\"", loud => 1);
+    run("hg commit -m \"${date}\"", loud => $cmd_opt{verbose});
 }
