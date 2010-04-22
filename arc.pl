@@ -785,7 +785,7 @@ sub make_ephin_goes_table {
 
     my $footnotes = "CXO: from snapshot at $ephin_date<br />";
     $footnotes .= "RadMon: DISABLED<br />" if ($snap->{radmon}{value} ne 'ENAB');
-    $footnotes .= "GOES: scaled two hour average of GOES-11 <br /><span style=\"padding:1.7em\"></span>from $goes_date";
+    $footnotes .= "GOES: scaled two hour average of GOES-13 <br /><span style=\"padding:1.7em\"></span>from $goes_date";
     $table[$n_row][0] = $footnotes;
 
     my $table = new HTML::Table(-align => 'center',
