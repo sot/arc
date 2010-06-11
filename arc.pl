@@ -368,7 +368,7 @@ sub get_constraints {
     my @constraint_lines = split "\n", $_;
 
     my ($date, $quat, $att);
-    my $violation_RE = qr/Attitude Violation|High Momentum|PLINE Violation|TEPHIN Violation/;
+    my $violation_RE = qr/Attitude Violation|High Momentum|PLINE Violation|TEPHIN Violation|TCYLAFT6 Violation/;
 
     foreach (@constraint_lines) {
 	if (/^Target Start Time:\s*($DateRE)\s*\z/) {
