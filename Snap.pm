@@ -36,6 +36,10 @@ sub get_snap {
   SNAPFILE: foreach my $file (@snap_files) {
 	if (-r $file) {
 	    $snap < io($file);
+            if ($snap eq "") {
+                sleep 6;
+                $snap < io($file);
+            }
 	    last SNAPFILE;
 	} else {
 	    my $msg = "Could not find snapshot file $file";
