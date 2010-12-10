@@ -16,6 +16,7 @@ DATA = iFOT_queries.cfg arc*.cfg web_content.cfg \
 	title_image.png \
 	blue_paper.gif \
 	blue_paper_test.gif \
+	alert_limits.html \
 	task_schedule.cfg
 DOC = 
 

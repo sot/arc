@@ -1,0 +1,90 @@
+<!DOCTYPE html
+	PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+	 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"> 
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US"> 
+  <head> 
+  <title>Radiation level information</title>
+<style type="text/css"> 
+<!--/* <![CDATA[ */
+<!--
+      body { min-width:900px; background:url('http://asc.harvard.edu/mta/ASPECT/blue_paper_test.gif');   }
+      td {
+	  padding-left: 0.3cm;
+	  padding-right: 0.3cm;
+      }
+     -->
+ 
+/* ]]> */-->
+</style> 
+  <body>
+      <h1>Radiation level information</h1>
+
+<h2> RADMON Thresholds</h2>
+<pre>
+            value        description
+           ----------    ------------------------
+  E150      800000       EPHIN E150
+  E1300       1000       EPHIN E1300
+  MCP A         30       HRC MCP event rate A
+  SHIELD A     250       HRC Antico Shield rate A
+
+  ------------ NO LONGER IN RADMON ------------------
+  P4GM (GOES P2 * 3.3):      300.0      
+  P41GM (GOES P5 * 12):        8.47      
+</pre>
+
+<h2> SOT ACE alerts </h2>
+<pre>
+ ACE 130-214 keV proton flux (p/cm2-s-sr-MeV) and fluence (p/cm2-sr-MeV):
+
+                        SOT alert
+  Average Flux:         (50000)  (2-hour fluence/7200)
+  2-hour Fluence:       3.6E+8
+  Orbital Fluence:      1.0E+9
+  Kp:                   6.0
+
+</pre>
+
+<h2> Links </h2>
+
+<ul>
+  <li> <a href="http://cxc.harvard.edu/acis/reb/OnRadiation.html"> ACIS overview of radiation issues</a></li>
+  <li> <a href="http://occweb.cfa.harvard.edu/occweb/web/fdb_web/2009/FDB_Minutes090305.htm">
+      FDB: Add HRC MPC-A to RADMON </a> </li>
+  <li> <a href="http://occweb.cfa.harvard.edu/occweb/web/fdb_web/2008/FDB_Minutes081204.htm">
+      FDB: Set EPHIN Detector A Failure-mode On and Patch RADMON</a> </li>
+  <li> <a href="http://cxc.harvard.edu/mta/G13.html ">P4GM and P41GM scaling</a> </li>
+  <li> <a href="http://occweb.cfa.harvard.edu/occweb/FOT/configuration/procedures/SOP/SOP_OPS_STATE_OF_HEALTH.pdf">RADMON levels reference (Ops SOH SOP Section 10.b)</a> </li>
+</ul>
+
+<h2> Form for shift report etc </h2>
+<pre>
+- EPHIN, HRC and GOES rates
+
+                              OBSERVED     RADMON limit
+                             ------------  -------------  
+     E150                                   800000
+     E1300                                    1000
+     MCP A                                      30     
+     SHIELD A                                  250
+     P4GM (GOES P2 * 3.3):                   (300.0)
+     P41GM (GOES P3 * 11):                    (8.47)
+
+- ACE 130-214 keV proton fluences (p/cm2-sr-MeV) and Costello 
+  predicted activity index
+
+                             OBSERVED      SOT alert
+                             ------------  -------------
+   2-hour Fluence:                         3.6E+8
+   Orbital Fluence (CRM):                  1.0E+9
+   Kp:                                     6.0   
+
+</pre>
+      <hr>
+      <address><a href="mailto:aldcroft@garth.harvard.edu">Tom Aldcroft</a></address>
+<!-- Created: Thu Jul 13 12:29:29 EDT 2000 -->
+<!-- hhmts start -->
+Last modified: Thu Dec 09 17:55:46 EDT 2010
+<!-- hhmts end -->
+  </body>
+</html>

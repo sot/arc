@@ -529,6 +529,12 @@ sub make_web_page {
 		   $q->img({style=>"margin-top:0.35em", src => $web_data->{solar_wind}{content}{solar_wind}{file}})
 		  );
 
+    $html .= $q->p({style => $image_title_style},
+		   $q->a({href => $opt{url}{solar_flare_monitor}}, "Solar Flare Monitor"),
+		   $q->br,
+		   $q->img({style=>"margin-top:0.35em", src => $web_data->{solar_flare_monitor}{content}{solar_flare_monitor}{file}})
+		  );
+
     $html .= $q->end_html;
     
     return $html;
@@ -706,6 +712,7 @@ sub make_ace_table {
     my $footnotes = "ACE data from $ace_date";
     $footnotes .= "<br>Orbital fluence: integrated attenuated ACE flux";
     $footnotes .= "<br>Grating attenuation not factored into current or 2hr flux numbers";
+    $footnotes .= qq{<br><a href="alert_limits.html">RADMON and SOT alert limits information</a>};
     $table[$n_row][0] = $footnotes;
 
     my $table = new HTML::Table(-align => 'center',
