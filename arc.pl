@@ -764,11 +764,13 @@ sub make_ephin_goes_table {
 
     $val{GOES}{P4GM}  = (defined $p2 and @{$p2}) ? format_number(average($p2) * 3.3, 2) : '---'; # See http://asc.harvard.edu/mta/G10.html
     $val{GOES}{P41GM} = (defined $p5 and @{$p5}) ? format_number(average($p5) * 12,2) : '---'; # ditto
+    $val{CXO}{"HRC shield"} = $snap->{hrcshield}{value};
     $val{CXO}{"HRC MCP"} = $snap->{hrcmcp}{value};
     $val{CXO}{E150} = sprintf("%.0f", $snap->{E150}{value});
     $val{CXO}{E1300} = sprintf("%.1f", $snap->{E1300}{value});
     $val{CXO}{P4GM}  = '---';
     $val{CXO}{P41GM} = '---';
+    $val{Limit}{"HRC shield"} = 250;
     $val{Limit}{"HRC MCP"} = 30;
     $val{Limit}{E150} = 800000;
     $val{Limit}{E1300} = 1000;
