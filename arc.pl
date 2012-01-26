@@ -808,6 +808,7 @@ sub make_ephin_goes_table {
     $table->setCellHead($_,1) foreach (1..$n_row);
     $table->setColStyle(2, "color:#$opt{color}{event_disabled}")
       if ($snap->{radmon}{value} ne 'ENAB');
+    $table->setRowStyle(4, "color:#$opt{color}{event_disabled}");
 	
     for $i (2..$n_row) {
 	for my $j (2..$n_col) {
