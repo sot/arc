@@ -11,7 +11,7 @@ FLIGHT_ENV = SKA
 #  SHARE = calc_offset.pl
 #  DATA = CELMON_table.rdb ICRS_tables
 BIN = get_iFOT_events.pl get_web_content.pl arc.pl 
-SHARE = Event.pm Snap.pm parse_cm_file.pl arc_time_machine.pl
+SHARE = Event.pm Snap.pm parse_cm_file.pl arc_time_machine.pl get_hrc.py plot_hrc.py
 DATA = iFOT_queries.cfg arc*.cfg web_content.cfg \
 	title_image.png \
 	blue_paper.gif \
@@ -49,6 +49,11 @@ test_now: t_now check_install $(BIN) install $(TEST_DEP)
 	$(INSTALL_BIN)/get_web_content.pl
 	$(INSTALL_BIN)/arc.pl
 	$(INSTALL_BIN)/arc.pl -config arc:arc_ops:arc_test
+
+test_hrc: t_now check_install $(BIN) install $(TEST_DEP)
+	$(INSTALL_SHARE)/get_hrc.py --h5=$(INSTALL_DATA)/hrc_shield.h5
+	$(INSTALL_SHARE)/plot_hrc.py --h5=$(INSTALL_DATA)/hrc_shield.h5 --out=$(SKA)/www/ASPECT/arc/hrc_shield.png
+	$(INSTALL_BIN)/arc.pl -config arc:arc_test
 
 test_arc: t_now check_install $(BIN) install $(TEST_DEP)
 	$(INSTALL_BIN)/arc.pl

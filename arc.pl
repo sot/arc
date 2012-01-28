@@ -513,6 +513,12 @@ sub make_web_page {
 		   $q->img({style=>"margin-top:0.35em", src => $web_data->{goes}{image}{five_min}{file}})
 		  );
 
+    $html .= $q->p({style => $image_title_style},
+		   "HRC shield rates",
+		   $q->br,
+		   $q->img({style=>"margin-top:0.35em", src => "hrc_shield.png"})
+		  );
+
     $html .= # $q->div({style => 'width:700'},
 		   make_solar_forecast_table($web_data);
 #		   );
