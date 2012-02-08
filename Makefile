@@ -11,7 +11,7 @@ FLIGHT_ENV = SKA
 #  SHARE = calc_offset.pl
 #  DATA = CELMON_table.rdb ICRS_tables
 BIN = get_iFOT_events.pl get_web_content.pl arc.pl 
-SHARE = Event.pm Snap.pm parse_cm_file.pl arc_time_machine.pl get_hrc.py plot_hrc.py
+SHARE = Event.pm Snap.pm parse_cm_file.pl arc_time_machine.pl get_hrc.py plot_hrc.py get_ace.py
 DATA = iFOT_queries.cfg arc*.cfg web_content.cfg \
 	title_image.png \
 	blue_paper.gif \
