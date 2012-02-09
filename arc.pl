@@ -754,7 +754,7 @@ sub make_ephin_goes_table {
     my %val;
     my %tab_def = %{$opt{ephin_goes_table}};
 
-    my $start = qr/P1 \s+ P2  \s+ P5 \s+ P8  \s+ P10 \s+ P11/x;
+    my $start = qr/P1 \s+ P2  \s+ P5 \s+ P8  \s+ P10 \s+ P11 \s+ H2/x;
 
     my ($goes_date, $p2, $p5) = parse_mta_rad_data($start,
 						   $web_data->{goes}{content}{flux}{content},
