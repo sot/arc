@@ -30,8 +30,13 @@ except:
 colnames = ('year month dom  hhmm  mjd secs '
             'destat de1 de4 pstat p1 p3 p5 p6 p7 anis_idx').split()
 
-dat = asciitable.read(urldat, guess=False, Reader=asciitable.NoHeader,
-                      data_start=3, header_start=3, names=colnames)
+try:
+    dat = asciitable.read(urldat, guess=False, Reader=asciitable.NoHeader,
+                          data_start=3, header_start=3, names=colnames)
+except Exception as err:
+    print('Warning: malformed ACE data so table read failed: {}'
+          .format(err))
+    sys.exit(0)
 
 mjd = dat['mjd'] + dat['secs'] / 86400.
 
