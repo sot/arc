@@ -50,6 +50,9 @@ test_now: t_now check_install $(BIN) install $(TEST_DEP)
 	$(INSTALL_BIN)/arc.pl
 	$(INSTALL_BIN)/arc.pl -config arc:arc_ops:arc_test
 
+test_ace: t_now check_install $(BIN) install $(TEST_DEP)
+	$(INSTALL_SHARE)/get_ace.py --h5=$(INSTALL_DATA)/ACE.h5
+
 test_hrc: t_now check_install $(BIN) install $(TEST_DEP)
 	$(INSTALL_SHARE)/get_hrc.py --h5=$(INSTALL_DATA)/hrc_shield.h5
 	$(INSTALL_SHARE)/plot_hrc.py --h5=$(INSTALL_DATA)/hrc_shield.h5 --out=$(SKA)/www/ASPECT/arc/hrc_shield.png
