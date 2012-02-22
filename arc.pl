@@ -762,6 +762,8 @@ sub make_ephin_goes_table {
 						  );
     $goes_date = 'UNAVAILABLE' unless defined $goes_date;
 
+    my $hrc_shield_proxy = io($opt{file}{hrc_shield})->slurp();
+
     my $warning = ((not defined $p2) || (not defined $p5) || @{$p2} == 0 || @{$p5} == 0) ?
       '<h2 style="color:red;text-align:center">NO RECENT GOES DATA</h2>' : '';
 
@@ -770,6 +772,7 @@ sub make_ephin_goes_table {
 
     $val{GOES}{P4GM}  = (defined $p2 and @{$p2}) ? format_number(average($p2) * 3.3, 2) : '---'; # See http://asc.harvard.edu/mta/G10.html
     $val{GOES}{P41GM} = (defined $p5 and @{$p5}) ? format_number(average($p5) * 12,2) : '---'; # ditto
+    $val{GOES}{"HRC shield"} = sprintf("%.0f", $hrc_shield_proxy);
     $val{CXO}{"HRC shield"} = $snap->{hrcshield}{value};
     $val{CXO}{"HRC MCP"} = $snap->{hrcmcp}{value};
     $val{CXO}{E150} = sprintf("%.0f", $snap->{E150}{value});

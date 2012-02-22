@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import sys
+import re
 import urllib2
 import argparse
 import tables
@@ -63,3 +64,8 @@ except tables.NoSuchNodeError:
                            "HRC Antico shield + GOES", expectedrows=2e7)
 h5.root.data.flush()
 h5.close()
+
+# Also write the last value to <args.h5 prefix>.dat
+filename = re.sub(r'\.[^.]*$', '', args.h5) + '.dat'
+with open(filename, 'w') as f:
+    print >>f, hrc_shield.mean()
