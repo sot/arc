@@ -127,7 +127,7 @@ sub interpolate_config_file_options {
 sub get_config_options {
 ####################################################################################
 # Read in config options and an optional test config options
-    my %opt = ('config' => "arc:arc_test");
+    my %opt = ('config' => "arc");
     GetOptions(\%opt,
 	       'config=s');
 
