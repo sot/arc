@@ -1085,14 +1085,15 @@ sub check_for_scs107 {
     local $_;
 
     # Make a more convenient hash with SCS state information
-    my %scs_state = map { $_ => $snap->{$_}{value} } qw(scs107 scs128 scs129 scs130 scs_obt);
+    my %scs_state = map { $_ => $snap->{$_}{value} } qw(scs107 scs128 scs129 scs130
+                                                        scs131 scs132 scs133 scs_obt);
 
 # The algorithms below require that this code be run frequently (at least every 5 minutes)
 # to ensure "seeing" the initial detection of SCS107 in the event of switching in and out
 # of EPS subformat
 
     my $scs107_history_file = "$TaskData/$opt{file}{scs107_history}";
-    my $load_running = (grep { $scs_state{"scs$_"} eq 'ACT' } qw(128 129 130)) ? 1 : 0;
+    my $load_running = (grep { $scs_state{"scs$_"} eq 'ACT' } qw(131 132 133)) ? 1 : 0;
 
     my $scs107_not_inac = ($scs_state{scs107} ne 'INAC') ? 1 : 0;
 	
