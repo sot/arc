@@ -762,16 +762,21 @@ sub make_ephin_goes_table {
 						  );
     $goes_date = 'UNAVAILABLE' unless defined $goes_date;
 
-    my $hrc_shield_proxy = io($opt{file}{hrc_shield})->slurp();
+    my ($hrc_shield_proxy, $hrc_time) = split(' ', io($opt{file}{hrc_shield})->slurp());
+    my ($p4gm_proxy, $p4gm_time) = split(' ', io($opt{file}{p4gm})->slurp());
+    my ($p41gm_proxy, $p41gm_time) = split(' ', io($opt{file}{p41gm})->slurp());
 
     my $warning = ((not defined $p2) || (not defined $p5) || @{$p2} == 0 || @{$p5} == 0) ?
       '<h2 style="color:red;text-align:center">NO RECENT GOES DATA</h2>' : '';
 
     my $ephin_date = $snap->{obt}{value} . ' (' .
 		  Event::calc_delta_date($snap->{obt}{value}) . ')';
+    my $hrc_delta = Event::calc_delta_date($hrc_time);
+    my $p4gm_delta = Event::calc_delta_date($p4gm_time);
+    my $p41gm_delta = Event::calc_delta_date($p41gm_time);
 
-    $val{GOES}{P4GM}  = (defined $p2 and @{$p2}) ? format_number(average($p2) * 3.3, 2) : '---'; # See http://asc.harvard.edu/mta/G10.html
-    $val{GOES}{P41GM} = (defined $p5 and @{$p5}) ? format_number(average($p5) * 12,2) : '---'; # ditto
+    $val{GOES}{P4GM}  = (defined $p2 and @{$p2}) ? sprintf("%.2f", $p4gm_proxy) : '---'; # See http://asc.harvard.edu/mta/G10.html
+    $val{GOES}{P41GM} = (defined $p5 and @{$p5}) ? sprintf("%.2f", $p41gm_proxy) : '---'; # ditto
     $val{GOES}{"HRC shield"} = sprintf("%.0f", $hrc_shield_proxy);
     $val{CXO}{"HRC shield"} = $snap->{hrcshield}{value};
     $val{CXO}{"HRC MCP"} = $snap->{hrcmcp}{value};
@@ -803,7 +808,8 @@ sub make_ephin_goes_table {
 
     my $footnotes = "CXO: from snapshot at $ephin_date<br />";
     $footnotes .= "RadMon: DISABLED<br />" if ($snap->{radmon}{value} ne 'ENAB');
-    $footnotes .= "GOES: scaled two hour average of GOES-13 <br /><span style=\"padding:1.7em\"></span>from $goes_date";
+    $footnotes .= "GOES proxies: scaled 15 min average of GOES-13 <br />";
+    $footnotes .= "Last avgs at HRC: $hrc_delta &nbsp; P4GM: $p4gm_delta &nbsp; P41GM: $p41gm_delta";
     $table[$n_row][0] = $footnotes;
 
     my $table = new HTML::Table(-align => 'center',

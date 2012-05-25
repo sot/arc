@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
+import os
 import sys
-import re
 import urllib2
 import argparse
 import tables
@@ -13,26 +13,30 @@ from Chandra.Time import DateTime
 
 parser = argparse.ArgumentParser(description='Archive GOES data and '
                                  'HRC shield rate proxy')
-parser.add_argument('--file', type=str,
-                    default='Gp_pchan_5m.txt',
-                    help='GOES file name')
-parser.add_argument('--h5',
-                    default='Gp_pchan_5m.h5',
-                    help='HDF5 file name')
+parser.add_argument('--data-dir', type=str,
+                    default='.',
+                    help='Directory for output data files')
 args = parser.parse_args()
 
-url = 'http://www.swpc.noaa.gov/ftpdir/lists/pchan/' + args.file
+url = 'http://www.swpc.noaa.gov/ftpdir/lists/pchan/Gp_pchan_5m.txt'
 colnames = ('year month dom  hhmm  mjd secs p1  p2  p3 '
             'p4  p5  p6  p7  p8  p9 p10 p11').split()
-try:
-    urlob = urllib2.urlopen(url)
-    urldat = urlob.read()
-except:
-    print 'Warning: failed to open URL'
+
+for _ in range(3):
+    try:
+        urlob = urllib2.urlopen(url)
+        urldat = urlob.read()
+        break
+    except Exception as err:
+        time.sleep(5)
+else:
+    print 'Warning: failed to open URL {}: {}'.format(url, err)
     sys.exit(0)
 
 dat = asciitable.read(urldat, Reader=asciitable.NoHeader, names=colnames,
                       header_start=3, data_start=3)
+hrc_bad = (dat['p4'] < 0) | (dat['p5'] < 0) | (dat['p6'] < 0)
+
 mjd = dat['mjd'] + dat['secs'] / 86400.
 
 secs = DateTime(mjd, format='mjd').secs
@@ -47,25 +51,40 @@ newdat = np.ndarray(len(dat), dtype=descrs)
 for colname in colnames:
     newdat[colname] = dat[colname]
 newdat['hrc_shield'] = hrc_shield
+newdat['hrc_shield'][hrc_bad] = -1.0e5  # flag bad inputs
 newdat['time'] = secs
 
-h5 = tables.openFile(args.h5, mode='a',
+os.chdir(args.data_dir)
+
+h5 = tables.openFile('hrc_shield.h5', mode='a',
                      filters=tables.Filters(complevel=5, complib='zlib'))
 try:
     table = h5.root.data
     lasttime = table.col('time')[-1]
     ok = newdat['time'] > lasttime
-    newdat = newdat[ok]
-    h5.root.data.append(newdat)
-    print 'Adding {} records to {} at {}'.format(len(newdat), args.h5,
-                                                 time.ctime())
+    h5.root.data.append(newdat[ok])
+    print('Adding {} records to {} at {}'
+          .format(len(newdat[ok]), os.path.abspath('hrc_shield.h5'),
+                  time.ctime()))
 except tables.NoSuchNodeError:
     table = h5.createTable(h5.root, 'data', newdat,
                            "HRC Antico shield + GOES", expectedrows=2e7)
 h5.root.data.flush()
 h5.close()
 
-# Also write the last value to <args.h5 prefix>.dat
-filename = re.sub(r'\.[^.]*$', '', args.h5) + '.dat'
-with open(filename, 'w') as f:
-    print >>f, hrc_shield.mean()
+# Also write the mean of the last three values (15 minutes) to
+# hrc_shield.dat.  Only include good values.
+times = DateTime(newdat['time'][-3:]).unix
+hrc_shield = hrc_shield[-3:]
+ok = ~hrc_bad[-3:]
+if len(hrc_shield[ok]) > 0:
+    with open('hrc_shield.dat', 'w') as f:
+        print >>f, hrc_shield[ok].mean(), times[ok].mean()
+
+for colname, scale, filename in zip(
+    ('p2', 'p5'), (3.3, 12.0), ('p4gm.dat', 'p41gm.dat')):
+    proxy = dat[colname][-3:] * scale
+    ok = proxy > 0
+    if len(proxy[ok]) > 0:
+        with open(filename, 'w') as f:
+            print >>f, proxy[ok].mean(), times[ok].mean()

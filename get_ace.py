@@ -20,11 +20,16 @@ url = 'http://www.swpc.noaa.gov/ftpdir/lists/ace/ace_epam_5m.txt'
 
 colnames = ('year month dom  hhmm  mjd secs p1  p2  p3 '
             'p4  p5  p6  p7  p8  p9 p10 p11').split()
-try:
-    urlob = urllib2.urlopen(url)
-    urldat = urlob.read()
-except:
-    print 'Warning: failed to open URL'
+
+for _ in range(3):
+    try:
+        urlob = urllib2.urlopen(url)
+        urldat = urlob.read()
+        break
+    except Exception as err:
+        time.sleep(5)
+else:
+    print 'Warning: failed to open URL {}: {}'.format(url, err)
     sys.exit(0)
 
 colnames = ('year month dom  hhmm  mjd secs '
