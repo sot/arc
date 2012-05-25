@@ -63,9 +63,6 @@ try:
     lasttime = table.col('time')[-1]
     ok = newdat['time'] > lasttime
     h5.root.data.append(newdat[ok])
-    print('Adding {} records to {} at {}'
-          .format(len(newdat[ok]), os.path.abspath('hrc_shield.h5'),
-                  time.ctime()))
 except tables.NoSuchNodeError:
     table = h5.createTable(h5.root, 'data', newdat,
                            "HRC Antico shield + GOES", expectedrows=2e7)

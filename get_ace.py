@@ -62,8 +62,6 @@ try:
     ok = newdat['time'] > lasttime
     newdat = newdat[ok]
     h5.root.data.append(newdat)
-    print 'Adding {} records to {} at {}'.format(len(newdat), args.h5,
-                                                 time.ctime())
 except tables.NoSuchNodeError:
     table = h5.createTable(h5.root, 'data', newdat,
                            "ACE rates", expectedrows=2e7)
