@@ -306,15 +306,15 @@ sub get_violation_events {
 }
 
 ####################################################################################
-sub get_constraints {
+sub get_constraints_text {
 ####################################################################################
     my $load_name = shift;
     my $prefix = shift;
-    my @constraint;
     local $_;
-
-    # Get the PCAD constraint check file.  Try a pre-existing local version
-    # first, then try approved products, and finally the backstop products
+    my $error;
+    
+    # Get the constraint check file.  Try a pre-existing local version
+    # first, then try approved products, and finally the backstop products.
 
     my ($mon, $day, $yr, $rev) = ($load_name =~ /(\w\w\w)(\d\d)(\d\d)(\w)/);
     my $occ_web_name = "${prefix}${load_name}.txt";
@@ -339,29 +339,61 @@ sub get_constraints {
 	}
 	if (defined $error) {
 	    $load_info{URL} = 'NotFound';
-	    warning("Could not get PCAD constraint check file for $occ_web_name: $error");
-	    return;
+	    return ('', $error);
 	}
 	# Write content to file.  Assert ensures that path exists
 	"% URL: $load_info{URL}\n" > $file->assert;
 	$_ >> $file;	
     }
+    return ($_, $error);
+}
 
-# Parse the constraints
-#
-# Attitude Hold violation predictions
-# %-----------------------------------------------------------
-# Target Start Time:  2005:247:23:31:33.993
-# Target Quaternion:  0.46452128 0.21824985 -0.03489846 0.85753663 
-# Target RA/Dec/Roll: 9.00 -24.00 58.80 
-# PLINE Violation:    2005:251:18:16:33.000
-# TEPHIN Violation:   +Inf
-# 
-# Target Start Time:  2005:247:23:31:33.993
-# Target Quaternion:  0.46452128 0.21824985 -0.03489846 0.85753663 
-# Target RA/Dec/Roll: 9.00 -24.00 58.80 
-# Attitude Violation: SPM 2005:253:09:06:33.000
-# High Momentum:      2005:250:07:41:33.993
+####################################################################################
+sub get_constraints {
+####################################################################################
+    my $load_name = shift;
+    my $prefix = shift;
+    my @constraint;
+    local $_;
+    my $error;
+
+    # Get the constraint check file.  Try the specified load revision
+    # (e.g. "C") then step back to "B" and "A" to try to find constraints file.
+
+    my ($mon, $day, $yr, $rev) = ($load_name =~ /(\w\w\w)(\d\d)(\d\d)(\w)/);
+    my $orig_load_name = $load_name;
+    while ($rev ge "A") {
+        ($_, $error) = get_constraints_text($load_name, $prefix);
+        if (defined $error) {
+            $rev = chr(ord($rev) - 1);
+            $load_name = "${mon}${day}${yr}${rev}";
+        } else {
+            last
+        }
+    }
+    if (defined $error) {
+        warning("Could not find constraints file for any load version of "
+                . substr("${prefix}${orig_load_name}", 0, -1));
+        return;
+    } elsif ($load_name ne $orig_load_name) {
+        warning("Using constraints file ${prefix}${load_name} instead of ${prefix}${orig_load_name}");
+    }
+
+    # Parse the constraints
+    #
+    # Attitude Hold violation predictions
+    # %-----------------------------------------------------------
+    # Target Start Time:  2005:247:23:31:33.993
+    # Target Quaternion:  0.46452128 0.21824985 -0.03489846 0.85753663 
+    # Target RA/Dec/Roll: 9.00 -24.00 58.80 
+    # PLINE Violation:    2005:251:18:16:33.000
+    # TEPHIN Violation:   +Inf
+    # 
+    # Target Start Time:  2005:247:23:31:33.993
+    # Target Quaternion:  0.46452128 0.21824985 -0.03489846 0.85753663 
+    # Target RA/Dec/Roll: 9.00 -24.00 58.80 
+    # Attitude Violation: SPM 2005:253:09:06:33.000
+    # High Momentum:      2005:250:07:41:33.993
 
     my @match;
     s/.+?Attitude Hold violation predictions//s; # Chuck everything before the att. viol. predicts
