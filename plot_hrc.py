@@ -40,7 +40,7 @@ ax.set_ylim(min(hrc_shield.min() * 0.5, 10.0),
 plt.plot([xlims[0] - dx, xlims[1] + dx], [235, 235], '--r')
 ax.set_yscale('log')
 plt.grid()
-plt.title('HRC shield rate / 256')
+plt.title('GOES proxy for HRC shield rate / 256')
 plt.ylabel('Cts / sample')
 plt.tight_layout()
 plt.savefig(args.out)

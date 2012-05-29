@@ -546,7 +546,7 @@ sub make_web_page {
 		  );
 
     $html .= $q->p({style => $image_title_style},
-		   "HRC shield rates",
+		   "GOES proxy for HRC shield rates",
 		   $q->br,
 		   $q->img({style=>"margin-top:0.35em", src => "hrc_shield.png"})
 		  );
