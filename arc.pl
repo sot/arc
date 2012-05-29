@@ -306,15 +306,15 @@ sub get_violation_events {
 }
 
 ####################################################################################
-sub get_constraints {
+sub get_constraints_text {
 ####################################################################################
     my $load_name = shift;
     my $prefix = shift;
-    my @constraint;
     local $_;
-
-    # Get the PCAD constraint check file.  Try a pre-existing local version
-    # first, then try approved products, and finally the backstop products
+    my $error;
+    
+    # Get the constraint check file.  Try a pre-existing local version
+    # first, then try approved products, and finally the backstop products.
 
     my ($mon, $day, $yr, $rev) = ($load_name =~ /(\w\w\w)(\d\d)(\d\d)(\w)/);
     my $occ_web_name = "${prefix}${load_name}.txt";
@@ -339,29 +339,61 @@ sub get_constraints {
 	}
 	if (defined $error) {
 	    $load_info{URL} = 'NotFound';
-	    warning("Could not get PCAD constraint check file for $occ_web_name: $error");
-	    return;
+	    return ('', $error);
 	}
 	# Write content to file.  Assert ensures that path exists
 	"% URL: $load_info{URL}\n" > $file->assert;
 	$_ >> $file;	
     }
+    return ($_, $error);
+}
 
-# Parse the constraints
-#
-# Attitude Hold violation predictions
-# %-----------------------------------------------------------
-# Target Start Time:  2005:247:23:31:33.993
-# Target Quaternion:  0.46452128 0.21824985 -0.03489846 0.85753663 
-# Target RA/Dec/Roll: 9.00 -24.00 58.80 
-# PLINE Violation:    2005:251:18:16:33.000
-# TEPHIN Violation:   +Inf
-# 
-# Target Start Time:  2005:247:23:31:33.993
-# Target Quaternion:  0.46452128 0.21824985 -0.03489846 0.85753663 
-# Target RA/Dec/Roll: 9.00 -24.00 58.80 
-# Attitude Violation: SPM 2005:253:09:06:33.000
-# High Momentum:      2005:250:07:41:33.993
+####################################################################################
+sub get_constraints {
+####################################################################################
+    my $load_name = shift;
+    my $prefix = shift;
+    my @constraint;
+    local $_;
+    my $error;
+
+    # Get the constraint check file.  Try the specified load revision
+    # (e.g. "C") then step back to "B" and "A" to try to find constraints file.
+
+    my ($mon, $day, $yr, $rev) = ($load_name =~ /(\w\w\w)(\d\d)(\d\d)(\w)/);
+    my $orig_load_name = $load_name;
+    while ($rev ge "A") {
+        ($_, $error) = get_constraints_text($load_name, $prefix);
+        if (defined $error) {
+            $rev = chr(ord($rev) - 1);
+            $load_name = "${mon}${day}${yr}${rev}";
+        } else {
+            last
+        }
+    }
+    if (defined $error) {
+        warning("Could not find constraints file for any load version of "
+                . substr("${prefix}${orig_load_name}", 0, -1));
+        return;
+    } elsif ($load_name ne $orig_load_name) {
+        warning("Using constraints file ${prefix}${load_name} instead of ${prefix}${orig_load_name}");
+    }
+
+    # Parse the constraints
+    #
+    # Attitude Hold violation predictions
+    # %-----------------------------------------------------------
+    # Target Start Time:  2005:247:23:31:33.993
+    # Target Quaternion:  0.46452128 0.21824985 -0.03489846 0.85753663 
+    # Target RA/Dec/Roll: 9.00 -24.00 58.80 
+    # PLINE Violation:    2005:251:18:16:33.000
+    # TEPHIN Violation:   +Inf
+    # 
+    # Target Start Time:  2005:247:23:31:33.993
+    # Target Quaternion:  0.46452128 0.21824985 -0.03489846 0.85753663 
+    # Target RA/Dec/Roll: 9.00 -24.00 58.80 
+    # Attitude Violation: SPM 2005:253:09:06:33.000
+    # High Momentum:      2005:250:07:41:33.993
 
     my @match;
     s/.+?Attitude Hold violation predictions//s; # Chuck everything before the att. viol. predicts
@@ -514,7 +546,7 @@ sub make_web_page {
 		  );
 
     $html .= $q->p({style => $image_title_style},
-		   "HRC shield rates",
+		   "GOES proxy for HRC shield rates",
 		   $q->br,
 		   $q->img({style=>"margin-top:0.35em", src => "hrc_shield.png"})
 		  );
@@ -762,16 +794,21 @@ sub make_ephin_goes_table {
 						  );
     $goes_date = 'UNAVAILABLE' unless defined $goes_date;
 
-    my $hrc_shield_proxy = io($opt{file}{hrc_shield})->slurp();
+    my ($hrc_shield_proxy, $hrc_time) = split(' ', io($opt{file}{hrc_shield})->slurp());
+    my ($p4gm_proxy, $p4gm_time) = split(' ', io($opt{file}{p4gm})->slurp());
+    my ($p41gm_proxy, $p41gm_time) = split(' ', io($opt{file}{p41gm})->slurp());
 
     my $warning = ((not defined $p2) || (not defined $p5) || @{$p2} == 0 || @{$p5} == 0) ?
       '<h2 style="color:red;text-align:center">NO RECENT GOES DATA</h2>' : '';
 
     my $ephin_date = $snap->{obt}{value} . ' (' .
 		  Event::calc_delta_date($snap->{obt}{value}) . ')';
+    my $hrc_delta = Event::calc_delta_date($hrc_time);
+    my $p4gm_delta = Event::calc_delta_date($p4gm_time);
+    my $p41gm_delta = Event::calc_delta_date($p41gm_time);
 
-    $val{GOES}{P4GM}  = (defined $p2 and @{$p2}) ? format_number(average($p2) * 3.3, 2) : '---'; # See http://asc.harvard.edu/mta/G10.html
-    $val{GOES}{P41GM} = (defined $p5 and @{$p5}) ? format_number(average($p5) * 12,2) : '---'; # ditto
+    $val{GOES}{P4GM}  = (defined $p2 and @{$p2}) ? sprintf("%.2f", $p4gm_proxy) : '---'; # See http://asc.harvard.edu/mta/G10.html
+    $val{GOES}{P41GM} = (defined $p5 and @{$p5}) ? sprintf("%.2f", $p41gm_proxy) : '---'; # ditto
     $val{GOES}{"HRC shield"} = sprintf("%.0f", $hrc_shield_proxy);
     $val{CXO}{"HRC shield"} = $snap->{hrcshield}{value};
     $val{CXO}{"HRC MCP"} = $snap->{hrcmcp}{value};
@@ -803,7 +840,8 @@ sub make_ephin_goes_table {
 
     my $footnotes = "CXO: from snapshot at $ephin_date<br />";
     $footnotes .= "RadMon: DISABLED<br />" if ($snap->{radmon}{value} ne 'ENAB');
-    $footnotes .= "GOES: scaled two hour average of GOES-13 <br /><span style=\"padding:1.7em\"></span>from $goes_date";
+    $footnotes .= "GOES proxies: scaled 15 min average of GOES-13 <br />";
+    $footnotes .= "Last avgs at HRC: $hrc_delta &nbsp; P4GM: $p4gm_delta &nbsp; P41GM: $p41gm_delta";
     $table[$n_row][0] = $footnotes;
 
     my $table = new HTML::Table(-align => 'center',
