@@ -13,6 +13,7 @@ import yaml
 import asciitable
 from Chandra.Time import DateTime
 from Chandra.cmd_states import fetch_states
+import lineid_plot
 
 parser = argparse.ArgumentParser(description='Get ACE data')
 parser.add_argument('--hours',
@@ -34,6 +35,8 @@ if args.test:
     DSN_COMMS_FILE = 't_pred_fluence/dsn_summary.yaml'
     RADMON_FILE = 't_pred_fluence/radmon.rdb'
     CMD_STATES_FILE = 't_pred_fluence/states.dat'
+    ACE_H5_FILE = 't_pred/ACE.h5'
+    HRC_H5_FILE = 't_pred/hrc_shield.h5'
 else:
     ACIS_FLUENCE_FILE = '/data/mta4/www/alerts/current.dat'
     ACE_RATES_FILE = '/data/mta4/www/ace.html'
@@ -56,16 +59,11 @@ def get_fluence(filename):
     """
 
     lines = open(filename, 'r').readlines()
-    names = ('year', 'mon', 'day', 'hhmm',  'doy', 'de1', 'de4', 'p2', 'p3')
-    vals = lines[-1].split()[:len(names)]
-    f0 = dict(zip(names, vals))
-    f0['doy'] = '{:03d}'.format(int(f0['doy']))
-
-    start = '{}:{}:{:02d}:{:02d}:00'.format(
-        f0['year'], f0['doy'],
-        int(f0['hhmm'][-4:-2] or '0'), int(f0['hhmm'][-2:]))
-    start = DateTime(start)
-    p3_fluence = float(f0['p3'])
+    vals = lines[-3].split()
+    mjd = float(vals[4]) + float(vals[5]) / 86400.0
+    start = DateTime(mjd, format='mjd')
+    vals = lines[-1].split()
+    p3_fluence = float(vals[9])
     return start, p3_fluence
 
 
@@ -99,24 +97,32 @@ def get_radmons():
     return dat
 
 
+def get_radzones(radmons):
+    radzones = []
+    for d0, d1 in zip(radmons[:-1], radmons[1:]):
+        if d0['trans'] == 'Disable' and d1['trans'] == 'Enable':
+            radzones.append((d0['date'], d1['date']))
+    return radzones
+
+
 def get_comms():
     dat = yaml.load(open(DSN_COMMS_FILE, 'r'))
     return dat
 
 
-def zero_fluence_at_radmon(times, fluence, radmons):
-    for radmon in radmons:
-        t_trans = DateTime(radmon['date']).secs
-        if (radmon['trans'] == 'Disable' and
-            t_trans > times[0] and t_trans < times[-1]):
-            i_trans = np.searchsorted(times, t_trans)
-            fluence[i_trans:] -= fluence[i_trans]
+def zero_fluence_at_radzone(times, fluence, radzones):
+    for radzone in radzones:
+        t0, t1 = DateTime(radzone).secs
+        ok = (times > t0) & (times <= t1)
+        if np.any(ok):
+            idx0 = np.flatnonzero(ok)[0]
+            fluence[idx0:] -= fluence[idx0]
 
 
-def calc_fluence(start, stop, dt):
+def calc_fluence(start, stop, dt, fluence0, avg_flux, states):
     dt = args.dt
     times = np.arange(start.secs, stop.secs, dt)
-    rates = np.ones_like(times) * p3_avg_flux * dt
+    rates = np.ones_like(times) * avg_flux * dt
     for state in states:
         ok = (state['tstart'] < times) & (times < state['tstop'])
         if state['simpos'] < 40000:
@@ -126,38 +132,79 @@ def calc_fluence(start, stop, dt):
         if state['letg'] == 'INSR':
             rates[ok] = rates[ok] / 2.0
 
-    fluence = (p3_fluence0 + np.cumsum(rates)) / 1e9
+    fluence = (fluence0 + np.cumsum(rates)) / 1e9
     return times, fluence
 
 
-def make_plot(times, fluence, states, radmons, comms):
+def main():
     """
-    See: http://matplotlib.sourceforge.net/examples/pylab_examples/multicolored_line.html
     """
     import matplotlib.patches
     import matplotlib.pyplot as plt
     from matplotlib.collections import LineCollection
     from matplotlib.colors import ListedColormap, BoundaryNorm
-    from Ska.Matplotlib import plot_cxctime, cxctime2plotdate
+    from Ska.Matplotlib import plot_cxctime
+    from Ska.Matplotlib import cxctime2plotdate as cxc2pd
 
-    plt.clf()
-    plot_cxctime([times[0], times[-1]], [-1, -1], '-r', lw=3, label='None')
-    plot_cxctime([times[0], times[-1]], [-1, -1], '-b', lw=3, label='LETG')
-    plot_cxctime([times[0], times[-1]], [-1, -1], '-g', lw=3, label='HETG')
+    now = DateTime('2012:249:00:35:00' if args.test else None)
+    # now = DateTime('2012:251:00:35:00' if args.test else None)
+    start = now - 1.0
+    stop = start + args.hours / 24.0
 
-    x = cxctime2plotdate(times)
+    # if args.test:
+    #     states = asciitable.read(CMD_STATES_FILE)
+    #     states['tstart'][:] = DateTime(states['datestart']).secs
+    #     states['tstop'][:] = DateTime(states['datestop']).secs
+    # else:
+    states = fetch_states(start, stop,
+                          vals=['obsid', 'simpos', 'hetg', 'letg'])
+
+    radmons = get_radmons()
+    radzones = get_radzones(radmons)
+    comms = get_comms()
+
+    fluence_date, fluence0 = get_fluence(ACIS_FLUENCE_FILE)
+    if fluence_date.secs < now.secs:
+        fluence_date = now
+    avg_flux = get_avg_flux(ACE_RATES_FILE)
+
+    fluence_times, fluence = calc_fluence(fluence_date, stop, args.dt,
+                                          fluence0, avg_flux, states)
+    zero_fluence_at_radzone(fluence_times, fluence, radzones)
+
+    # Initialize the main plot figure
+    plt.rc('legend', fontsize=10)
+    fig = plt.figure(1, figsize=(8, 5))
+    fig.clf()
+    ax = fig.add_axes([0.1, 0.15, 0.85, 0.6], axis_bgcolor='w')
+    ax.yaxis.tick_right()
+    ax.yaxis.set_label_position('right')
+
+    # Draw dummy lines off the plot for the legend
+    lx = [fluence_times[0], fluence_times[-1]]
+    ly = [-1, -1]
+    plot_cxctime(lx, ly, '-k', lw=3, label='None', fig=fig, ax=ax)
+    plot_cxctime(lx, ly, '-g', lw=3, label='HETG', fig=fig, ax=ax)
+    plot_cxctime(lx, ly, '-b', lw=3, label='LETG', fig=fig, ax=ax)
+
+    # Make a z-valued curve where the z value corresponds to the
+    # grating state.
+    x = cxc2pd(fluence_times)
     y = fluence
-    z = np.zeros(len(times), dtype=np.int)
+    z = np.zeros(len(fluence_times), dtype=np.int)
 
     for state in states:
-        ok = (state['tstart'] < times) & (times <= state['tstop'])
+        ok = ((state['tstart'] < fluence_times)
+              & (fluence_times <= state['tstop']))
         if np.any(ok):
             if state['hetg'] == 'INSR':
                 z[ok] = 1
             elif state['letg'] == 'INSR':
                 z[ok] = 2
 
-    cmap = ListedColormap(['r', 'g', 'b'])
+    # See: http://matplotlib.sourceforge.net/examples/
+    #            pylab_examples/multicolored_line.html
+    cmap = ListedColormap(['k', 'b', 'g'])
     norm = BoundaryNorm([-0.5, 0.5, 1.5, 2.5], cmap.N)
 
     points = np.array([x, y]).T.reshape(-1, 1, 2)
@@ -166,46 +213,80 @@ def make_plot(times, fluence, states, radmons, comms):
     lc = LineCollection(segments, cmap=cmap, norm=norm)
     lc.set_array(z)
     lc.set_linewidth(3)
-    ax = plt.gca()
     ax.add_collection(lc)
 
-    x0, x1 = plt.xlim()
+    # Plot lines at 1.0 and 2.0 (10^9) corresponding to fluence yellow
+    # and red limits.
+    x0, x1 = cxc2pd([fluence_times[0], fluence_times[-1]])
     plt.plot([x0, x1], [1.0, 1.0], '--g', lw=2.0)
     plt.plot([x0, x1], [2.0, 2.0], '--r', lw=2.0)
+
+    # Set x and y axis limits
+    x0, x1 = cxc2pd([start.secs, stop.secs])
+    plt.xlim(x0, x1)
     y0 = -0.1
     y1 = max(2.05, np.max(fluence) * 1.05)
     plt.ylim(y0, y1)
 
+    id_xs = []
+    id_labels = []
+
+    # Draw comm passes
     for comm in comms:
-        tstart = DateTime(comm['bot_date']['value']).secs
-        tstop = DateTime(comm['eot_date']['value']).secs
-        pd_start, pd_stop = cxctime2plotdate([tstart, tstop])
-        if pd_stop >= x0 and pd_start <= x1:
-            p = matplotlib.patches.Rectangle((pd_start, 0.0),
-                                             pd_stop - pd_start,
+        t0 = DateTime(comm['bot_date']['value']).secs
+        t1 = DateTime(comm['eot_date']['value']).secs
+        pd0, pd1 = cxc2pd([t0, t1])
+        if pd1 >= x0 and pd0 <= x1:
+            p = matplotlib.patches.Rectangle((pd0, y0),
+                                             pd1 - pd0,
                                              y1 - y0,
                                              alpha=0.2,
                                              facecolor='r',
                                              edgecolor='none')
             ax.add_patch(p)
+        id_xs.append((pd0 + pd1) / 2)
+        id_labels.append(comm['track_local']['value'][:9])
+
+    # Draw radiation zones
+    radzones = get_radzones(radmons)
+    for rad0, rad1 in radzones:
+        t0 = DateTime(rad0).secs
+        t1 = DateTime(rad1).secs
+        if t0 < stop.secs and t1 > start.secs:
+            if t0 < start.secs:
+                t0 = start.secs
+            if t1 > stop.secs:
+                t1 = stop.secs
+            pd0, pd1 = cxc2pd([t0, t1])
+            p = matplotlib.patches.Rectangle((pd0, y0),
+                                             pd1 - pd0,
+                                             y1 - y0,
+                                             alpha=0.2,
+                                             facecolor='b',
+                                             edgecolor='none')
+            ax.add_patch(p)
+
+    # Draw now line
+    plt.plot(cxc2pd([now.secs, now.secs]), [y0, y1], '-g', lw=4)
+    id_xs.extend(cxc2pd([now.secs]))
+    id_labels.append('NOW')
+
+    # Add labels for obsids
+    for s0, s1 in zip(states[:-1], states[1:]):
+        if s0['obsid'] != s1['obsid']:
+            id_xs.append(cxc2pd([s1['tstart']])[0])
+            id_labels.append('Obs {}'.format(s1['obsid']))
 
     plt.draw()
     plt.grid()
     plt.ylabel('Attenuated fluence / 1e9')
     plt.legend(loc='upper left')
+    lineid_plot.plot_line_ids(cxc2pd([start.secs, stop.secs]),
+                              [0.0, 0.0],
+                              id_xs, id_labels, ax=ax,
+                              box_axes_space=0.14,
+                              label1_size=10)
 
-radmons = get_radmons()
-comms = get_comms()
 
-start, p3_fluence0 = get_fluence(ACIS_FLUENCE_FILE)
-p3_avg_flux = get_avg_flux(ACE_RATES_FILE)
-stop = start + args.hours / 24.0
-if args.test:
-    states = asciitable.read(CMD_STATES_FILE)
-else:
-    states = fetch_states(start, stop, vals=['obsid', 'simpos', 'hetg', 'letg'])
-
-times, fluence = calc_fluence(start, stop, args.dt)
-zero_fluence_at_radmon(times, fluence, radmons)
-
-make_plot(times, fluence, states, radmons, comms)
+if __name__ == '__main__':
+    main()
