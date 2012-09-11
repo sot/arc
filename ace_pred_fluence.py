@@ -9,6 +9,7 @@ import glob
 
 import numpy as np
 import yaml
+import tables
 
 import asciitable
 from Chandra.Time import DateTime
@@ -35,13 +36,14 @@ if args.test:
     DSN_COMMS_FILE = 't_pred_fluence/dsn_summary.yaml'
     RADMON_FILE = 't_pred_fluence/radmon.rdb'
     CMD_STATES_FILE = 't_pred_fluence/states.dat'
-    ACE_H5_FILE = 't_pred/ACE.h5'
-    HRC_H5_FILE = 't_pred/hrc_shield.h5'
 else:
     ACIS_FLUENCE_FILE = '/data/mta4/www/alerts/current.dat'
     ACE_RATES_FILE = '/data/mta4/www/ace.html'
     DSN_COMMS_FILE = '/proj/sot/ska/data/dsn_summary/dsn_summary.yaml'
     RADMON_FILE = '/proj/sot/ska/data/arc/iFOT_events/radmon/*.rdb'
+
+ACE_H5_FILE = '/proj/sot/ska/data/arc/ACE.h5'
+HRC_H5_FILE = '/proj/sot/ska/data/arc/hrc_shield.h5'
 
 
 def get_fluence(filename):
@@ -136,6 +138,15 @@ def calc_fluence(start, stop, dt, fluence0, avg_flux, states):
     return times, fluence
 
 
+def get_ace_p3(tstart, tstop):
+    h5 = tables.openFile(ACE_H5_FILE)
+    times = h5.root.data.col('time')
+    p3 = h5.root.data.col('p3')
+    ok = (tstart < times) & (times < tstop) & (p3 > 0)
+    h5.close()
+    return times[ok], p3[ok]
+
+
 def main():
     """
     """
@@ -147,15 +158,9 @@ def main():
     from Ska.Matplotlib import cxctime2plotdate as cxc2pd
 
     now = DateTime('2012:249:00:35:00' if args.test else None)
-    # now = DateTime('2012:251:00:35:00' if args.test else None)
     start = now - 1.0
     stop = start + args.hours / 24.0
 
-    # if args.test:
-    #     states = asciitable.read(CMD_STATES_FILE)
-    #     states['tstart'][:] = DateTime(states['datestart']).secs
-    #     states['tstop'][:] = DateTime(states['datestop']).secs
-    # else:
     states = fetch_states(start, stop,
                           vals=['obsid', 'simpos', 'hetg', 'letg'])
 
@@ -286,6 +291,17 @@ def main():
                               id_xs, id_labels, ax=ax,
                               box_axes_space=0.14,
                               label1_size=10)
+
+    # Plot observed ACE P3 rates and limits
+    p3_times, p3 = get_ace_p3(start.secs, now.secs)
+    lp3 = np.log10(p3) / 4.0
+    pd = cxc2pd(p3_times)
+    plt.plot(pd, lp3, '.r', ms=2, mec='r')
+    oy1 = np.log10(12000.) / 4.0
+    ox = cxc2pd([start.secs, now.secs])
+    plt.plot(ox, [oy1, oy1], '--g', lw=2)
+    oy1 = np.log10(50000.) / 4.0
+    plt.plot(ox, [oy1, oy1], '--r', lw=2)
 
 
 if __name__ == '__main__':
