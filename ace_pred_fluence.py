@@ -147,6 +147,15 @@ def get_ace_p3(tstart, tstop):
     return times[ok], p3[ok]
 
 
+def get_hrc(tstart, tstop):
+    h5 = tables.openFile(HRC_H5_FILE)
+    times = h5.root.data.col('time')
+    hrc = h5.root.data.col('hrc_shield') * 256.0
+    ok = (tstart < times) & (times < tstop) & (hrc > 0)
+    h5.close()
+    return times[ok], hrc[ok]
+
+
 def main():
     """
     """
@@ -285,7 +294,7 @@ def main():
     plt.draw()
     plt.grid()
     plt.ylabel('Attenuated fluence / 1e9')
-    plt.legend(loc='upper left')
+    plt.legend(loc='upper center')
     lineid_plot.plot_line_ids(cxc2pd([start.secs, stop.secs]),
                               [0.0, 0.0],
                               id_xs, id_labels, ax=ax,
@@ -294,15 +303,22 @@ def main():
 
     # Plot observed ACE P3 rates and limits
     p3_times, p3 = get_ace_p3(start.secs, now.secs)
-    lp3 = np.log10(p3) / 4.0
+    lp3 = np.log10(p3) / 3.0
     pd = cxc2pd(p3_times)
-    plt.plot(pd, lp3, '.r', ms=2, mec='r')
-    oy1 = np.log10(12000.) / 4.0
+    oy1 = np.log10(10000.) / 3.0
     ox = cxc2pd([start.secs, now.secs])
-    plt.plot(ox, [oy1, oy1], '--g', lw=2)
-    oy1 = np.log10(50000.) / 4.0
-    plt.plot(ox, [oy1, oy1], '--r', lw=2)
+    plt.plot(ox, [oy1, oy1], '--k', lw=2)
+    oy1 = np.log10(50000.) / 3.0
+    plt.plot(ox, [oy1, oy1], '--k', lw=2)
+    plt.plot(pd, lp3, '-r', alpha=0.3, lw=3)
+    plt.plot(pd, lp3, '.r', mec='r', ms=3)
 
+    # Plot observed ACE P3 rates and limits
+    hrc_times, hrc = get_hrc(start.secs, now.secs)
+    pd = cxc2pd(hrc_times)
+    lhrc = np.log10(hrc) / 3.0
+    plt.plot(pd, lhrc, '-b', alpha=0.3, lw=3)
+    plt.plot(pd, lhrc, '.b', mec='b', ms=3)
 
 if __name__ == '__main__':
     main()
