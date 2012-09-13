@@ -6,15 +6,21 @@ average, and grating status.
 """
 import argparse
 import glob
+from itertools import izip
+import json
 
 import numpy as np
 import yaml
 import tables
 
+import matplotlib
+matplotlib.use('Agg')
+
 import asciitable
 from Chandra.Time import DateTime
-from Chandra.cmd_states import fetch_states
+from Chandra.cmd_states import fetch_states, interpolate_states
 import lineid_plot
+from Ska.Matplotlib import cxctime2plotdate as cxc2pd
 
 parser = argparse.ArgumentParser(description='Get ACE data')
 parser.add_argument('--hours',
@@ -29,6 +35,8 @@ parser.add_argument('--test',
                     action='store_true',
                     help='Use test data')
 args = parser.parse_args()
+
+AXES_LOC = [0.05, 0.15, 0.85, 0.6]
 
 if args.test:
     ACIS_FLUENCE_FILE = 't_pred_fluence/current.dat'
@@ -164,14 +172,17 @@ def main():
     from matplotlib.collections import LineCollection
     from matplotlib.colors import ListedColormap, BoundaryNorm
     from Ska.Matplotlib import plot_cxctime
-    from Ska.Matplotlib import cxctime2plotdate as cxc2pd
 
     now = DateTime('2012:249:00:35:00' if args.test else None)
     start = now - 1.0
     stop = start + args.hours / 24.0
-
-    states = fetch_states(start, stop,
-                          vals=['obsid', 'simpos', 'hetg', 'letg'])
+    if args.test:
+        states = asciitable.read(CMD_STATES_FILE)
+        states['tstart'][:] = DateTime(states['datestart']).secs
+        states['tstop'][:] = DateTime(states['datestop']).secs
+    else:
+        states = fetch_states(start, stop,
+                              vals=['obsid', 'simpos', 'hetg', 'letg'])
 
     radmons = get_radmons()
     radzones = get_radzones(radmons)
@@ -188,18 +199,21 @@ def main():
 
     # Initialize the main plot figure
     plt.rc('legend', fontsize=10)
-    fig = plt.figure(1, figsize=(8, 5))
+    fig = plt.figure(1, figsize=(9, 5))
     fig.clf()
-    ax = fig.add_axes([0.1, 0.15, 0.85, 0.6], axis_bgcolor='w')
+    fig.patch.set_alpha(0.0)
+    ax = fig.add_axes(AXES_LOC, axis_bgcolor='w')
     ax.yaxis.tick_right()
     ax.yaxis.set_label_position('right')
+    ax.yaxis.set_offset_position('right')
+    ax.patch.set_alpha(1.0)
 
     # Draw dummy lines off the plot for the legend
     lx = [fluence_times[0], fluence_times[-1]]
     ly = [-1, -1]
     plot_cxctime(lx, ly, '-k', lw=3, label='None', fig=fig, ax=ax)
-    plot_cxctime(lx, ly, '-g', lw=3, label='HETG', fig=fig, ax=ax)
-    plot_cxctime(lx, ly, '-b', lw=3, label='LETG', fig=fig, ax=ax)
+    plot_cxctime(lx, ly, '-r', lw=3, label='HETG', fig=fig, ax=ax)
+    plot_cxctime(lx, ly, '-c', lw=3, label='LETG', fig=fig, ax=ax)
 
     # Make a z-valued curve where the z value corresponds to the
     # grating state.
@@ -218,7 +232,7 @@ def main():
 
     # See: http://matplotlib.sourceforge.net/examples/
     #            pylab_examples/multicolored_line.html
-    cmap = ListedColormap(['k', 'b', 'g'])
+    cmap = ListedColormap(['k', 'c', 'r'])
     norm = BoundaryNorm([-0.5, 0.5, 1.5, 2.5], cmap.N)
 
     points = np.array([x, y]).T.reshape(-1, 1, 2)
@@ -289,26 +303,25 @@ def main():
     for s0, s1 in zip(states[:-1], states[1:]):
         if s0['obsid'] != s1['obsid']:
             id_xs.append(cxc2pd([s1['tstart']])[0])
-            id_labels.append('Obs {}'.format(s1['obsid']))
+            id_labels.append('{}'.format(s1['obsid']))
 
-    plt.draw()
     plt.grid()
     plt.ylabel('Attenuated fluence / 1e9')
-    plt.legend(loc='upper center')
+    plt.legend(loc='upper center', labelspacing=0.15)
     lineid_plot.plot_line_ids(cxc2pd([start.secs, stop.secs]),
-                              [0.0, 0.0],
+                              [y1, y1],
                               id_xs, id_labels, ax=ax,
                               box_axes_space=0.14,
                               label1_size=10)
 
     # Plot observed ACE P3 rates and limits
     p3_times, p3 = get_ace_p3(start.secs, now.secs)
-    lp3 = np.log10(p3) / 3.0
+    lp3 = log_scale(p3)
     pd = cxc2pd(p3_times)
-    oy1 = np.log10(10000.) / 3.0
     ox = cxc2pd([start.secs, now.secs])
+    oy1 = log_scale(12000.)
     plt.plot(ox, [oy1, oy1], '--k', lw=2)
-    oy1 = np.log10(50000.) / 3.0
+    oy1 = log_scale(55000.)
     plt.plot(ox, [oy1, oy1], '--k', lw=2)
     plt.plot(pd, lp3, '-r', alpha=0.3, lw=3)
     plt.plot(pd, lp3, '.r', mec='r', ms=3)
@@ -316,9 +329,75 @@ def main():
     # Plot observed ACE P3 rates and limits
     hrc_times, hrc = get_hrc(start.secs, now.secs)
     pd = cxc2pd(hrc_times)
-    lhrc = np.log10(hrc) / 3.0
+    lhrc = log_scale(hrc)
     plt.plot(pd, lhrc, '-b', alpha=0.3, lw=3)
     plt.plot(pd, lhrc, '.b', mec='b', ms=3)
+
+    ax2 = fig.add_axes(AXES_LOC, axis_bgcolor='w',
+                       frameon=False)
+    ax2.set_autoscale_on(False)
+    ax2.xaxis.set_visible(False)
+    ax2.set_xlim(0, 1)
+    ax2.set_yscale('log')
+    ax2.set_ylim(np.power(10.0, np.array([y0, y1]) * 2 + 1))
+
+    # Draw dummy lines off the plot for the legend
+    lx = [0, 1]
+    ly = [1, 1]
+    ax2.plot(lx, ly, '-r', lw=3, label='ACE')
+    ax2.plot(lx, ly, '-b', lw=3, label='HRC')
+    ax2.legend(loc='upper left', labelspacing=0.15)
+
+    plt.draw()
+    plt.savefig('ace_pred_fluence.png')
+
+    write_states_json('timeline_states.js', fig, ax, states, start, stop, now)
+
+
+def write_states_json(fn, fig, ax, states, start, stop, now):
+    start = start - 1
+    tstop = (stop + 1).secs
+    tstart = DateTime(start.date[:8] + ':00:00:00.5').secs
+    times = np.arange(tstart, tstop, 600)
+    pds = cxc2pd(times)
+
+    # Set up matplotlib transforms
+    data_to_disp = ax.transData.transform
+    ax_to_disp = ax.transAxes.transform
+    disp_to_ax = ax.transAxes.inverted().transform
+    disp_to_fig = fig.transFigure.inverted().transform
+
+    state_now0 = interpolate_states(states, [now.secs])[0]
+    state_now = {}
+    for name in state_now0.dtype.names:
+        state_now[name] = state_now0[name].tolist()
+
+    disp_xy = ax_to_disp([(0, 0), (1, 1)])
+    fig_xy = disp_to_fig(disp_xy)
+    data = {'ax_x': fig_xy[:, 0].tolist(),
+            'ax_y': fig_xy[:, 1].tolist(),
+            'now': state_now}
+
+    state_vals = interpolate_states(states, times)
+    outs = []
+    for time, pd, state_val in izip(times, pds, state_vals):
+        disp_xy = data_to_disp((pd, 0.0))
+        ax_xy = disp_to_ax(disp_xy)
+        if ax_xy[0] > 0.0 and ax_xy[0] < 1.0:
+            out = {}
+            out['date'] = DateTime(time).date[:14]
+            for name in state_val.dtype.names:
+                out[name] = state_val[name].tolist()
+            outs.append(out)
+    data['states'] = outs
+    print data
+
+    with open(fn, 'w') as f:
+        f.write('var data = {}'.format(json.dumps(data)))
+
+
+def log_scale(y):
+    return (np.log10(y) - 1.0) / 2.0
 
 if __name__ == '__main__':
     main()
