@@ -1,4 +1,3 @@
-//    document.onmousemove = moveHandler;
 window.onload = initHandlers;
 
 function moveHandler(evt) {
@@ -10,11 +9,19 @@ function moveHandler(evt) {
 
 
 function setStateTable(idx) {
-    var states = data.states
-    var table_date = document.getElementById("table_date");
-    var table_obsid = document.getElementById("table_obsid");
-    table_date.innerHTML = states[idx].date;
-    table_obsid.innerHTML = states[idx].obsid;
+    var state = data.states[idx]
+    document.getElementById("tl_date").innerHTML = state.date;
+    document.getElementById("tl_obsid").innerHTML = state.obsid;
+    document.getElementById("tl_simpos").innerHTML = state.simpos;
+    document.getElementById("tl_pitch").innerHTML = state.pitch;
+    document.getElementById("tl_ra").innerHTML = state.ra;
+    document.getElementById("tl_dec").innerHTML = state.dec;
+    document.getElementById("tl_roll").innerHTML = state.roll;
+    document.getElementById("tl_pcad_mode").innerHTML = state.pcad_mode;
+    document.getElementById("tl_si_mode").innerHTML = state.si_mode;
+    document.getElementById("tl_power_cmd").innerHTML = state.power_cmd;
+    document.getElementById("tl_ccd_count").innerHTML = state.ccd_count;
+    document.getElementById("tl_fep_count").innerHTML = state.fep_count;
 }
 
 function updateTable(xPos, yPos) {

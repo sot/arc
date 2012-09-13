@@ -181,8 +181,8 @@ def main():
         states['tstart'][:] = DateTime(states['datestart']).secs
         states['tstop'][:] = DateTime(states['datestop']).secs
     else:
-        states = fetch_states(start, stop,
-                              vals=['obsid', 'simpos', 'hetg', 'letg'])
+        states = fetch_states(start, stop)
+        # vals=['obsid', 'simpos', 'hetg', 'letg'])
 
     radmons = get_radmons()
     radzones = get_radzones(radmons)
@@ -355,6 +355,12 @@ def main():
 
 
 def write_states_json(fn, fig, ax, states, start, stop, now):
+    formats = {'ra': '{:10.4f}',
+               'dec': '{:10.4f}',
+               'roll': '{:10.4f}',
+               'pitch': '{:8.2f}',
+               'obsid': '{:5d}',
+               }
     start = start - 1
     tstop = (stop + 1).secs
     tstart = DateTime(start.date[:8] + ':00:00:00.5').secs
@@ -387,7 +393,7 @@ def write_states_json(fn, fig, ax, states, start, stop, now):
             out = {}
             out['date'] = DateTime(time).date[:14]
             for name in state_val.dtype.names:
-                out[name] = state_val[name].tolist()
+                out[name] = formats.get(name, '{}').format(state_val[name].tolist())
             outs.append(out)
     data['states'] = outs
     print data

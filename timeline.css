@@ -22,6 +22,27 @@ body {
 	height: 4px;
 }
 
+table.twoUp {
+    border: 0;
+    cellspacing: 0;
+    cellpadding: 2;
+    rules: none;
+    align: center;
+}
+
+td.left {
+    padding-left: 0cm;
+    padding-right: 0.1cm;
+    text-align: left;
+}
+
+td.right {
+    padding-left: 0cm;
+    padding-right: 0.1cm;
+    text-align: right;
+    font-family: courier;
+}
+
 #lEye {
 	left: 100px;
 }
