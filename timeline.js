@@ -10,18 +10,11 @@ function moveHandler(evt) {
 
 function setStateTable(idx) {
     var state = data.states[idx]
-    document.getElementById("tl_date").innerHTML = state.date;
-    document.getElementById("tl_obsid").innerHTML = state.obsid;
-    document.getElementById("tl_simpos").innerHTML = state.simpos;
-    document.getElementById("tl_pitch").innerHTML = state.pitch;
-    document.getElementById("tl_ra").innerHTML = state.ra;
-    document.getElementById("tl_dec").innerHTML = state.dec;
-    document.getElementById("tl_roll").innerHTML = state.roll;
-    document.getElementById("tl_pcad_mode").innerHTML = state.pcad_mode;
-    document.getElementById("tl_si_mode").innerHTML = state.si_mode;
-    document.getElementById("tl_power_cmd").innerHTML = state.power_cmd;
-    document.getElementById("tl_ccd_count").innerHTML = state.ccd_count;
-    document.getElementById("tl_fep_count").innerHTML = state.fep_count;
+    var keys = ['date', 'now_dt','obsid', 'simpos', 'pitch', 'ra', 'dec', 'roll',
+                'pcad_mode', 'si', 'si_mode', 'power_cmd', 'ccd_fep', 'vid_clock'];
+    for (var i=0; i<keys.length; i++) {
+        document.getElementById('tl_' + keys[i]).innerHTML = state[keys[i]];
+    }
 }
 
 function updateTable(xPos, yPos) {
@@ -54,4 +47,5 @@ function initHandlers() {
     acePred.onmouseout = function() {
         document.onmousemove = null;
     }
+    setStateTable(data['now_idx']);
 }

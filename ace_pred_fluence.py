@@ -8,6 +8,7 @@ import argparse
 import glob
 from itertools import izip
 import json
+import re
 
 import numpy as np
 import yaml
@@ -354,6 +355,20 @@ def main():
     write_states_json('timeline_states.js', fig, ax, states, start, stop, now)
 
 
+def get_si(simpos):
+    if ((simpos >= 82109) and (simpos <= 104839)):
+        si = 'ACIS-I'
+    elif ((simpos >= 70736) and (simpos <= 82108)):
+        si = 'ACIS-S'
+    elif ((simpos >= -86147) and (simpos <= -20000)):
+        si = ' HRC-I'
+    elif ((simpos >= -104362) and (simpos <= -86148)):
+        si = ' HRC-S'
+    else:
+        si = '  NONE'
+    return si
+
+
 def write_states_json(fn, fig, ax, states, start, stop, now):
     formats = {'ra': '{:10.4f}',
                'dec': '{:10.4f}',
@@ -373,33 +388,52 @@ def write_states_json(fn, fig, ax, states, start, stop, now):
     disp_to_ax = ax.transAxes.inverted().transform
     disp_to_fig = fig.transFigure.inverted().transform
 
-    state_now0 = interpolate_states(states, [now.secs])[0]
-    state_now = {}
-    for name in state_now0.dtype.names:
-        state_now[name] = state_now0[name].tolist()
-
     disp_xy = ax_to_disp([(0, 0), (1, 1)])
     fig_xy = disp_to_fig(disp_xy)
     data = {'ax_x': fig_xy[:, 0].tolist(),
-            'ax_y': fig_xy[:, 1].tolist(),
-            'now': state_now}
+            'ax_y': fig_xy[:, 1].tolist()}
 
     state_vals = interpolate_states(states, times)
     outs = []
+    now_idx = 0
+    now_secs = now.secs
+    state_names = ('obsid', 'simpos', 'pitch', 'ra', 'dec', 'roll',
+                   'pcad_mode', 'si_mode', 'power_cmd')
     for time, pd, state_val in izip(times, pds, state_vals):
         disp_xy = data_to_disp((pd, 0.0))
         ax_xy = disp_to_ax(disp_xy)
         if ax_xy[0] > 0.0 and ax_xy[0] < 1.0:
             out = {}
             out['date'] = DateTime(time).date[:14]
-            for name in state_val.dtype.names:
-                out[name] = formats.get(name, '{}').format(state_val[name].tolist())
+            for name in state_names:
+                val = state_val[name].tolist()
+                fval = formats.get(name, '{}').format(val)
+                out[name] = re.sub(' ', '&nbsp;', fval)
+            out['ccd_fep'] = '{}, {}'.format(state_val['ccd_count'],
+                                             state_val['fep_count'])
+            out['vid_clock'] = '{}, {}'.format(state_val['vid_board'],
+                                               state_val['clocking'])
+            out['si'] = get_si(state_val['simpos'])
+            out['now_dt'] = get_fmt_dt(time, now_secs)
+            if time < now_secs:
+                now_idx += 1
             outs.append(out)
     data['states'] = outs
-    print data
+    data['now_idx'] = now_idx
 
     with open(fn, 'w') as f:
         f.write('var data = {}'.format(json.dumps(data)))
+
+
+def get_fmt_dt(t1, t0):
+    dt = t1 - t0
+    adt = abs(int(dt))
+    days = adt // 86400
+    hours = (adt - days * 86400) // 3600
+    mins = (adt - days * 86400 - hours * 3600) // 60
+    sign = '+' if dt >= 0 else '-'
+    days = str(days) + 'd ' if days > 0 else ''
+    return '{}{}{}:{:02d}'.format(sign, days, hours, mins)
 
 
 def log_scale(y):
