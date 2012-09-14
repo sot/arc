@@ -184,7 +184,6 @@ def main():
         states['tstop'][:] = DateTime(states['datestop']).secs
     else:
         states = fetch_states(start, stop)
-        # vals=['obsid', 'simpos', 'hetg', 'letg'])
 
     radmons = get_radmons()
     radzones = get_radzones(radmons)
@@ -400,7 +399,6 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
     data = {'ax_x': fig_xy[:, 0].tolist(),
             'ax_y': fig_xy[:, 1].tolist()}
 
-    state_vals = interpolate_states(states, times)
     outs = []
     now_idx = 0
     now_secs = now.secs
@@ -411,7 +409,7 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
     ok = (ax_xy[:, 0] > 0.0) & (ax_xy[:, 0] < 1.0)
     times = times[ok]
     pds = pds[ok]
-    state_vals = state_vals[ok]
+    state_vals = interpolate_states(states, times)
 
     fluences = Ska.Numpy.interpolate(fluences, fluence_times, times)
     p3s = Ska.Numpy.interpolate(p3s, p3_times, times)
@@ -420,7 +418,7 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
     for time, pd, state_val, fluence, p3, hrc in izip(times, pds, state_vals,
                                                       fluences, p3s, hrcs):
         out = {}
-        out['date'] = DateTime(time).date[:14]
+        out['date'] = DateTime(time).date[5:14]
         for name in state_names:
             val = state_val[name].tolist()
             fval = formats.get(name, '{}').format(val)
