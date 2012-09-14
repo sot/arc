@@ -1,12 +1,26 @@
 window.onload = initHandlers;
 
 function moveHandler(evt) {
-    if (!evt) {
-	evt = window.event;
-    }
-    updateTable(evt.clientX, evt.clientY);
+    if (!evt) var evt = window.event;
+    xy = getXY(evt)
+    updateTable(xy[0], xy[1]);
 }
 
+function getXY(e) {
+    var posx = 0;
+    var posy = 0;
+    if (e.pageX || e.pageY) {
+	posx = e.pageX;
+	posy = e.pageY;
+    }
+    else if (e.clientX || e.clientY) {
+	posx = e.clientX + document.body.scrollLeft
+	    + document.documentElement.scrollLeft;
+	posy = e.clientY + document.body.scrollTop
+	    + document.documentElement.scrollTop;
+    }
+    return [posx, posy]
+}
 
 function setStateTable(idx) {
     var state = data.states[idx]
