@@ -166,13 +166,29 @@ def get_hrc(tstart, tstop):
     return times[ok], hrc[ok]
 
 
+def plot_multi_line(x, y, z, bounds, colors, ax):
+    # See: http://matplotlib.sourceforge.net/examples/
+    #            pylab_examples/multicolored_line.html
+    from matplotlib.collections import LineCollection
+    from matplotlib.colors import ListedColormap, BoundaryNorm
+
+    cmap = ListedColormap(colors)
+    norm = BoundaryNorm([-0.5, 0.5, 1.5, 2.5], cmap.N)
+
+    points = np.array([x, y]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+
+    lc = LineCollection(segments, cmap=cmap, norm=norm)
+    lc.set_array(z)
+    lc.set_linewidth(3)
+    ax.add_collection(lc)
+
+
 def main():
     """
     """
     import matplotlib.patches
     import matplotlib.pyplot as plt
-    from matplotlib.collections import LineCollection
-    from matplotlib.colors import ListedColormap, BoundaryNorm
     from Ska.Matplotlib import plot_cxctime
 
     now = DateTime('2012:249:00:35:00' if args.test else None)
@@ -221,24 +237,12 @@ def main():
     for state in states:
         ok = ((state['tstart'] < fluence_times)
               & (fluence_times <= state['tstop']))
-        if np.any(ok):
-            if state['hetg'] == 'INSR':
-                z[ok] = 1
-            elif state['letg'] == 'INSR':
-                z[ok] = 2
+        if state['hetg'] == 'INSR':
+            z[ok] = 1
+        elif state['letg'] == 'INSR':
+            z[ok] = 2
 
-    # See: http://matplotlib.sourceforge.net/examples/
-    #            pylab_examples/multicolored_line.html
-    cmap = ListedColormap(['k', 'c', 'r'])
-    norm = BoundaryNorm([-0.5, 0.5, 1.5, 2.5], cmap.N)
-
-    points = np.array([x, y]).T.reshape(-1, 1, 2)
-    segments = np.concatenate([points[:-1], points[1:]], axis=1)
-
-    lc = LineCollection(segments, cmap=cmap, norm=norm)
-    lc.set_array(z)
-    lc.set_linewidth(3)
-    ax.add_collection(lc)
+    plot_multi_line(x, y, z, [-0.5, 0.5, 1.5, 2.5], ['k', 'c', 'r'], ax)
 
     # Plot lines at 1.0 and 2.0 (10^9) corresponding to fluence yellow
     # and red limits.
@@ -249,12 +253,22 @@ def main():
     # Set x and y axis limits
     x0, x1 = cxc2pd([start.secs, stop.secs])
     plt.xlim(x0, x1)
-    y0 = -0.1
+    y0 = -0.45
     y1 = max(2.05, np.max(fluence) * 1.05)
     plt.ylim(y0, y1)
 
     id_xs = []
     id_labels = []
+
+    # Draw SI state
+    times = np.arange(start.secs, stop.secs, 100)
+    state_vals = interpolate_states(states, times)
+    ys = np.zeros_like(times) - 0.1
+    ys[state_vals['simpos'] < 0] = np.nan
+    plt.plot(cxc2pd(times), ys, '-c', lw=10, alpha=0.8)
+    ys = np.zeros_like(times) - 0.2
+    ys[state_vals['simpos'] >= 0] = np.nan
+    plt.plot(cxc2pd(times), ys, '-r', lw=10, alpha=0.8)
 
     # Draw comm passes
     next_comm = None
@@ -407,7 +421,7 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
     now_idx = 0
     now_secs = now.secs
     state_names = ('obsid', 'simpos', 'pitch', 'ra', 'dec', 'roll',
-                   'pcad_mode', 'si_mode', 'power_cmd')
+                   'pcad_mode', 'si_mode', 'power_cmd', 'letg', 'hetg')
     disp_xy = data_to_disp([(pd, 0.0) for pd in pds])
     ax_xy = disp_to_ax(disp_xy)
     ok = (ax_xy[:, 0] > 0.0) & (ax_xy[:, 0] < 1.0)

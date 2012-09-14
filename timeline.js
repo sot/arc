@@ -30,9 +30,20 @@ function setStateTable(idx) {
     for (var i=0; i<keys.length; i++) {
         document.getElementById('tl_' + keys[i]).innerHTML = state[keys[i]];
     }
+
     document.getElementById('tl_obsid').innerHTML =
-        '<a target="_blank" href="https://icxc.harvard.edu/cgi-bin/mp/target_param.cgi?' + state['obsid'] + '">'
-        + state['obsid'] + '</a>'
+        '<a target="_blank" href="https://icxc.harvard.edu/cgi-bin/mp/target_param.cgi?'
+        + state['obsid'] + '">'
+        + state['obsid'] + '</a>';
+
+    if (state['hetg'] == 'INSR') {
+        var grating = 'HETG';
+    } else if (state['letg'] == 'INSR') {
+        var grating = 'LETG';
+    } else {
+        var grating = 'NONE';
+    }
+    document.getElementById('tl_grating').innerHTML = grating
 }
 
 function updateTable(xPos, yPos) {
