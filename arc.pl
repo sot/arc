@@ -43,7 +43,7 @@ our $DateRE  = qr/\d\d\d\d:\d+:\d+:\d+:\d\d\.?\d*/;
 our %opt = get_config_options();
 
 # Set global current time at beginning of execution
-our $CurrentTime = @ARGV ? date2time(shift @ARGV, 'unix') : time;	
+our $CurrentTime = @ARGV ? date2time(shift @ARGV, 'unix') : time;
 our $CURRENT_TIME = Chandra::Time->new($CurrentTime, {format => 'unix'});
 our $conv_time = Chandra::Time->new({format => 'unix'}); # Generic time converter box
 
@@ -206,9 +206,9 @@ sub get_obsid_event {
 
     # Failed to find obsid event corresponding to current obsid and attitude.
     # So return empty handed, which in turn causes get_violation_events to do nothing.
-    return;			
+    return;
 }
-    
+
 
 ####################################################################################
 sub make_maneuver_obsid_links {
@@ -235,19 +235,19 @@ sub make_maneuver_obsid_links {
 	    #	  and $load_segment->tstart <= $evt->tstart
 	    #	  and $load_segment->tstop  >= $evt->tstart);
 	}
-	if ($evt->type eq 'maneuver' 
+	if ($evt->type eq 'maneuver'
 	    and defined ($evt2 = $link{target_quat})
 	    and abs($evt->tstart - $evt2->tstart) < 30) {
 	    $evt->target_quat($evt2);
 	    $evt2->maneuver($evt);
 	}
-	if ($evt->type eq 'target_quat' 
+	if ($evt->type eq 'target_quat'
 	    and defined ($evt2 = $link{maneuver})
 	    and abs($evt->tstart - $evt2->tstart) < 30) {
 	    $evt->maneuver($evt2);
 	    $evt2->target_quat($evt);
 	}
-		
+
     }
 }
 
@@ -260,7 +260,7 @@ sub get_violation_events {
     my $evt;
     my @violation;
     local $_;
-    
+
     my $obsid_evt = get_obsid_event($obsid, $snap, $event) or return;
     my ($time_maneuver, $date_maneuver, $load_name);
     eval {
@@ -274,7 +274,7 @@ sub get_violation_events {
 	return;
     }
     my @constraints;
-    push @constraints, get_constraints($load_name, '');	        # PCAD constraints
+    push @constraints, get_constraints($load_name, '');		# PCAD constraints
     push @constraints, get_constraints($load_name, 'therm_');	# Thermal constraints
 
     my $constraint;
@@ -301,7 +301,7 @@ sub get_violation_events {
 				       );
 	}
     }
-    
+
     return @violation;
 }
 
@@ -312,7 +312,7 @@ sub get_constraints_text {
     my $prefix = shift;
     local $_;
     my $error;
-    
+
     # Get the constraint check file.  Try a pre-existing local version
     # first, then try approved products, and finally the backstop products.
 
@@ -343,7 +343,7 @@ sub get_constraints_text {
 	}
 	# Write content to file.  Assert ensures that path exists
 	"% URL: $load_info{URL}\n" > $file->assert;
-	$_ >> $file;	
+	$_ >> $file;
     }
     return ($_, $error);
 }
@@ -363,20 +363,20 @@ sub get_constraints {
     my ($mon, $day, $yr, $rev) = ($load_name =~ /(\w\w\w)(\d\d)(\d\d)(\w)/);
     my $orig_load_name = $load_name;
     while ($rev ge "A") {
-        ($_, $error) = get_constraints_text($load_name, $prefix);
-        if (defined $error) {
-            $rev = chr(ord($rev) - 1);
-            $load_name = "${mon}${day}${yr}${rev}";
-        } else {
-            last
-        }
+	($_, $error) = get_constraints_text($load_name, $prefix);
+	if (defined $error) {
+	    $rev = chr(ord($rev) - 1);
+	    $load_name = "${mon}${day}${yr}${rev}";
+	} else {
+	    last
+	}
     }
     if (defined $error) {
-        warning("Could not find constraints file for any load version of "
-                . substr("${prefix}${orig_load_name}", 0, -1));
-        return;
+	warning("Could not find constraints file for any load version of "
+		. substr("${prefix}${orig_load_name}", 0, -1));
+	return;
     } elsif ($load_name ne $orig_load_name) {
-        warning("Using constraints file ${prefix}${load_name} instead of ${prefix}${orig_load_name}");
+	warning("Using constraints file ${prefix}${load_name} instead of ${prefix}${orig_load_name}");
     }
 
     # Parse the constraints
@@ -384,14 +384,14 @@ sub get_constraints {
     # Attitude Hold violation predictions
     # %-----------------------------------------------------------
     # Target Start Time:  2005:247:23:31:33.993
-    # Target Quaternion:  0.46452128 0.21824985 -0.03489846 0.85753663 
-    # Target RA/Dec/Roll: 9.00 -24.00 58.80 
+    # Target Quaternion:  0.46452128 0.21824985 -0.03489846 0.85753663
+    # Target RA/Dec/Roll: 9.00 -24.00 58.80
     # PLINE Violation:    2005:251:18:16:33.000
     # TEPHIN Violation:   +Inf
-    # 
+    #
     # Target Start Time:  2005:247:23:31:33.993
-    # Target Quaternion:  0.46452128 0.21824985 -0.03489846 0.85753663 
-    # Target RA/Dec/Roll: 9.00 -24.00 58.80 
+    # Target Quaternion:  0.46452128 0.21824985 -0.03489846 0.85753663
+    # Target RA/Dec/Roll: 9.00 -24.00 58.80
     # Attitude Violation: SPM 2005:253:09:06:33.000
     # High Momentum:      2005:250:07:41:33.993
 
@@ -431,8 +431,8 @@ sub get_constraints {
 			      };
 	}
     }
-	    
-	  
+
+
     return @constraint;
 }
 
@@ -449,7 +449,7 @@ sub get_url {
     $req->authorization_basic($opt{user}, $opt{passwd})
       if (defined $opt{user} and defined $opt{passwd});
 
-    
+
     my $response = $user_agent->request($req);
     if ($response->is_success) {
 	return ($response->content, undef);
@@ -464,7 +464,7 @@ sub get_current_load_name {
     my $event = shift;
     local $_;
     my @rev_event = sort { $b->tstart <=> $a->tstart } @{$event};
-    
+
     # really need to figure out load of current obsid if SCS107 has run
     for (@rev_event) {
 	# Probably need to compare against SCS107 time?  errr.
@@ -488,9 +488,12 @@ sub make_web_page {
     local $_;
 
     $html .= $q->start_html(-title => $opt{web_page}{title_short},
-			    -style => {-code => $opt{web_page}{style} },
+			    -style => [{-code => $opt{web_page}{style} },
+				       {-src => "timeline.css",}
+				       ],
 			    -noScript => $opt{web_refresh}{NoScript},
-			    -script => [
+			    -script => [{ -src => 'timeline_states.js'},
+					{ -src => 'timeline.js'},
 					{ -language => 'JavaScript',
 					  -code     => $opt{web_refresh}{JavaScript},
 					},
@@ -501,7 +504,7 @@ sub make_web_page {
 					  -code     => $opt{web_refresh}{JavaScript12},
 					},
 				       ],
-			    -onLoad => 'doLoad()',
+			    -onLoad => 'doLoad(); initTimeLineHandlers()',
 			   );
     $html .= $q->p({style => "text-align:center"},
 		   $q->img({src => "$opt{file}{title_image}"}));
@@ -529,13 +532,15 @@ sub make_web_page {
 					   make_ace_table($snap, $web_data)]]
 			      )->getTable;
 
+    $html .= $opt{timeline_html};
+
     my $image_title_style = "text-align:center;$opt{web_page}{table_caption_style}";
     $html .= $q->p({style => $image_title_style},
 		   "ACE particle rates (",
 		   $q->a({href=>$opt{url}{mta_ace}}, "MTA"),
 		   $q->a({href=>$opt{url}{sec_ace}}, "SEC"),
 		   ")",
-		   $q->br, 
+		   $q->br,
 		   $q->img({style=>"margin-top:0.35em", src => $web_data->{ace}{image}{five_min}{file}}),
 		  );
 
@@ -574,7 +579,7 @@ sub make_web_page {
 		  );
 
     $html .= $q->end_html;
-    
+
     return $html;
 }
 
@@ -592,7 +597,8 @@ sub install_web_files {
     $html > io("$opt{file}{web_dir}/$opt{file}{web_page}");
 
     # (Used to have several images..)
-    foreach (qw(title_image blue_paper blue_paper_test)) {
+    foreach (qw(title_image blue_paper blue_paper_test
+		timeline_js timeline_css timeline_png timeline_states vert_line)) {
 	my $in = io("$TaskData/$opt{file}{$_}");
 	my $out =io("$opt{file}{web_dir}/$opt{file}{$_}");
 	$in > $out if (not -e "$out" or $in->mtime > $out->mtime);
@@ -647,7 +653,7 @@ sub make_warning_table {
 				-data  => \@table,
 				-width => '75%',
 			       );
-    
+
     $table->setColStyle(1,"font-size:120%");
     $table->setCaption("<span style=$opt{web_page}{table_caption_style}> " .
 		       " Warnings</span>", 'TOP');
@@ -668,7 +674,7 @@ sub make_solar_forecast_table {
 				-data  => \@table,
 				-width => '700',
 			       );
-    
+
     $table->setColHead(1);
     $table->setCaption("<span style=$opt{web_page}{table_caption_style}> " .
 		       " 3-day Solar-Geophysical Forecast</span>", 'TOP');
@@ -711,7 +717,7 @@ sub make_ace_table {
     } elsif ($last_p3 > 10) {
 	my $hours = ($orbital_fluence_limit - $orbital_fluence) / $last_p3 / 3600;
 	$hours_to_limit = format_number($hours, 2) if $hours < 30;
-    } 
+    }
 
     $val{'Current flux'}{Value} = format_number($last_p3 , 3);
     $val{'Current flux'}{'2hr limit'} = format_number($two_hr_limit, 3);
@@ -724,7 +730,7 @@ sub make_ace_table {
     } elsif ($avg_p3 > 10) {
 	my $hours = ($orbital_fluence_limit - $orbital_fluence) / $avg_p3 / 3600;
 	$hours_to_limit = format_number($hours,2) if $hours < 30;
-    } 
+    }
     $val{'2hr avg flux'}{Value} = format_number($avg_p3 , 3);
     $val{'2hr avg flux'}{'2hr limit'} = format_number($two_hr_limit, 3);
     $val{'2hr avg flux'}{'Orbital limit'} = format_number($orbital_flux_limit, 2);
@@ -856,7 +862,7 @@ sub make_ephin_goes_table {
     $table->setColStyle(2, "color:#$opt{color}{event_disabled}")
       if ($snap->{radmon}{value} ne 'ENAB');
     $table->setRowStyle(4, "color:#$opt{color}{event_disabled}");
-	
+
     for $i (2..$n_row) {
 	for my $j (2..$n_col) {
 	    $table->setCellAlign($i,$j,'RIGHT');
@@ -901,7 +907,7 @@ sub parse_mta_rad_data {
 	my $min = $hhmm % 100;
 	my $hour = POSIX::floor($hhmm / 100);
 	my $time = timegm(0, $min, $hour, $mday, $mon-1, $year);
-	$date = Event::format_date(time2date($time, 'unix')) 
+	$date = Event::format_date(time2date($time, 'unix'))
 	  . ' (' . Event::calc_delta_date($time) . ')';
     }
     return ($date, @dat);
@@ -977,7 +983,7 @@ sub make_snap_table {
     my $date = $snap->{obt}{value};
     my $dt = Event::calc_delta_date($snap->{obt}{value});
     my $local_date = Event::calc_local_date($snap->{obt}{value});
-    my $delta_time = "&Delta;t = $dt"; 
+    my $delta_time = "&Delta;t = $dt";
     if ($CurrentTime - date2time($date, 'unix') < 100) {
 	$delta_time = "from current comm";
     }
@@ -1017,8 +1023,8 @@ sub make_snap_table {
     $table->setCellStyle(2, 1, "font-size:85%");
 
     $table->setCaption("<span style=$opt{web_page}{table_caption_style}>" .
-		       "Key <a href=\"$opt{url}{mta_snapshot}\">Snapshot</a>" . 
-		       " and <a href=\"$opt{url}{mta_soh}\">SOH</a>" . 
+		       "Key <a href=\"$opt{url}{mta_snapshot}\">Snapshot</a>" .
+		       " and <a href=\"$opt{url}{mta_soh}\">SOH</a>" .
 		       " Values ($delta_time)" .
 		       "</span>", 'TOP');
     return $table->getTable;
@@ -1084,7 +1090,7 @@ sub get_iFOT_events {
 
     # Grab proper event data for each iFOT table specified in config file
     foreach my $table_id (@table_id) {
-	my $cutoff_time = (defined $opt{stop_at_scs107}{$table_id} and defined $SCS107date) ? 
+	my $cutoff_time = (defined $opt{stop_at_scs107}{$table_id} and defined $SCS107date) ?
 	  date2time($SCS107date, 'unix') :  $CurrentTime+10 ;
 	my @files = reverse sort glob("$TaskData/$opt{file}{iFOT_events}/$table_id/*.rdb");
       FILE: foreach (@files) {
@@ -1101,7 +1107,7 @@ sub get_iFOT_events {
     }
 
     my @sort_event = sort { $a->tstart <=> $b->tstart } @event;
-    
+
     return @sort_event;
 }
 
@@ -1124,7 +1130,7 @@ sub check_for_scs107 {
 
     # Make a more convenient hash with SCS state information
     my %scs_state = map { $_ => $snap->{$_}{value} } qw(scs107 scs128 scs129 scs130
-                                                        scs131 scs132 scs133 scs_obt);
+							scs131 scs132 scs133 scs_obt);
 
 # The algorithms below require that this code be run frequently (at least every 5 minutes)
 # to ensure "seeing" the initial detection of SCS107 in the event of switching in and out
@@ -1134,7 +1140,7 @@ sub check_for_scs107 {
     my $load_running = (grep { $scs_state{"scs$_"} eq 'ACT' } qw(131 132 133)) ? 1 : 0;
 
     my $scs107_not_inac = ($scs_state{scs107} ne 'INAC') ? 1 : 0;
-	
+
     # Go in to SCS107 history file and see if scs107 has already been detected
     my $scs107_detected = 0;
     my $scs107_detected_date;
@@ -1147,13 +1153,13 @@ sub check_for_scs107 {
 	    $scs107_detected = 1;
 	}
     }
-    
+
 # LdRun 107_dis 107_file  action
 #   0     0      0        warn no loads running, no indication of SCS107
 #   0     0      1        return time in file (could be SCS107 more than 3 days ago)
 #   0     1      0        put scs107_detect time in file, return that time
 #   0     1      1        return time in file
-#   1     0      0        All is normal. return ().  
+#   1     0      0        All is normal. return ().
 #   1     0      1        Return to normal after scs107 run.  Unlink file, return ().
 #   1     1      0        Invalid combination.  Push warning, then as for (0,1,0)
 #   1     1      1        Invalid combination.  Push warning, return time in file.
@@ -1182,7 +1188,7 @@ sub check_for_scs107 {
     } elsif (array_eq(\@a, [1,1,1])) {
 	warning("Loads apparently running and SCS107 not INAC at $scs_state{scs_obt}");
 	# (scs107_detected_date already set)
-    } 
+    }
 
 #   get_scs107_runtime($event, $scs107_history_file, \%scs_state) if ($scs107_detected_date);
 
@@ -1256,4 +1262,3 @@ sub dbg  {
 			  (localtime)[2,1,0],$caller,$line,$args);
   }
 }
-

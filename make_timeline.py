@@ -9,6 +9,7 @@ import glob
 from itertools import izip
 import json
 import re
+import os
 
 import numpy as np
 import yaml
@@ -25,10 +26,13 @@ import lineid_plot
 from Ska.Matplotlib import cxctime2plotdate as cxc2pd
 
 parser = argparse.ArgumentParser(description='Get ACE data')
+parser.add_argument('--data-dir',
+                    default='.',
+                    help='Output data directory')
 parser.add_argument('--hours',
                     default=72.0,
                     type=float,
-                    help='Hours to predict (default=36)')
+                    help='Hours to predict (default=72)')
 parser.add_argument('--dt',
                     default=300.0,
                     type=float,
@@ -202,7 +206,8 @@ def main():
     now = DateTime(now.date[:14] + ':00')  # truncate to 0 secs
     start = now - 1.0
     stop = start + args.hours / 24.0
-    states = fetch_states(start, stop)
+    states = fetch_states(start, stop,
+                          server='/proj/sot/ska/data/cmd_states/cmd_states.h5')
 
     radmons = get_radmons()
     radzones = get_radzones(radmons)
@@ -377,9 +382,10 @@ def main():
     ax2.legend(loc='upper left', labelspacing=0.15)
 
     plt.draw()
-    plt.savefig('ace_pred_fluence.png')
+    plt.savefig(os.path.join(args.data_dir, 'timeline.png'))
 
-    write_states_json('timeline_states.js', fig, ax, states, start, stop, now,
+    write_states_json(os.path.join(args.data_dir, 'timeline_states.js'),
+                      fig, ax, states, start, stop, now,
                       next_comm,
                       fluence, fluence_times,
                       p3, p3_times,

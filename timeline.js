@@ -1,4 +1,4 @@
-window.onload = initHandlers;
+// window.onload = initTimeLineHandlers;
 
 function moveHandler(evt) {
     if (!evt) var evt = window.event;
@@ -77,7 +77,7 @@ function moveVerticalLine(x, y) {
     line.style.visibility = "visible";
 }
 
-function initHandlers() {
+function initTimeLineHandlers() {
     var acePred = document.getElementById("acePred");
     acePred.onmouseover = function() {
         document.onmousemove = moveHandler;
