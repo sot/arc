@@ -166,14 +166,21 @@ def get_hrc(tstart, tstop):
     return times[ok], hrc[ok]
 
 
-def plot_multi_line(x, y, z, bounds, colors, ax):
+def plot_multi_line(x, y, z, bins, colors, ax):
     # See: http://matplotlib.sourceforge.net/examples/
     #            pylab_examples/multicolored_line.html
     from matplotlib.collections import LineCollection
     from matplotlib.colors import ListedColormap, BoundaryNorm
 
+    # Allow specifying bin centers, not edges
+    if len(bins) == len(colors):
+        bins = np.array(bins, dtype=np.float)
+        bins = np.concatenate([[z.min() - 1],
+                               (bins[1:] + bins[:-1]) / 2.0,
+                               [z.max() + 1]])
+
     cmap = ListedColormap(colors)
-    norm = BoundaryNorm([-0.5, 0.5, 1.5, 2.5], cmap.N)
+    norm = BoundaryNorm(bins, cmap.N)
 
     points = np.array([x, y]).T.reshape(-1, 1, 2)
     segments = np.concatenate([points[:-1], points[1:]], axis=1)
@@ -221,6 +228,12 @@ def main():
     ax.yaxis.set_offset_position('right')
     ax.patch.set_alpha(1.0)
 
+    # Plot lines at 1.0 and 2.0 (10^9) corresponding to fluence yellow
+    # and red limits.
+    x0, x1 = cxc2pd([fluence_times[0], fluence_times[-1]])
+    plt.plot([x0, x1], [1.0, 1.0], '--b', lw=2.0)
+    plt.plot([x0, x1], [2.0, 2.0], '--r', lw=2.0)
+
     # Draw dummy lines off the plot for the legend
     lx = [fluence_times[0], fluence_times[-1]]
     ly = [-1, -1]
@@ -242,33 +255,17 @@ def main():
         elif state['letg'] == 'INSR':
             z[ok] = 2
 
-    plot_multi_line(x, y, z, [-0.5, 0.5, 1.5, 2.5], ['k', 'c', 'r'], ax)
-
-    # Plot lines at 1.0 and 2.0 (10^9) corresponding to fluence yellow
-    # and red limits.
-    x0, x1 = cxc2pd([fluence_times[0], fluence_times[-1]])
-    plt.plot([x0, x1], [1.0, 1.0], '--b', lw=2.0)
-    plt.plot([x0, x1], [2.0, 2.0], '--r', lw=2.0)
+    plot_multi_line(x, y, z, [0, 1, 2], ['k', 'r', 'c'], ax)
 
     # Set x and y axis limits
     x0, x1 = cxc2pd([start.secs, stop.secs])
     plt.xlim(x0, x1)
     y0 = -0.45
-    y1 = max(2.05, np.max(fluence) * 1.05)
+    y1 = 2.55
     plt.ylim(y0, y1)
 
     id_xs = []
     id_labels = []
-
-    # Draw SI state
-    times = np.arange(start.secs, stop.secs, 100)
-    state_vals = interpolate_states(states, times)
-    ys = np.zeros_like(times) - 0.1
-    ys[state_vals['simpos'] < 0] = np.nan
-    plt.plot(cxc2pd(times), ys, '-c', lw=10, alpha=0.8)
-    ys = np.zeros_like(times) - 0.2
-    ys[state_vals['simpos'] >= 0] = np.nan
-    plt.plot(cxc2pd(times), ys, '-r', lw=10, alpha=0.8)
 
     # Draw comm passes
     next_comm = None
@@ -350,6 +347,20 @@ def main():
     plt.plot(pd, lhrc, '-c', alpha=0.3, lw=3)
     plt.plot(pd, lhrc, '.c', mec='c', ms=3)
 
+    # Draw SI state
+    times = np.arange(start.secs, stop.secs, 300)
+    state_vals = interpolate_states(states, times)
+    y_si = -0.23
+    x = cxc2pd(times)
+    y = np.zeros_like(times) + y_si
+    z = np.zeros_like(times, dtype=np.float)  # 0 => ACIS
+    z[state_vals['simpos'] < 0] = 1.0  # HRC
+    plot_multi_line(x, y, z, [0, 1], ['c', 'r'], ax)
+    dx = (x1 - x0) * 0.01
+    plt.text(x1 + dx, y_si, 'HRC/ACIS',
+             ha='left', va='center', size='small')
+
+    # Draw log scale y-axis on left
     ax2 = fig.add_axes(AXES_LOC, axis_bgcolor='w',
                        frameon=False)
     ax2.set_autoscale_on(False)

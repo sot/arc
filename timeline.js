@@ -25,7 +25,7 @@ function getXY(e) {
 function setStateTable(idx) {
     var state = data.states[idx]
     var keys = ['date', 'now_dt', 'simpos', 'pitch', 'ra', 'dec', 'roll',
-                'pcad_mode', 'si', 'si_mode', 'power_cmd', 'ccd_fep', 'vid_clock',
+                'pcad_mode', 'si_mode', 'power_cmd', 'ccd_fep', 'vid_clock',
                 'fluence', 'p3', 'hrc'];
     for (var i=0; i<keys.length; i++) {
         document.getElementById('tl_' + keys[i]).innerHTML = state[keys[i]];
@@ -35,6 +35,15 @@ function setStateTable(idx) {
         '<a target="_blank" href="https://icxc.harvard.edu/cgi-bin/mp/target_param.cgi?'
         + state['obsid'] + '">'
         + state['obsid'] + '</a>';
+
+    if (state['simpos'] > 0) {
+        var color = 'blue'
+    } else {
+        var color = 'red'
+    }
+    document.getElementById('tl_si').innerHTML =
+        '<span style="font-weight:bold; color:' + color + ';">' + state['si'] + '</span>'
+    //document.getElementById('tl_si').innerHTML = '<font weight="bold" color="' + color + '">' + state['si'] + '</font>'
 
     if (state['hetg'] == 'INSR') {
         var grating = 'HETG';
