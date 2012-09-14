@@ -26,7 +26,7 @@ from Ska.Matplotlib import cxctime2plotdate as cxc2pd
 
 parser = argparse.ArgumentParser(description='Get ACE data')
 parser.add_argument('--hours',
-                    default=96.0,
+                    default=72.0,
                     type=float,
                     help='Hours to predict (default=36)')
 parser.add_argument('--dt',
@@ -178,12 +178,7 @@ def main():
     now = DateTime('2012:249:00:35:00' if args.test else None)
     start = now - 1.0
     stop = start + args.hours / 24.0
-    if args.test:
-        states = asciitable.read(CMD_STATES_FILE)
-        states['tstart'][:] = DateTime(states['datestart']).secs
-        states['tstop'][:] = DateTime(states['datestop']).secs
-    else:
-        states = fetch_states(start, stop)
+    states = fetch_states(start, stop)
 
     radmons = get_radmons()
     radzones = get_radzones(radmons)
@@ -247,7 +242,7 @@ def main():
     # Plot lines at 1.0 and 2.0 (10^9) corresponding to fluence yellow
     # and red limits.
     x0, x1 = cxc2pd([fluence_times[0], fluence_times[-1]])
-    plt.plot([x0, x1], [1.0, 1.0], '--g', lw=2.0)
+    plt.plot([x0, x1], [1.0, 1.0], '--b', lw=2.0)
     plt.plot([x0, x1], [2.0, 2.0], '--r', lw=2.0)
 
     # Set x and y axis limits
@@ -301,10 +296,12 @@ def main():
     id_labels.append('NOW')
 
     # Add labels for obsids
+    id_xs.extend(cxc2pd([start.secs]))
+    id_labels.append(str(states[0]['obsid']))
     for s0, s1 in zip(states[:-1], states[1:]):
         if s0['obsid'] != s1['obsid']:
             id_xs.append(cxc2pd([s1['tstart']])[0])
-            id_labels.append('{}'.format(s1['obsid']))
+            id_labels.append(str(s1['obsid']))
 
     plt.grid()
     plt.ylabel('Attenuated fluence / 1e9')
@@ -321,18 +318,18 @@ def main():
     pd = cxc2pd(p3_times)
     ox = cxc2pd([start.secs, now.secs])
     oy1 = log_scale(12000.)
-    plt.plot(ox, [oy1, oy1], '--k', lw=2)
+    plt.plot(ox, [oy1, oy1], '--b', lw=2)
     oy1 = log_scale(55000.)
-    plt.plot(ox, [oy1, oy1], '--k', lw=2)
-    plt.plot(pd, lp3, '-r', alpha=0.3, lw=3)
-    plt.plot(pd, lp3, '.r', mec='r', ms=3)
+    plt.plot(ox, [oy1, oy1], '--r', lw=2)
+    plt.plot(pd, lp3, '-k', alpha=0.3, lw=3)
+    plt.plot(pd, lp3, '.k', mec='k', ms=3)
 
     # Plot observed HRC shield proxy rates and limits
     hrc_times, hrc = get_hrc(start.secs, now.secs)
     pd = cxc2pd(hrc_times)
     lhrc = log_scale(hrc)
-    plt.plot(pd, lhrc, '-b', alpha=0.3, lw=3)
-    plt.plot(pd, lhrc, '.b', mec='b', ms=3)
+    plt.plot(pd, lhrc, '-c', alpha=0.3, lw=3)
+    plt.plot(pd, lhrc, '.c', mec='c', ms=3)
 
     ax2 = fig.add_axes(AXES_LOC, axis_bgcolor='w',
                        frameon=False)
@@ -345,8 +342,8 @@ def main():
     # Draw dummy lines off the plot for the legend
     lx = [0, 1]
     ly = [1, 1]
-    ax2.plot(lx, ly, '-r', lw=3, label='ACE')
-    ax2.plot(lx, ly, '-b', lw=3, label='HRC')
+    ax2.plot(lx, ly, '-k', lw=3, label='ACE')
+    ax2.plot(lx, ly, '-c', lw=3, label='HRC')
     ax2.legend(loc='upper left', labelspacing=0.15)
 
     plt.draw()
