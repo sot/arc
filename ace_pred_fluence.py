@@ -176,6 +176,7 @@ def main():
     from Ska.Matplotlib import plot_cxctime
 
     now = DateTime('2012:249:00:35:00' if args.test else None)
+    now = DateTime(now.date[:14] + ':00')  # truncate to 0 secs
     start = now - 1.0
     stop = start + args.hours / 24.0
     states = fetch_states(start, stop)
@@ -421,7 +422,7 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
     for time, pd, state_val, fluence, p3, hrc in izip(times, pds, state_vals,
                                                       fluences, p3s, hrcs):
         out = {}
-        out['date'] = DateTime(time).date[5:14]
+        out['date'] = date_zulu(time)
         for name in state_names:
             val = state_val[name].tolist()
             fval = formats.get(name, '{}').format(val)
@@ -434,33 +435,41 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
         out['now_dt'] = get_fmt_dt(time, now_secs)
         if time < now_secs:
             now_idx += 1
-            out['fluence'] = '&nbsp' * 7
+            out['fluence'] = '&nbsp' * 4 + '---'
             out['p3'] = '{:.0f}'.format(p3)
             out['hrc'] = '{:.0f}'.format(hrc)
         else:
             out['fluence'] = '{:.2f}e9'.format(fluence)
-            out['p3'] = '&nbsp' * 7
-            out['hrc'] = ''
+            out['p3'] = '&nbsp' * 4 + '---'
+            out['hrc'] = '&nbsp' * 4 + '---'
         outs.append(out)
     data['states'] = outs
     data['now_idx'] = now_idx
+    data['now_date'] = date_zulu(now)
 
     track = next_comm['track_local']['value']
-    data['track_time'] = '&nbsp;&nbsp;' + track[15:19] + track[:4] + ' ' + track[10:13]
+    data['track_time'] = ('&nbsp;&nbsp;' + track[15:19] + track[:4]
+                          + ' ' + track[10:13])
     data['track_dt'] = get_fmt_dt(next_comm['bot_date']['value'], now_secs)
 
     with open(fn, 'w') as f:
         f.write('var data = {}'.format(json.dumps(data)))
 
 
+def date_zulu(date):
+    date = DateTime(date).date
+    zulu = '{}/{}{}z'.format(date[5:8], date[9:11], date[12:14])
+    return zulu
+
+
 def get_fmt_dt(t1, t0):
     t1 = DateTime(t1).secs
     t0 = DateTime(t0).secs
     dt = t1 - t0
-    adt = abs(int(dt))
+    adt = abs(int(round(dt)))
     days = adt // 86400
     hours = (adt - days * 86400) // 3600
-    mins = (adt - days * 86400 - hours * 3600) // 60
+    mins = int(round((adt - days * 86400 - hours * 3600) / 60))
     sign = '+' if dt >= 0 else '-'
     days = str(days) + 'd ' if days > 0 else ''
     return 'NOW {} {}{}:{:02d}'.format(sign, days, hours, mins)

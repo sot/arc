@@ -67,7 +67,7 @@ function initHandlers() {
     }
     now_idx = data['now_idx']
     setStateTable(now_idx);
-    document.getElementById('tl_now').innerHTML = data.states[now_idx]['date']
+    document.getElementById('tl_now').innerHTML = data['now_date']
     document.getElementById('tl_track_time').innerHTML = data['track_time']
     document.getElementById('tl_track_dt').innerHTML = data['track_dt']
 }
