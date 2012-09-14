@@ -17,6 +17,7 @@ import tables
 import matplotlib
 matplotlib.use('Agg')
 
+import Ska.Numpy
 import asciitable
 from Chandra.Time import DateTime
 from Chandra.cmd_states import fetch_states, interpolate_states
@@ -327,7 +328,7 @@ def main():
     plt.plot(pd, lp3, '-r', alpha=0.3, lw=3)
     plt.plot(pd, lp3, '.r', mec='r', ms=3)
 
-    # Plot observed ACE P3 rates and limits
+    # Plot observed HRC shield proxy rates and limits
     hrc_times, hrc = get_hrc(start.secs, now.secs)
     pd = cxc2pd(hrc_times)
     lhrc = log_scale(hrc)
@@ -352,7 +353,10 @@ def main():
     plt.draw()
     plt.savefig('ace_pred_fluence.png')
 
-    write_states_json('timeline_states.js', fig, ax, states, start, stop, now)
+    write_states_json('timeline_states.js', fig, ax, states, start, stop, now,
+                      fluence, fluence_times,
+                      p3, p3_times,
+                      hrc, hrc_times)
 
 
 def get_si(simpos):
@@ -369,7 +373,10 @@ def get_si(simpos):
     return si
 
 
-def write_states_json(fn, fig, ax, states, start, stop, now):
+def write_states_json(fn, fig, ax, states, start, stop, now,
+                      fluences, fluence_times,
+                      p3s, p3_times,
+                      hrcs, hrc_times):
     formats = {'ra': '{:10.4f}',
                'dec': '{:10.4f}',
                'roll': '{:10.4f}',
@@ -378,7 +385,7 @@ def write_states_json(fn, fig, ax, states, start, stop, now):
                }
     start = start - 1
     tstop = (stop + 1).secs
-    tstart = DateTime(start.date[:8] + ':00:00:00.5').secs
+    tstart = DateTime(start.date[:8] + ':00:00:00').secs
     times = np.arange(tstart, tstop, 600)
     pds = cxc2pd(times)
 
@@ -399,25 +406,41 @@ def write_states_json(fn, fig, ax, states, start, stop, now):
     now_secs = now.secs
     state_names = ('obsid', 'simpos', 'pitch', 'ra', 'dec', 'roll',
                    'pcad_mode', 'si_mode', 'power_cmd')
-    for time, pd, state_val in izip(times, pds, state_vals):
-        disp_xy = data_to_disp((pd, 0.0))
-        ax_xy = disp_to_ax(disp_xy)
-        if ax_xy[0] > 0.0 and ax_xy[0] < 1.0:
-            out = {}
-            out['date'] = DateTime(time).date[:14]
-            for name in state_names:
-                val = state_val[name].tolist()
-                fval = formats.get(name, '{}').format(val)
-                out[name] = re.sub(' ', '&nbsp;', fval)
-            out['ccd_fep'] = '{}, {}'.format(state_val['ccd_count'],
-                                             state_val['fep_count'])
-            out['vid_clock'] = '{}, {}'.format(state_val['vid_board'],
-                                               state_val['clocking'])
-            out['si'] = get_si(state_val['simpos'])
-            out['now_dt'] = get_fmt_dt(time, now_secs)
-            if time < now_secs:
-                now_idx += 1
-            outs.append(out)
+    disp_xy = data_to_disp([(pd, 0.0) for pd in pds])
+    ax_xy = disp_to_ax(disp_xy)
+    ok = (ax_xy[:, 0] > 0.0) & (ax_xy[:, 0] < 1.0)
+    times = times[ok]
+    pds = pds[ok]
+    state_vals = state_vals[ok]
+
+    fluences = Ska.Numpy.interpolate(fluences, fluence_times, times)
+    p3s = Ska.Numpy.interpolate(p3s, p3_times, times)
+    hrcs = Ska.Numpy.interpolate(hrcs, hrc_times, times)
+
+    for time, pd, state_val, fluence, p3, hrc in izip(times, pds, state_vals,
+                                                      fluences, p3s, hrcs):
+        out = {}
+        out['date'] = DateTime(time).date[:14]
+        for name in state_names:
+            val = state_val[name].tolist()
+            fval = formats.get(name, '{}').format(val)
+            out[name] = re.sub(' ', '&nbsp;', fval)
+        out['ccd_fep'] = '{}, {}'.format(state_val['ccd_count'],
+                                         state_val['fep_count'])
+        out['vid_clock'] = '{}, {}'.format(state_val['vid_board'],
+                                           state_val['clocking'])
+        out['si'] = get_si(state_val['simpos'])
+        out['now_dt'] = get_fmt_dt(time, now_secs)
+        if time < now_secs:
+            now_idx += 1
+            out['fluence'] = ''
+            out['p3'] = '{:.0f}'.format(p3)
+            out['hrc'] = '{:.0f}'.format(hrc)
+        else:
+            out['fluence'] = '{:.2f} 10^9'.format(fluence)
+            out['p3'] = ''
+            out['hrc'] = ''
+        outs.append(out)
     data['states'] = outs
     data['now_idx'] = now_idx
 

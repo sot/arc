@@ -11,10 +11,12 @@ function moveHandler(evt) {
 function setStateTable(idx) {
     var state = data.states[idx]
     var keys = ['date', 'now_dt','obsid', 'simpos', 'pitch', 'ra', 'dec', 'roll',
-                'pcad_mode', 'si', 'si_mode', 'power_cmd', 'ccd_fep', 'vid_clock'];
+                'pcad_mode', 'si', 'si_mode', 'power_cmd', 'ccd_fep', 'vid_clock',
+                'fluence', 'p3', 'hrc'];
     for (var i=0; i<keys.length; i++) {
         document.getElementById('tl_' + keys[i]).innerHTML = state[keys[i]];
     }
+    document.getElementById('tl_now').innerHTML = data.states[data['now_idx']]['date']
 }
 
 function updateTable(xPos, yPos) {
