@@ -30,6 +30,10 @@ table.twoUp {
     align: center;
 }
 
+td.twoUp {
+    vertical-align: top;
+}
+
 td.left {
     padding-left: 0cm;
     padding-right: 0.1cm;

@@ -16,7 +16,6 @@ function setStateTable(idx) {
     for (var i=0; i<keys.length; i++) {
         document.getElementById('tl_' + keys[i]).innerHTML = state[keys[i]];
     }
-    document.getElementById('tl_now').innerHTML = data.states[data['now_idx']]['date']
 }
 
 function updateTable(xPos, yPos) {
@@ -49,5 +48,9 @@ function initHandlers() {
     acePred.onmouseout = function() {
         document.onmousemove = null;
     }
-    setStateTable(data['now_idx']);
+    now_idx = data['now_idx']
+    setStateTable(now_idx);
+    document.getElementById('tl_now').innerHTML = data.states[now_idx]['date']
+    document.getElementById('tl_track_time').innerHTML = data['track_time']
+    document.getElementById('tl_track_dt').innerHTML = data['track_dt']
 }

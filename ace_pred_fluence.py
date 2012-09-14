@@ -256,6 +256,7 @@ def main():
     id_labels = []
 
     # Draw comm passes
+    next_comm = None
     for comm in comms:
         t0 = DateTime(comm['bot_date']['value']).secs
         t1 = DateTime(comm['eot_date']['value']).secs
@@ -270,6 +271,9 @@ def main():
             ax.add_patch(p)
         id_xs.append((pd0 + pd1) / 2)
         id_labels.append(comm['track_local']['value'][:9])
+        if (next_comm is None
+            and DateTime(comm['bot_date']['value']).secs > now.secs):
+            next_comm = comm
 
     # Draw radiation zones
     radzones = get_radzones(radmons)
@@ -350,6 +354,7 @@ def main():
     plt.savefig('ace_pred_fluence.png')
 
     write_states_json('timeline_states.js', fig, ax, states, start, stop, now,
+                      next_comm,
                       fluence, fluence_times,
                       p3, p3_times,
                       hrc, hrc_times)
@@ -370,6 +375,7 @@ def get_si(simpos):
 
 
 def write_states_json(fn, fig, ax, states, start, stop, now,
+                      next_comm,
                       fluences, fluence_times,
                       p3s, p3_times,
                       hrcs, hrc_times):
@@ -428,22 +434,28 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
         out['now_dt'] = get_fmt_dt(time, now_secs)
         if time < now_secs:
             now_idx += 1
-            out['fluence'] = ''
+            out['fluence'] = '&nbsp' * 7
             out['p3'] = '{:.0f}'.format(p3)
             out['hrc'] = '{:.0f}'.format(hrc)
         else:
-            out['fluence'] = '{:.2f} 10^9'.format(fluence)
-            out['p3'] = ''
+            out['fluence'] = '{:.2f}e9'.format(fluence)
+            out['p3'] = '&nbsp' * 7
             out['hrc'] = ''
         outs.append(out)
     data['states'] = outs
     data['now_idx'] = now_idx
+
+    track = next_comm['track_local']['value']
+    data['track_time'] = '&nbsp;&nbsp;' + track[15:19] + track[:4] + ' ' + track[10:13]
+    data['track_dt'] = get_fmt_dt(next_comm['bot_date']['value'], now_secs)
 
     with open(fn, 'w') as f:
         f.write('var data = {}'.format(json.dumps(data)))
 
 
 def get_fmt_dt(t1, t0):
+    t1 = DateTime(t1).secs
+    t0 = DateTime(t0).secs
     dt = t1 - t0
     adt = abs(int(dt))
     days = adt // 86400
@@ -451,7 +463,7 @@ def get_fmt_dt(t1, t0):
     mins = (adt - days * 86400 - hours * 3600) // 60
     sign = '+' if dt >= 0 else '-'
     days = str(days) + 'd ' if days > 0 else ''
-    return '{}{}{}:{:02d}'.format(sign, days, hours, mins)
+    return 'NOW {} {}{}:{:02d}'.format(sign, days, hours, mins)
 
 
 def log_scale(y):
