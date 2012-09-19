@@ -524,15 +524,15 @@ sub make_web_page {
 					  $snap_table]],
 			     )->getTable;
 
-    $html .= make_event_table($event) . $q->p;
+    $html .= $opt{timeline_html};
+
+    $html .= $q->p . make_event_table($event) . $q->p;
 
     $html .= HTML::Table->new(-align => 'center',
 			      -padding => 2,
 			      -data   => [[make_ephin_goes_table($snap, $web_data),
 					   make_ace_table($snap, $web_data)]]
 			      )->getTable;
-
-    $html .= $opt{timeline_html};
 
     my $image_title_style = "text-align:center;$opt{web_page}{table_caption_style}";
     $html .= $q->p({style => $image_title_style},
