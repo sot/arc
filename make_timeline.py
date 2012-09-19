@@ -287,7 +287,8 @@ def main():
                                              edgecolor='none')
             ax.add_patch(p)
         id_xs.append((pd0 + pd1) / 2)
-        id_labels.append(comm['track_local']['value'][:9])
+        id_labels.append('{}:{}'.format(comm['station']['value'][4:6],
+                                        comm['track_local']['value'][:9]))
         if (next_comm is None
             and DateTime(comm['bot_date']['value']).secs > now.secs):
             next_comm = comm
@@ -482,6 +483,9 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
     data['track_time'] = ('&nbsp;&nbsp;' + track[15:19] + track[:4]
                           + ' ' + track[10:13])
     data['track_dt'] = get_fmt_dt(next_comm['bot_date']['value'], now_secs)
+    data['track_station'] = '{}-{}'.format(next_comm['site']['value'],
+                                           next_comm['station']['value'][4:6])
+    data['track_activity'] = next_comm['activity']['value'][:14]
 
     with open(fn, 'w') as f:
         f.write('var data = {}'.format(json.dumps(data)))

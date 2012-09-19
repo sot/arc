@@ -90,4 +90,6 @@ function initTimeLineHandlers() {
     document.getElementById('tl_now').innerHTML = data['now_date']
     document.getElementById('tl_track_time').innerHTML = data['track_time']
     document.getElementById('tl_track_dt').innerHTML = data['track_dt']
+    document.getElementById('tl_track_station').innerHTML = data['track_station']
+    document.getElementById('tl_track_activity').innerHTML = data['track_activity']
 }
