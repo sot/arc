@@ -23,12 +23,13 @@ import asciitable
 from Chandra.Time import DateTime
 from Chandra.cmd_states import fetch_states, interpolate_states
 import lineid_plot
+import calc_fluence_dist
 from Ska.Matplotlib import cxctime2plotdate as cxc2pd
 
 parser = argparse.ArgumentParser(description='Get ACE data')
 parser.add_argument('--data-dir',
                     default='.',
-                    help='Output data directory')
+                    help='Data directory')
 parser.add_argument('--hours',
                     default=72.0,
                     type=float,
@@ -56,8 +57,8 @@ else:
     DSN_COMMS_FILE = '/proj/sot/ska/data/dsn_summary/dsn_summary.yaml'
     RADMON_FILE = '/proj/sot/ska/data/arc/iFOT_events/radmon/*.rdb'
 
-ACE_H5_FILE = '/proj/sot/ska/data/arc/ACE.h5'
-HRC_H5_FILE = '/proj/sot/ska/data/arc/hrc_shield.h5'
+ACE_H5_FILE = os.path.join(args.data_dir, 'ACE.h5')
+HRC_H5_FILE = os.path.join(args.data_dir, 'hrc_shield.h5')
 
 
 def get_fluence(filename):
@@ -135,10 +136,7 @@ def zero_fluence_at_radzone(times, fluence, radzones):
             fluence[idx0:] -= fluence[idx0]
 
 
-def calc_fluence(start, stop, dt, fluence0, avg_flux, states):
-    dt = args.dt
-    times = np.arange(start.secs, stop.secs, dt)
-    rates = np.ones_like(times) * avg_flux * dt
+def calc_fluence(times, fluence0, rates, states):
     for state in states:
         ok = (state['tstart'] < times) & (times < state['tstop'])
         if state['simpos'] < 40000:
@@ -149,7 +147,7 @@ def calc_fluence(start, stop, dt, fluence0, avg_flux, states):
             rates[ok] = rates[ok] / 2.0
 
     fluence = (fluence0 + np.cumsum(rates)) / 1e9
-    return times, fluence
+    return fluence
 
 
 def get_ace_p3(tstart, tstop):
@@ -218,8 +216,10 @@ def main():
         fluence_date = now
     avg_flux = get_avg_flux(ACE_RATES_FILE)
 
-    fluence_times, fluence = calc_fluence(fluence_date, stop, args.dt,
-                                          fluence0, avg_flux, states)
+    # def calc_fluence(times, fluence0, rates, states):
+    fluence_times = np.arange(fluence_date.secs, stop.secs, args.dt)
+    rates = np.ones_like(fluence_times) * avg_flux * args.dt
+    fluence = calc_fluence(fluence_times, fluence0, rates, states)
     zero_fluence_at_radzone(fluence_times, fluence, radzones)
 
     # Initialize the main plot figure
@@ -234,8 +234,9 @@ def main():
     ax.patch.set_alpha(1.0)
 
     # Plot lines at 1.0 and 2.0 (10^9) corresponding to fluence yellow
-    # and red limits.
+    # and red limits.  Also plot the fluence=0 line in black.
     x0, x1 = cxc2pd([fluence_times[0], fluence_times[-1]])
+    plt.plot([x0, x1], [0.0, 0.0], '-k')
     plt.plot([x0, x1], [1.0, 1.0], '--b', lw=2.0)
     plt.plot([x0, x1], [2.0, 2.0], '--r', lw=2.0)
 
@@ -261,6 +262,20 @@ def main():
             z[ok] = 2
 
     plot_multi_line(x, y, z, [0, 1, 2], ['k', 'r', 'c'], ax)
+
+    # # plot 10, 50, 90 percentiles of fluence
+    p_fits, p3_samps, fluences = calc_fluence_dist.get_fluences(
+        os.path.join(args.data_dir, 'ACE_hourly_avg.npy'))
+    hrs, fl10, fl50, fl90 = calc_fluence_dist.get_fluence_percentiles(avg_flux, p3_samps, fluences)
+    fluence_hours = (fluence_times - fluence_times[0]) / 3600.0
+    for fl_y, linecolor in zip((fl10, fl50, fl90),
+                               ('-g', '-b', '-r')):
+        fl_y = Ska.Numpy.interpolate(fl_y, hrs, fluence_hours)
+        rates = np.diff(fl_y)
+        # def calc_fluence(times, fluence0, rates, states):
+        fl_y_atten = calc_fluence(fluence_times[:-1], fluence0, rates, states)
+        # import pdb; pdb.set_trace()
+        plt.plot(x0 + fluence_hours[:-1] / 24.0, fl_y_atten, linecolor)
 
     # Set x and y axis limits
     x0, x1 = cxc2pd([start.secs, stop.secs])
@@ -447,6 +462,10 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
     pds = pds[ok]
     state_vals = interpolate_states(states, times)
 
+    p3_now = p3s[-1]
+    hrc_now = hrcs[-1]
+    fluence_now = fluences[0]
+
     fluences = Ska.Numpy.interpolate(fluences, fluence_times, times)
     p3s = Ska.Numpy.interpolate(p3s, p3_times, times)
     hrcs = Ska.Numpy.interpolate(hrcs, hrc_times, times)
@@ -467,13 +486,13 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
         out['now_dt'] = get_fmt_dt(time, now_secs)
         if time < now_secs:
             now_idx += 1
-            out['fluence'] = '&nbsp' * 4 + '---'
+            out['fluence'] = '{:.2f}e9'.format(fluence_now)
             out['p3'] = '{:.0f}'.format(p3)
             out['hrc'] = '{:.0f}'.format(hrc)
         else:
             out['fluence'] = '{:.2f}e9'.format(fluence)
-            out['p3'] = '&nbsp' * 4 + '---'
-            out['hrc'] = '&nbsp' * 4 + '---'
+            out['p3'] = '{:.0f}'.format(p3_now)
+            out['hrc'] = '{:.0f}'.format(hrc_now)
         outs.append(out)
     data['states'] = outs
     data['now_idx'] = now_idx

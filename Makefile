@@ -7,14 +7,15 @@ FLIGHT_ENV = SKA
 BIN = get_iFOT_events.pl get_web_content.pl arc.pl
 SHARE = Event.pm Snap.pm parse_cm_file.pl arc_time_machine.pl \
         get_hrc.py plot_hrc.py get_ace.py \
-	make_timeline.py lineid_plot.py
+	make_timeline.py lineid_plot.py calc_fluence_dist.py
 DATA = iFOT_queries.cfg arc*.cfg web_content.cfg \
 	title_image.png \
 	blue_paper.gif \
 	blue_paper_test.gif \
 	alert_limits.html \
 	task_schedule.cfg \
-	timeline.js timeline.css vert_line.gif
+	timeline.js timeline.css vert_line.gif \
+	ACE_hourly_avg.npy
 DOC =
 
 include /proj/sot/ska/include/Makefile.FLIGHT
