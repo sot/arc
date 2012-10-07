@@ -23,7 +23,7 @@ import asciitable
 from Chandra.Time import DateTime
 from Chandra.cmd_states import fetch_states, interpolate_states
 import lineid_plot
-import calc_fluence_dist
+import calc_fluence_dist as cfd
 from Ska.Matplotlib import cxctime2plotdate as cxc2pd
 
 parser = argparse.ArgumentParser(description='Get ACE data')
@@ -193,6 +193,17 @@ def plot_multi_line(x, y, z, bins, colors, ax):
     ax.add_collection(lc)
 
 
+def get_p3_slope(p3_times, p3_vals):
+    """
+    Compute the slope (log10(p3) per hour) of the last 6 hours of ACE P3 values.
+    """
+    ok = (p3_times[-1] - p3_times) < 6 * 3600  # Points within 6 hrs of last available data
+    x = (p3_times[ok] - p3_times[-1]) / 3600
+    y = np.log10(p3_vals[ok])
+    r = np.polyfit(x, y, 1)
+    return r[0]
+
+
 def main():
     """
     """
@@ -221,6 +232,10 @@ def main():
     rates = np.ones_like(fluence_times) * avg_flux * args.dt
     fluence = calc_fluence(fluence_times, fluence0, rates, states)
     zero_fluence_at_radzone(fluence_times, fluence, radzones)
+
+    # Get the realtime ACE P3 and HRC proxy values over the time range
+    p3_times, p3_vals = get_ace_p3(start.secs, now.secs)
+    hrc_times, hrc_vals = get_hrc(start.secs, now.secs)
 
     # Initialize the main plot figure
     plt.rc('legend', fontsize=10)
@@ -264,9 +279,12 @@ def main():
     plot_multi_line(x, y, z, [0, 1, 2], ['k', 'r', 'c'], ax)
 
     # # plot 10, 50, 90 percentiles of fluence
-    p_fits, p3_samps, fluences = calc_fluence_dist.get_fluences(
+    # def get_fluence_percentiles(p3_avg_now, p3_slope_now, p3_fits, p3_samps, fluences):
+    p3_fits, p3_samps, fluences = cfd.get_fluences(
         os.path.join(args.data_dir, 'ACE_hourly_avg.npy'))
-    hrs, fl10, fl50, fl90 = calc_fluence_dist.get_fluence_percentiles(avg_flux, p3_samps, fluences)
+    p3_slope = get_p3_slope(p3_times, p3_vals)
+    hrs, fl10, fl50, fl90 = cfd.get_fluence_percentiles(avg_flux, p3_slope, p3_fits,
+                                                        p3_samps, fluences)
     fluence_hours = (fluence_times - fluence_times[0]) / 3600.0
     for fl_y, linecolor in zip((fl10, fl50, fl90),
                                ('-g', '-b', '-r')):
@@ -274,7 +292,7 @@ def main():
         rates = np.diff(fl_y)
         # def calc_fluence(times, fluence0, rates, states):
         fl_y_atten = calc_fluence(fluence_times[:-1], fluence0, rates, states)
-        # import pdb; pdb.set_trace()
+        zero_fluence_at_radzone(fluence_times[:-1], fl_y_atten, radzones)
         plt.plot(x0 + fluence_hours[:-1] / 24.0, fl_y_atten, linecolor)
 
     # Set x and y axis limits
@@ -304,8 +322,7 @@ def main():
         id_xs.append((pd0 + pd1) / 2)
         id_labels.append('{}:{}'.format(comm['station']['value'][4:6],
                                         comm['track_local']['value'][:9]))
-        if (next_comm is None
-            and DateTime(comm['bot_date']['value']).secs > now.secs):
+        if (next_comm is None and DateTime(comm['bot_date']['value']).secs > now.secs):
             next_comm = comm
 
     # Draw radiation zones
@@ -350,8 +367,7 @@ def main():
                               label1_size=10)
 
     # Plot observed ACE P3 rates and limits
-    p3_times, p3 = get_ace_p3(start.secs, now.secs)
-    lp3 = log_scale(p3)
+    lp3 = log_scale(p3_vals)
     pd = cxc2pd(p3_times)
     ox = cxc2pd([start.secs, now.secs])
     oy1 = log_scale(12000.)
@@ -362,9 +378,8 @@ def main():
     plt.plot(pd, lp3, '.k', mec='k', ms=3)
 
     # Plot observed HRC shield proxy rates and limits
-    hrc_times, hrc = get_hrc(start.secs, now.secs)
     pd = cxc2pd(hrc_times)
-    lhrc = log_scale(hrc)
+    lhrc = log_scale(hrc_vals)
     plt.plot(pd, lhrc, '-c', alpha=0.3, lw=3)
     plt.plot(pd, lhrc, '.c', mec='c', ms=3)
 
@@ -404,8 +419,8 @@ def main():
                       fig, ax, states, start, stop, now,
                       next_comm,
                       fluence, fluence_times,
-                      p3, p3_times,
-                      hrc, hrc_times)
+                      p3_vals, p3_times,
+                      hrc_vals, hrc_times)
 
 
 def get_si(simpos):
