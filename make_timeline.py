@@ -1,8 +1,12 @@
 #!/usr/bin/env python
 
 """
-Predict ACIS attenuated fluence based on current ACIS orbital fluence, 2hr
-average, and grating status.
+Generate a timeline plot and associated JSON data for the animated version on Replan
+Central.
+
+This plot features the predicted ACIS attenuated fluence based on current ACIS orbital
+fluence, 2hr average, and grating status.  It also shows DSN comms, radiation zone
+passages, instrument configuration.
 """
 import argparse
 import glob
@@ -28,7 +32,7 @@ from Ska.Matplotlib import cxctime2plotdate as cxc2pd
 
 parser = argparse.ArgumentParser(description='Get ACE data')
 parser.add_argument('--data-dir',
-                    default='.',
+                    default='t_pred_fluence',
                     help='Data directory')
 parser.add_argument('--hours',
                     default=72.0,
@@ -38,6 +42,13 @@ parser.add_argument('--dt',
                     default=300.0,
                     type=float,
                     help='Prediction time step (secs, default=300)')
+parser.add_argument('--max-slope-samples',
+                    type=int,
+                    help='Max number of samples when filtering by slope (default=None')
+parser.add_argument('--min-flux-samples',
+                    default=100,
+                    type=int,
+                    help='Minimum number of samples when filtering by flux (default=100)')
 parser.add_argument('--test',
                     action='store_true',
                     help='Use test data')
@@ -46,11 +57,10 @@ args = parser.parse_args()
 AXES_LOC = [0.05, 0.15, 0.85, 0.6]
 
 if args.test:
-    ACIS_FLUENCE_FILE = 't_pred_fluence/current.dat'
-    ACE_RATES_FILE = 't_pred_fluence/ace.html'
-    DSN_COMMS_FILE = 't_pred_fluence/dsn_summary.yaml'
-    RADMON_FILE = 't_pred_fluence/radmon.rdb'
-    CMD_STATES_FILE = 't_pred_fluence/states.dat'
+    ACIS_FLUENCE_FILE = os.path.join(args.data_dir, 'current.dat')
+    ACE_RATES_FILE = os.path.join(args.data_dir, 'ace.html')
+    DSN_COMMS_FILE = os.path.join(args.data_dir, 'dsn_summary.yaml')
+    RADMON_FILE = os.path.join(args.data_dir, 'radmon.rdb')
 else:
     ACIS_FLUENCE_FILE = '/data/mta4/www/alerts/current.dat'
     ACE_RATES_FILE = '/data/mta4/www/ace.html'
@@ -100,13 +110,16 @@ def get_avg_flux(filename):
              if line.startswith('AVERAGE   ')]
     if len(lines) != 1:
         raise ValueError('{} file contains {} lines that start with '
-                         'AVERAGE (expect one)'.format(
-                ACE_RATES_FILE, len(lines)))
+                         'AVERAGE (expect one)'.format(ACE_RATES_FILE, len(lines)))
     p3_avg_flux = float(lines[0].split()[4])
     return p3_avg_flux
 
 
 def get_radmons():
+    """
+    Get Radmon events from local file that has been pulled from iFOT by
+    get_iFOT_events.pl.
+    """
     files = glob.glob(RADMON_FILE)
     dat = asciitable.read(sorted(files)[-1], Reader=asciitable.NoHeader,
                           names=('radmon', 'proc', 'trans', 'date', 'date2'),
@@ -115,6 +128,9 @@ def get_radmons():
 
 
 def get_radzones(radmons):
+    """
+    Constuct a list of complete radiation zones from ``radmons``.
+    """
     radzones = []
     for d0, d1 in zip(radmons[:-1], radmons[1:]):
         if d0['trans'] == 'Disable' and d1['trans'] == 'Enable':
@@ -123,11 +139,20 @@ def get_radzones(radmons):
 
 
 def get_comms():
+    """
+    Get the list of comm passes from the DSN summary file.
+    """
     dat = yaml.load(open(DSN_COMMS_FILE, 'r'))
     return dat
 
 
 def zero_fluence_at_radzone(times, fluence, radzones):
+    """
+    For the given ``fluence`` estimate which is sampled at ``times``,
+    reset the fluence to zero at the start of each of the ``radzones``.
+
+    This works on ``fluence`` in place.
+    """
     for radzone in radzones:
         t0, t1 = DateTime(radzone).secs
         ok = (times > t0) & (times <= t1)
@@ -137,6 +162,11 @@ def zero_fluence_at_radzone(times, fluence, radzones):
 
 
 def calc_fluence(times, fluence0, rates, states):
+    """
+    For the given starting ``fluence0`` (taken from the current ACIS ops
+    estimate) and predicted P3 ``rates`` and grating ``states``, return
+    the integrated fluence.
+    """
     for state in states:
         ok = (state['tstart'] < times) & (times < state['tstop'])
         if state['simpos'] < 40000:
@@ -151,6 +181,9 @@ def calc_fluence(times, fluence0, rates, states):
 
 
 def get_ace_p3(tstart, tstop):
+    """
+    Get the historical ACE P3 rates and filter out bad values.
+    """
     h5 = tables.openFile(ACE_H5_FILE)
     times = h5.root.data.col('time')
     p3 = h5.root.data.col('p3')
@@ -160,6 +193,9 @@ def get_ace_p3(tstart, tstop):
 
 
 def get_hrc(tstart, tstop):
+    """
+    Get the historical HRC proxy rates and filter out bad values.
+    """
     h5 = tables.openFile(HRC_H5_FILE)
     times = h5.root.data.col('time')
     hrc = h5.root.data.col('hrc_shield') * 256.0
@@ -169,8 +205,12 @@ def get_hrc(tstart, tstop):
 
 
 def plot_multi_line(x, y, z, bins, colors, ax):
-    # See: http://matplotlib.sourceforge.net/examples/
-    #            pylab_examples/multicolored_line.html
+    """
+    Plot a multi-color line.
+    See: http://matplotlib.sourceforge.net/examples/
+               pylab_examples/multicolored_line.html
+    """
+
     from matplotlib.collections import LineCollection
     from matplotlib.colors import ListedColormap, BoundaryNorm
 
@@ -206,11 +246,15 @@ def get_p3_slope(p3_times, p3_vals):
 
 def main():
     """
+    Generate the Replan Central timeline plot.
     """
     import matplotlib.patches
     import matplotlib.pyplot as plt
     from Ska.Matplotlib import plot_cxctime
 
+    # TODO: refactor this into smaller functions where possible.
+
+    # Basic setup.  Set times and get input states, radmons, radzones and comms.
     now = DateTime('2012:249:00:35:00' if args.test else None)
     now = DateTime(now.date[:14] + ':00')  # truncate to 0 secs
     start = now - 1.0
@@ -222,12 +266,13 @@ def main():
     radzones = get_radzones(radmons)
     comms = get_comms()
 
+    # Get the ACIS ops fluence estimate and current 2hr avg flux
     fluence_date, fluence0 = get_fluence(ACIS_FLUENCE_FILE)
     if fluence_date.secs < now.secs:
         fluence_date = now
     avg_flux = get_avg_flux(ACE_RATES_FILE)
 
-    # def calc_fluence(times, fluence0, rates, states):
+    # Compute the predicted fluence based on the current 2hr average flux.
     fluence_times = np.arange(fluence_date.secs, stop.secs, args.dt)
     rates = np.ones_like(fluence_times) * avg_flux * args.dt
     fluence = calc_fluence(fluence_times, fluence0, rates, states)
@@ -262,8 +307,7 @@ def main():
     plot_cxctime(lx, ly, '-r', lw=3, label='HETG', fig=fig, ax=ax)
     plot_cxctime(lx, ly, '-c', lw=3, label='LETG', fig=fig, ax=ax)
 
-    # Make a z-valued curve where the z value corresponds to the
-    # grating state.
+    # Make a z-valued curve where the z value corresponds to the grating state.
     x = cxc2pd(fluence_times)
     y = fluence
     z = np.zeros(len(fluence_times), dtype=np.int)
@@ -278,19 +322,18 @@ def main():
 
     plot_multi_line(x, y, z, [0, 1, 2], ['k', 'r', 'c'], ax)
 
-    # # plot 10, 50, 90 percentiles of fluence
-    # def get_fluence_percentiles(p3_avg_now, p3_slope_now, p3_fits, p3_samps, fluences):
+    # Plot 10, 50, 90 percentiles of fluence
     p3_fits, p3_samps, fluences = cfd.get_fluences(
         os.path.join(args.data_dir, 'ACE_hourly_avg.npy'))
     p3_slope = get_p3_slope(p3_times, p3_vals)
-    hrs, fl10, fl50, fl90 = cfd.get_fluence_percentiles(avg_flux, p3_slope, p3_fits,
-                                                        p3_samps, fluences)
+    hrs, fl10, fl50, fl90 = cfd.get_fluence_percentiles(
+        avg_flux, p3_slope, p3_fits, p3_samps, fluences,
+        args.min_flux_samples, args.max_slope_samples)
     fluence_hours = (fluence_times - fluence_times[0]) / 3600.0
     for fl_y, linecolor in zip((fl10, fl50, fl90),
                                ('-g', '-b', '-r')):
         fl_y = Ska.Numpy.interpolate(fl_y, hrs, fluence_hours)
         rates = np.diff(fl_y)
-        # def calc_fluence(times, fluence0, rates, states):
         fl_y_atten = calc_fluence(fluence_times[:-1], fluence0, rates, states)
         zero_fluence_at_radzone(fluence_times[:-1], fl_y_atten, radzones)
         plt.plot(x0 + fluence_hours[:-1] / 24.0, fl_y_atten, linecolor)
@@ -424,6 +467,9 @@ def main():
 
 
 def get_si(simpos):
+    """
+    Get SI corresponding to the given SIM position.
+    """
     if ((simpos >= 82109) and (simpos <= 104839)):
         si = 'ACIS-I'
     elif ((simpos >= 70736) and (simpos <= 82108)):
@@ -442,6 +488,12 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
                       fluences, fluence_times,
                       p3s, p3_times,
                       hrcs, hrc_times):
+    """
+    Generate JSON data file that contains all the annotation values used in the
+    javascript-driven annotated plot on Replan Central.  This creates a data structure
+    with state values for each 10-minute time step along the X-axis of the plot.  All of
+    the hard work (formatting etc) is done here so the javascript is very simple.
+    """
     formats = {'ra': '{:10.4f}',
                'dec': '{:10.4f}',
                'roll': '{:10.4f}',
@@ -452,7 +504,7 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
     tstop = (stop + 1).secs
     tstart = DateTime(start.date[:8] + ':00:00:00').secs
     times = np.arange(tstart, tstop, 600)
-    pds = cxc2pd(times)
+    pds = cxc2pd(times)  # Convert from CXC time to plotdate times
 
     # Set up matplotlib transforms
     data_to_disp = ax.transData.transform
@@ -470,6 +522,8 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
     now_secs = now.secs
     state_names = ('obsid', 'simpos', 'pitch', 'ra', 'dec', 'roll',
                    'pcad_mode', 'si_mode', 'power_cmd', 'letg', 'hetg')
+
+    # Get all the state values that occur within the range of the plot
     disp_xy = data_to_disp([(pd, 0.0) for pd in pds])
     ax_xy = disp_to_ax(disp_xy)
     ok = (ax_xy[:, 0] > 0.0) & (ax_xy[:, 0] < 1.0)
@@ -477,6 +531,7 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
     pds = pds[ok]
     state_vals = interpolate_states(states, times)
 
+    # Set the current values
     p3_now = p3s[-1]
     hrc_now = hrcs[-1]
     fluence_now = fluences[0]
@@ -485,6 +540,8 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
     p3s = Ska.Numpy.interpolate(p3s, p3_times, times)
     hrcs = Ska.Numpy.interpolate(hrcs, hrc_times, times)
 
+    # Iterate through each time step and create corresponding data structure
+    # with pre-formatted values for display in the output table.
     for time, pd, state_val, fluence, p3, hrc in izip(times, pds, state_vals,
                                                       fluences, p3s, hrcs):
         out = {}
@@ -521,17 +578,24 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
                                            next_comm['station']['value'][4:6])
     data['track_activity'] = next_comm['activity']['value'][:14]
 
+    # Finally write this all out as a simple javascript program that defines a single
+    # variable ``data``.
     with open(fn, 'w') as f:
         f.write('var data = {}'.format(json.dumps(data)))
 
 
 def date_zulu(date):
+    """Format the current time in like 186/2234Z"""
     date = DateTime(date).date
     zulu = '{}/{}{}z'.format(date[5:8], date[9:11], date[12:14])
     return zulu
 
 
 def get_fmt_dt(t1, t0):
+    """
+    Format the delta time between ``t1`` and ``t0`` in a specific way for the
+    output table.
+    """
     t1 = DateTime(t1).secs
     t0 = DateTime(t0).secs
     dt = t1 - t0
