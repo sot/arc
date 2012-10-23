@@ -4,8 +4,6 @@ N_FUTURE = 48
 N_PAST = 6
 N_T = N_FUTURE + N_PAST
 N_SAMP = 6
-MIN_SAMPLES = 50
-MAX_SLOPE_NEAR = 100
 
 
 def get_fluences(filename='ACE_hourly_avg.npy'):
@@ -38,7 +36,8 @@ def get_fluences(filename='ACE_hourly_avg.npy'):
     return p_fits.T, p3_samps, fluences
 
 
-def get_fluence_percentiles(p3_avg_now, p3_slope_now, p3_fits, p3_samps, fluences):
+def get_fluence_percentiles(p3_avg_now, p3_slope_now, p3_fits, p3_samps, fluences,
+                            min_flux_samples, max_slope_samples):
     """
     Compute the 10%, 50%, and 90% fluence time histories within each P3 bin.
     """
@@ -47,12 +46,12 @@ def get_fluence_percentiles(p3_avg_now, p3_slope_now, p3_fits, p3_samps, fluence
     bin_wid = 0.1
     while True:
         ok = np.abs(np.log10(p3s) - np.log10(p3_avg_now)) < bin_wid
-        if np.sum(ok) > MIN_SAMPLES or bin_wid > 0.5:
+        if np.sum(ok) > min_flux_samples or bin_wid > 0.5:
             break
         bin_wid *= 1.4
 
     i_near = np.argsort(np.abs(p3_fits[ok, 0] - p3_slope_now))
-    i_near = i_near[:MAX_SLOPE_NEAR]
+    i_near = i_near[:max_slope_samples]
 
     p3_samps = p3_samps[ok][i_near]
     fluences = fluences[ok][i_near]
