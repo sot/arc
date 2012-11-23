@@ -54,7 +54,7 @@ parser.add_argument('--test',
                     help='Use test data')
 args = parser.parse_args()
 
-AXES_LOC = [0.05, 0.15, 0.85, 0.6]
+AXES_LOC = [0.08, 0.15, 0.83, 0.6]
 
 if args.test:
     ACIS_FLUENCE_FILE = os.path.join(args.data_dir, 'current.dat')
@@ -447,6 +447,7 @@ def main():
     ax2.set_xlim(0, 1)
     ax2.set_yscale('log')
     ax2.set_ylim(np.power(10.0, np.array([y0, y1]) * 2 + 1))
+    ax2.set_ylabel('ACE flux / HRC proxy')
 
     # Draw dummy lines off the plot for the legend
     lx = [0, 1]
@@ -462,7 +463,7 @@ def main():
                       fig, ax, states, start, stop, now,
                       next_comm,
                       fluence, fluence_times,
-                      p3_vals, p3_times,
+                      p3_vals, p3_times, avg_flux,
                       hrc_vals, hrc_times)
 
 
@@ -486,7 +487,7 @@ def get_si(simpos):
 def write_states_json(fn, fig, ax, states, start, stop, now,
                       next_comm,
                       fluences, fluence_times,
-                      p3s, p3_times,
+                      p3s, p3_times, p3_avg,
                       hrcs, hrc_times):
     """
     Generate JSON data file that contains all the annotation values used in the
@@ -569,6 +570,9 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
     data['states'] = outs
     data['now_idx'] = now_idx
     data['now_date'] = date_zulu(now)
+    data['p3_avg_now'] = '{:.0f}'.format(p3_avg)
+    data['p3_now'] = '{:.0f}'.format(p3_now)
+    data['hrc_now'] = '{:.0f}'.format(hrc_now)
 
     track = next_comm['track_local']['value']
     data['track_time'] = ('&nbsp;&nbsp;' + track[15:19] + track[:4]

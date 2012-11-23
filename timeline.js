@@ -92,4 +92,8 @@ function initTimeLineHandlers() {
     document.getElementById('tl_track_dt').innerHTML = data['track_dt']
     document.getElementById('tl_track_station').innerHTML = data['track_station']
     document.getElementById('tl_track_activity').innerHTML = data['track_activity']
+    document.getElementById('tl_p3_avg_now').innerHTML = data['p3_avg_now']
+    document.getElementById('tl_p3_now').innerHTML = data['p3_now']
+    document.getElementById('tl_hrc_now').innerHTML = data['hrc_now']
+
 }
