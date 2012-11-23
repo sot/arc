@@ -1,0 +1,1306 @@
+--- #YAML:1.0
+- activity:
+    label: Activity
+    value: TKG PASS
+  bot:
+    label: BOT
+    value: 0205
+  bot_date:
+    label: BOT date
+    value: 2012:246:02:05:00.000
+  bot_time:
+    label: BOT time
+    value: 1346551500
+  bot_year_day:
+    label: BOT year
+    value: 2012 246.087
+  eot:
+    label: EOT
+    value: 0305
+  eot_date:
+    label: EOT date
+    value: 2012:246:03:05:00.000
+  eot_time:
+    label: EOT time
+    value: 1346555100
+  eot_year_day:
+    label: EOT year
+    value: 2012 246.128
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 246/0105-0320
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 2205-2305 EDT, Sat  1 Sep
+- activity:
+    label: Activity
+    value: TKG PASS
+  bot:
+    label: BOT
+    value: 1215
+  bot_date:
+    label: BOT date
+    value: 2012:246:12:15:00.000
+  bot_time:
+    label: BOT time
+    value: 1346588100
+  bot_year_day:
+    label: BOT year
+    value: 2012 246.510
+  eot:
+    label: EOT
+    value: 1315
+  eot_date:
+    label: EOT date
+    value: 2012:246:13:15:00.000
+  eot_time:
+    label: EOT time
+    value: 1346591700
+  eot_year_day:
+    label: EOT year
+    value: 2012 246.552
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 246/1115-1330
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 0815-0915 EDT, Sun  2 Sep
+- activity:
+    label: Activity
+    value: TKG PASS
+  bot:
+    label: BOT
+    value: 0000
+  bot_date:
+    label: BOT date
+    value: 2012:247:00:00:02.000
+  bot_time:
+    label: BOT time
+    value: 1346630402
+  bot_year_day:
+    label: BOT year
+    value: 2012 247.000
+  eot:
+    label: EOT
+    value: 0055
+  eot_date:
+    label: EOT date
+    value: 2012:247:00:55:02.000
+  eot_time:
+    label: EOT time
+    value: 1346633702
+  eot_year_day:
+    label: EOT year
+    value: 2012 247.038
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 246/2300-0110
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 2000-2055 EDT, Sun  2 Sep
+- activity:
+    label: Activity
+    value: TKG PASS
+  bot:
+    label: BOT
+    value: 1305
+  bot_date:
+    label: BOT date
+    value: 2012:247:13:05:00.000
+  bot_time:
+    label: BOT time
+    value: 1346677500
+  bot_year_day:
+    label: BOT year
+    value: 2012 247.545
+  eot:
+    label: EOT
+    value: 1405
+  eot_date:
+    label: EOT date
+    value: 2012:247:14:05:00.000
+  eot_time:
+    label: EOT time
+    value: 1346681100
+  eot_year_day:
+    label: EOT year
+    value: 2012 247.587
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 247/1205-1420
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: A
+  station:
+    label: Station
+    value: DSS-24
+  track_local:
+    label: Track time (local)
+    value: 0905-1005 EDT, Mon  3 Sep
+- activity:
+    label: Activity
+    value: TKG PASS
+  bot:
+    label: BOT
+    value: 1845
+  bot_date:
+    label: BOT date
+    value: 2012:247:18:45:00.000
+  bot_time:
+    label: BOT time
+    value: 1346697900
+  bot_year_day:
+    label: BOT year
+    value: 2012 247.781
+  eot:
+    label: EOT
+    value: 1945
+  eot_date:
+    label: EOT date
+    value: 2012:247:19:45:00.000
+  eot_time:
+    label: EOT time
+    value: 1346701500
+  eot_year_day:
+    label: EOT year
+    value: 2012 247.823
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 247/1745-2000
+  site:
+    label: Site
+    value: MADRID
+  soe:
+    label: SOE
+    value: O
+  station:
+    label: Station
+    value: DSS-65
+  track_local:
+    label: Track time (local)
+    value: 1445-1545 EDT, Mon  3 Sep
+- activity:
+    label: Activity
+    value: ECLIPSE
+  bot:
+    label: BOT
+    value: 0120
+  bot_date:
+    label: BOT date
+    value: 2012:248:01:20:00.000
+  bot_time:
+    label: BOT time
+    value: 1346721600
+  bot_year_day:
+    label: BOT year
+    value: 2012 248.056
+  eot:
+    label: EOT
+    value: 0220
+  eot_date:
+    label: EOT date
+    value: 2012:248:02:20:00.000
+  eot_time:
+    label: EOT time
+    value: 1346725200
+  eot_year_day:
+    label: EOT year
+    value: 2012 248.097
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 248/0020-0235
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 2120-2220 EDT, Mon  3 Sep
+- activity:
+    label: Activity
+    value: TKG PASS NO RNG
+  bot:
+    label: BOT
+    value: 1130
+  bot_date:
+    label: BOT date
+    value: 2012:248:11:30:00.000
+  bot_time:
+    label: BOT time
+    value: 1346758200
+  bot_year_day:
+    label: BOT year
+    value: 2012 248.479
+  eot:
+    label: EOT
+    value: 1215
+  eot_date:
+    label: EOT date
+    value: 2012:248:12:15:00.000
+  eot_time:
+    label: EOT time
+    value: 1346760900
+  eot_year_day:
+    label: EOT year
+    value: 2012 248.510
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 248/1030-1230
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 0730-0815 EDT, Tue  4 Sep
+- activity:
+    label: Activity
+    value: TKG PASS
+  bot:
+    label: BOT
+    value: 1900
+  bot_date:
+    label: BOT date
+    value: 2012:248:19:00:00.000
+  bot_time:
+    label: BOT time
+    value: 1346785200
+  bot_year_day:
+    label: BOT year
+    value: 2012 248.792
+  eot:
+    label: EOT
+    value: 2000
+  eot_date:
+    label: EOT date
+    value: 2012:248:20:00:00.000
+  eot_time:
+    label: EOT time
+    value: 1346788800
+  eot_year_day:
+    label: EOT year
+    value: 2012 248.833
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 248/1800-2025
+  site:
+    label: Site
+    value: MADRID
+  soe:
+    label: SOE
+    value: A
+  station:
+    label: Station
+    value: DSS-54
+  track_local:
+    label: Track time (local)
+    value: 1500-1600 EDT, Tue  4 Sep
+- activity:
+    label: Activity
+    value: TKG PASS
+  bot:
+    label: BOT
+    value: 0400
+  bot_date:
+    label: BOT date
+    value: 2012:249:04:00:00.000
+  bot_time:
+    label: BOT time
+    value: 1346817600
+  bot_year_day:
+    label: BOT year
+    value: 2012 249.167
+  eot:
+    label: EOT
+    value: 0500
+  eot_date:
+    label: EOT date
+    value: 2012:249:05:00:00.000
+  eot_time:
+    label: EOT time
+    value: 1346821200
+  eot_year_day:
+    label: EOT year
+    value: 2012 249.208
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 249/0300-0515
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 0000-0100 EDT, Wed  5 Sep
+- activity:
+    label: Activity
+    value: TKG PASS
+  bot:
+    label: BOT
+    value: 1105
+  bot_date:
+    label: BOT date
+    value: 2012:249:11:05:00.000
+  bot_time:
+    label: BOT time
+    value: 1346843100
+  bot_year_day:
+    label: BOT year
+    value: 2012 249.462
+  eot:
+    label: EOT
+    value: 1205
+  eot_date:
+    label: EOT date
+    value: 2012:249:12:05:00.000
+  eot_time:
+    label: EOT time
+    value: 1346846700
+  eot_year_day:
+    label: EOT year
+    value: 2012 249.503
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 249/1005-1220
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 0705-0805 EDT, Wed  5 Sep
+- activity:
+    label: Activity
+    value: TKG PASS
+  bot:
+    label: BOT
+    value: 1805
+  bot_date:
+    label: BOT date
+    value: 2012:249:18:05:00.000
+  bot_time:
+    label: BOT time
+    value: 1346868300
+  bot_year_day:
+    label: BOT year
+    value: 2012 249.753
+  eot:
+    label: EOT
+    value: 1905
+  eot_date:
+    label: EOT date
+    value: 2012:249:19:05:00.000
+  eot_time:
+    label: EOT time
+    value: 1346871900
+  eot_year_day:
+    label: EOT year
+    value: 2012 249.795
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 249/1705-1920
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 1405-1505 EDT, Wed  5 Sep
+- activity:
+    label: Activity
+    value: TKG PASS
+  bot:
+    label: BOT
+    value: 0340
+  bot_date:
+    label: BOT date
+    value: 2012:250:03:40:00.000
+  bot_time:
+    label: BOT time
+    value: 1346902800
+  bot_year_day:
+    label: BOT year
+    value: 2012 250.153
+  eot:
+    label: EOT
+    value: 0440
+  eot_date:
+    label: EOT date
+    value: 2012:250:04:40:00.000
+  eot_time:
+    label: EOT time
+    value: 1346906400
+  eot_year_day:
+    label: EOT year
+    value: 2012 250.194
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 250/0240-0455
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 2340-0040 EDT, Wed  5 Sep
+- activity:
+    label: Activity
+    value: TKG PASS
+  bot:
+    label: BOT
+    value: 1125
+  bot_date:
+    label: BOT date
+    value: 2012:250:11:25:00.000
+  bot_time:
+    label: BOT time
+    value: 1346930700
+  bot_year_day:
+    label: BOT year
+    value: 2012 250.476
+  eot:
+    label: EOT
+    value: 1230
+  eot_date:
+    label: EOT date
+    value: 2012:250:12:30:00.000
+  eot_time:
+    label: EOT time
+    value: 1346934600
+  eot_year_day:
+    label: EOT year
+    value: 2012 250.521
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 250/1025-1245
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 0725-0830 EDT, Thu  6 Sep
+- activity:
+    label: Activity
+    value: ECLIPSE
+  bot:
+    label: BOT
+    value: 2040
+  bot_date:
+    label: BOT date
+    value: 2012:250:20:40:00.000
+  bot_time:
+    label: BOT time
+    value: 1346964000
+  bot_year_day:
+    label: BOT year
+    value: 2012 250.861
+  eot:
+    label: EOT
+    value: 2140
+  eot_date:
+    label: EOT date
+    value: 2012:250:21:40:00.000
+  eot_time:
+    label: EOT time
+    value: 1346967600
+  eot_year_day:
+    label: EOT year
+    value: 2012 250.903
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 250/1940-2155
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 1640-1740 EDT, Thu  6 Sep
+- activity:
+    label: Activity
+    value: TKG PASS
+  bot:
+    label: BOT
+    value: 0300
+  bot_date:
+    label: BOT date
+    value: 2012:251:03:00:00.000
+  bot_time:
+    label: BOT time
+    value: 1346986800
+  bot_year_day:
+    label: BOT year
+    value: 2012 251.125
+  eot:
+    label: EOT
+    value: 0400
+  eot_date:
+    label: EOT date
+    value: 2012:251:04:00:00.000
+  eot_time:
+    label: EOT time
+    value: 1346990400
+  eot_year_day:
+    label: EOT year
+    value: 2012 251.167
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 251/0200-0415
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 2300-0000 EDT, Thu  6 Sep
+- activity:
+    label: Activity
+    value: TKG PASS NO RNG
+  bot:
+    label: BOT
+    value: 1015
+  bot_date:
+    label: BOT date
+    value: 2012:251:10:15:00.000
+  bot_time:
+    label: BOT time
+    value: 1347012900
+  bot_year_day:
+    label: BOT year
+    value: 2012 251.427
+  eot:
+    label: EOT
+    value: 1100
+  eot_date:
+    label: EOT date
+    value: 2012:251:11:00:00.000
+  eot_time:
+    label: EOT time
+    value: 1347015600
+  eot_year_day:
+    label: EOT year
+    value: 2012 251.458
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 251/0915-1115
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 0615-0700 EDT, Fri  7 Sep
+- activity:
+    label: Activity
+    value: TKG PASS
+  bot:
+    label: BOT
+    value: 2105
+  bot_date:
+    label: BOT date
+    value: 2012:251:21:05:00.000
+  bot_time:
+    label: BOT time
+    value: 1347051900
+  bot_year_day:
+    label: BOT year
+    value: 2012 251.878
+  eot:
+    label: EOT
+    value: 2205
+  eot_date:
+    label: EOT date
+    value: 2012:251:22:05:00.000
+  eot_time:
+    label: EOT time
+    value: 1347055500
+  eot_year_day:
+    label: EOT year
+    value: 2012 251.920
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 251/2005-2230
+  site:
+    label: Site
+    value: MADRID
+  soe:
+    label: SOE
+    value: A
+  station:
+    label: Station
+    value: DSS-54
+  track_local:
+    label: Track time (local)
+    value: 1705-1805 EDT, Fri  7 Sep
+- activity:
+    label: Activity
+    value: UPL/PIT
+  bot:
+    label: BOT
+    value: 0156
+  bot_date:
+    label: BOT date
+    value: 2012:252:01:56:00.000
+  bot_time:
+    label: BOT time
+    value: 1347069360
+  bot_year_day:
+    label: BOT year
+    value: 2012 252.081
+  eot:
+    label: EOT
+    value: 0226
+  eot_date:
+    label: EOT date
+    value: 2012:252:02:26:00.000
+  eot_time:
+    label: EOT time
+    value: 1347071160
+  eot_year_day:
+    label: EOT year
+    value: 2012 252.101
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 252/0056-0241
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 2156-2226 EDT, Fri  7 Sep
+- activity:
+    label: Activity
+    value: TKG PASS
+  bot:
+    label: BOT
+    value: 0400
+  bot_date:
+    label: BOT date
+    value: 2012:252:04:00:00.000
+  bot_time:
+    label: BOT time
+    value: 1347076800
+  bot_year_day:
+    label: BOT year
+    value: 2012 252.167
+  eot:
+    label: EOT
+    value: 0500
+  eot_date:
+    label: EOT date
+    value: 2012:252:05:00:00.000
+  eot_time:
+    label: EOT time
+    value: 1347080400
+  eot_year_day:
+    label: EOT year
+    value: 2012 252.208
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 252/0300-0515
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 0000-0100 EDT, Sat  8 Sep
+- activity:
+    label: Activity
+    value: TKG PASS
+  bot:
+    label: BOT
+    value: 1100
+  bot_date:
+    label: BOT date
+    value: 2012:252:11:00:00.000
+  bot_time:
+    label: BOT time
+    value: 1347102000
+  bot_year_day:
+    label: BOT year
+    value: 2012 252.458
+  eot:
+    label: EOT
+    value: 1200
+  eot_date:
+    label: EOT date
+    value: 2012:252:12:00:00.000
+  eot_time:
+    label: EOT time
+    value: 1347105600
+  eot_year_day:
+    label: EOT year
+    value: 2012 252.500
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 252/1000-1215
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 0700-0800 EDT, Sat  8 Sep
+- activity:
+    label: Activity
+    value: ECLIPSE
+  bot:
+    label: BOT
+    value: 0002
+  bot_date:
+    label: BOT date
+    value: 2012:253:00:02:02.000
+  bot_time:
+    label: BOT time
+    value: 1347148922
+  bot_year_day:
+    label: BOT year
+    value: 2012 253.001
+  eot:
+    label: EOT
+    value: 0102
+  eot_date:
+    label: EOT date
+    value: 2012:253:01:02:02.000
+  eot_time:
+    label: EOT time
+    value: 1347152522
+  eot_year_day:
+    label: EOT year
+    value: 2012 253.043
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 252/2302-0117
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 2002-2102 EDT, Sat  8 Sep
+- activity:
+    label: Activity
+    value: UPL/PIT
+  bot:
+    label: BOT
+    value: 0217
+  bot_date:
+    label: BOT date
+    value: 2012:253:02:17:00.000
+  bot_time:
+    label: BOT time
+    value: 1347157020
+  bot_year_day:
+    label: BOT year
+    value: 2012 253.095
+  eot:
+    label: EOT
+    value: 0247
+  eot_date:
+    label: EOT date
+    value: 2012:253:02:47:00.000
+  eot_time:
+    label: EOT time
+    value: 1347158820
+  eot_year_day:
+    label: EOT year
+    value: 2012 253.116
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 253/0117-0302
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 2217-2247 EDT, Sat  8 Sep
+- activity:
+    label: Activity
+    value: ECLIPSE
+  bot:
+    label: BOT
+    value: 1440
+  bot_date:
+    label: BOT date
+    value: 2012:253:14:40:00.000
+  bot_time:
+    label: BOT time
+    value: 1347201600
+  bot_year_day:
+    label: BOT year
+    value: 2012 253.611
+  eot:
+    label: EOT
+    value: 1525
+  eot_date:
+    label: EOT date
+    value: 2012:253:15:25:00.000
+  eot_time:
+    label: EOT time
+    value: 1347204300
+  eot_year_day:
+    label: EOT year
+    value: 2012 253.642
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 253/1340-1540
+  site:
+    label: Site
+    value: CANBERRA
+  soe:
+    label: SOE
+    value: A
+  station:
+    label: Station
+    value: DSS-34
+  track_local:
+    label: Track time (local)
+    value: 1040-1125 EDT, Sun  9 Sep
+- activity:
+    label: Activity
+    value: TKG PASS
+  bot:
+    label: BOT
+    value: 2045
+  bot_date:
+    label: BOT date
+    value: 2012:253:20:45:00.000
+  bot_time:
+    label: BOT time
+    value: 1347223500
+  bot_year_day:
+    label: BOT year
+    value: 2012 253.865
+  eot:
+    label: EOT
+    value: 2145
+  eot_date:
+    label: EOT date
+    value: 2012:253:21:45:00.000
+  eot_time:
+    label: EOT time
+    value: 1347227100
+  eot_year_day:
+    label: EOT year
+    value: 2012 253.906
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 253/1945-2210
+  site:
+    label: Site
+    value: MADRID
+  soe:
+    label: SOE
+    value: A
+  station:
+    label: Station
+    value: DSS-54
+  track_local:
+    label: Track time (local)
+    value: 1645-1745 EDT, Sun  9 Sep
+- activity:
+    label: Activity
+    value: TKG PASS
+  bot:
+    label: BOT
+    value: 0345
+  bot_date:
+    label: BOT date
+    value: 2012:254:03:45:00.000
+  bot_time:
+    label: BOT time
+    value: 1347248700
+  bot_year_day:
+    label: BOT year
+    value: 2012 254.156
+  eot:
+    label: EOT
+    value: 0445
+  eot_date:
+    label: EOT date
+    value: 2012:254:04:45:00.000
+  eot_time:
+    label: EOT time
+    value: 1347252300
+  eot_year_day:
+    label: EOT year
+    value: 2012 254.198
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 254/0245-0500
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 2345-0045 EDT, Sun  9 Sep
+- activity:
+    label: Activity
+    value: SHORT TKG PASS
+  bot:
+    label: BOT
+    value: 1045
+  bot_date:
+    label: BOT date
+    value: 2012:254:10:45:00.000
+  bot_time:
+    label: BOT time
+    value: 1347273900
+  bot_year_day:
+    label: BOT year
+    value: 2012 254.448
+  eot:
+    label: EOT
+    value: 1130
+  eot_date:
+    label: EOT date
+    value: 2012:254:11:30:00.000
+  eot_time:
+    label: EOT time
+    value: 1347276600
+  eot_year_day:
+    label: EOT year
+    value: 2012 254.479
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 254/0945-1145
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 0645-0730 EDT, Mon 10 Sep
+- activity:
+    label: Activity
+    value: TKG PASS
+  bot:
+    label: BOT
+    value: 1950
+  bot_date:
+    label: BOT date
+    value: 2012:254:19:50:00.000
+  bot_time:
+    label: BOT time
+    value: 1347306600
+  bot_year_day:
+    label: BOT year
+    value: 2012 254.826
+  eot:
+    label: EOT
+    value: 2050
+  eot_date:
+    label: EOT date
+    value: 2012:254:20:50:00.000
+  eot_time:
+    label: EOT time
+    value: 1347310200
+  eot_year_day:
+    label: EOT year
+    value: 2012 254.868
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 254/1850-2105
+  site:
+    label: Site
+    value: MADRID
+  soe:
+    label: SOE
+    value: O
+  station:
+    label: Station
+    value: DSS-65
+  track_local:
+    label: Track time (local)
+    value: 1550-1650 EDT, Mon 10 Sep
+- activity:
+    label: Activity
+    value: TKG PASS
+  bot:
+    label: BOT
+    value: 0415
+  bot_date:
+    label: BOT date
+    value: 2012:255:04:15:00.000
+  bot_time:
+    label: BOT time
+    value: 1347336900
+  bot_year_day:
+    label: BOT year
+    value: 2012 255.177
+  eot:
+    label: EOT
+    value: 0515
+  eot_date:
+    label: EOT date
+    value: 2012:255:05:15:00.000
+  eot_time:
+    label: EOT time
+    value: 1347340500
+  eot_year_day:
+    label: EOT year
+    value: 2012 255.219
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 255/0315-0530
+  site:
+    label: Site
+    value: GOLDSTONE
+  soe:
+    label: SOE
+    value: I
+  station:
+    label: Station
+    value: DSS-27
+  track_local:
+    label: Track time (local)
+    value: 0015-0115 EDT, Tue 11 Sep
+- activity:
+    label: Activity
+    value: TKG PASS NO RNG
+  bot:
+    label: BOT
+    value: 1535
+  bot_date:
+    label: BOT date
+    value: 2012:255:15:35:00.000
+  bot_time:
+    label: BOT time
+    value: 1347377700
+  bot_year_day:
+    label: BOT year
+    value: 2012 255.649
+  eot:
+    label: EOT
+    value: 1620
+  eot_date:
+    label: EOT date
+    value: 2012:255:16:20:00.000
+  eot_time:
+    label: EOT time
+    value: 1347380400
+  eot_year_day:
+    label: EOT year
+    value: 2012 255.681
+  lga:
+    label: LGA
+    value: ''
+  sched_support_time:
+    label: Support (GMT)
+    value: 255/1450-1635
+  site:
+    label: Site
+    value: MADRID
+  soe:
+    label: SOE
+    value: R
+  station:
+    label: Station
+    value: DSS-65
+  track_local:
+    label: Track time (local)
+    value: 1135-1220 EDT, Tue 11 Sep

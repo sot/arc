@@ -4,15 +4,19 @@ TASK = arc
 FLIGHT_ENV = SKA
 
 # Set the names of all files that get installed
-BIN = get_iFOT_events.pl get_web_content.pl arc.pl 
-SHARE = Event.pm Snap.pm parse_cm_file.pl arc_time_machine.pl get_hrc.py plot_hrc.py get_ace.py
+BIN = get_iFOT_events.pl get_web_content.pl arc.pl
+SHARE = Event.pm Snap.pm parse_cm_file.pl arc_time_machine.pl \
+        get_hrc.py plot_hrc.py get_ace.py \
+	make_timeline.py lineid_plot.py calc_fluence_dist.py
 DATA = iFOT_queries.cfg arc*.cfg web_content.cfg \
 	title_image.png \
 	blue_paper.gif \
 	blue_paper_test.gif \
 	alert_limits.html \
-	task_schedule.cfg
-DOC = 
+	task_schedule.cfg \
+	timeline.js timeline.css vert_line.gif \
+	ACE_hourly_avg.npy
+DOC =
 
 include /proj/sot/ska/include/Makefile.FLIGHT
 
@@ -26,7 +30,7 @@ TEST_DEP = data/arc/
 # likely this means using /proj/sot/ska/dev the test SKA root.  This has been
 # set up with a link from:
 #   /proj/sot/ska/dev/www/ASPECT/arc -> /proj/sot/ska/www/ASPECT/arc/dev
-# This way the test version goes live to 
+# This way the test version goes live to
 #   http://cxc.harvard.edu/mta/ASPECT/arc/dev/
 
 test: test_now
@@ -36,6 +40,10 @@ test_now: t_now check_install $(BIN) install $(TEST_DEP)
 	$(INSTALL_BIN)/get_web_content.pl
 	$(INSTALL_BIN)/arc.pl -config arc:arc_test
 	$(INSTALL_BIN)/arc.pl -config arc:arc_ops
+
+test_timeline: t_now check_install $(BIN) install $(TEST_DEP)
+	$(INSTALL_SHARE)/make_timeline.py --data-dir=$(INSTALL_DATA)/
+	$(INSTALL_BIN)/arc.pl -config arc:arc_test
 
 test_ace: t_now check_install $(BIN) install $(TEST_DEP)
 	$(INSTALL_SHARE)/get_ace.py --h5=$(INSTALL_DATA)/ACE.h5
@@ -102,4 +110,3 @@ install:
 
 clean:
 	rm -rf bin data
-
