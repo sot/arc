@@ -34,6 +34,7 @@ else:
 
 colnames = ('year month dom  hhmm  mjd secs '
             'destat de1 de4 pstat p1 p3 p5 p6 p7 anis_idx').split()
+data_colnames = ('destat de1 de4 pstat p1 p3 p5 p6 p7').split()
 
 try:
     dat = asciitable.read(urldat, guess=False, Reader=asciitable.NoHeader,
@@ -42,6 +43,11 @@ except Exception as err:
     print('Warning: malformed ACE data so table read failed: {}'
           .format(err))
     sys.exit(0)
+
+# Strip up to two rows at the end if any values are bad (i.e. negative)
+for _ in range(2):
+    if any(dat[name][-1] < 0 for name in data_colnames):
+        dat = dat[:-1]
 
 mjd = dat['mjd'] + dat['secs'] / 86400.
 

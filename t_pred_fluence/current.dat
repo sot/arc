@@ -1,0 +1,21 @@
+
+TABLE 1: ACE DATA WHEN CXO IS GREATER THAN 70k KM
+
+Latest valid ACE flux and fluence data...
+# UT Date   Time  Julian  of the  --- Electron keV ---   -------------------- Protons keV ------------------  Anis.
+# YR MO DA  HHMM    Day    Secs        38-53   175-315      56-78    112-187   337-594   761-1220 1073-1802  Index
+#-----------------------------------------------------------------------------------------------------------------
+2012  9  5    35  56175    2100     2.06e+04  1.30e+02   1.18e+04   4.15e+03  1.17e+03   6.06e+02  1.96e+02   -1.00
+ACE Fluence data...Start DOY,SOD
+2012  9  5    43    248   38580     1.52e+09  7.92e+06   1.29e+09   4.50e+08  1.14e+08   5.58e+07  1.79e+07
+
+
+TABLE 2: ACIS FLUX AND FLUENCE BASED ON ACE DATA
+
+Latest valid ACIS flux and fluence data...                                   131378 km A  ACIS-S: HETG-IN:LETG-OUT
+# UT Date   Time  Julian  of the  --- Electron keV ---   -------------------- Protons keV ------------------  Anis.
+# YR MO DA  HHMM    Day    Secs        38-53   175-315      56-78    112-187   337-594   761-1220 1073-1802  Index
+#-----------------------------------------------------------------------------------------------------------------
+2012  9  5    35  56175    2100     4.12e+03  2.60e+01   2.36e+03   8.30e+02  2.34e+02   1.21e+02  3.92e+01   -1.00
+ACIS Fluence data...Start DOY,SOD
+2012  9  5    43    248   38580     2.61e+08  1.40e+06   2.22e+08   7.65e+08  1.95e+07   9.63e+06  3.11e+06

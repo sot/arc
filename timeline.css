@@ -1,0 +1,64 @@
+body {
+	background-color: #FFF;
+}
+
+#lEye, #rEye {
+	position: absolute;
+	top: 100px;
+}
+
+
+#vertLine {
+	position: absolute;
+	top: 200px;
+        left: 0px;
+        visibility: hidden;
+}
+
+#lDot, #rDot {
+	position: absolute;
+	top: 113px;
+	width: 4px;
+	height: 4px;
+}
+
+table.twoUp {
+    border: 0;
+    cellspacing: 0;
+    cellpadding: 2;
+    rules: none;
+    align: center;
+}
+
+td.twoUp {
+    vertical-align: top;
+}
+
+td.left {
+    padding-left: 0cm;
+    padding-right: 0.1cm;
+    text-align: left;
+}
+
+td.right {
+    padding-left: 0cm;
+    padding-right: 0.1cm;
+    text-align: right;
+    font-family: courier;
+}
+
+#lEye {
+	left: 100px;
+}
+
+#rEye {
+	left: 150px;
+}
+
+#lDot {
+	left: 118px;
+}
+
+#rDot {
+	left: 153px;
+}
