@@ -52,9 +52,12 @@ parser.add_argument('--min-flux-samples',
 parser.add_argument('--test',
                     action='store_true',
                     help='Use test data')
+parser.add_argument('--test-scenario',
+                    type=int,
+                    help='Name of a scenario for testing missing P3 data')
 args = parser.parse_args()
 
-P3_BAD = 0.1
+P3_BAD = -100000
 AXES_LOC = [0.08, 0.15, 0.83, 0.6]
 
 if args.test:
@@ -190,14 +193,66 @@ def get_ace_p3(tstart, tstop):
     h5 = tables.openFile(ACE_H5_FILE)
     times = h5.root.data.col('time')
     p3 = h5.root.data.col('p3')
-    ok = (tstart < times) & (times < tstop) & (p3 > 0)
+    ok = (tstart < times) & (times < tstop)
     h5.close()
-    if np.sum(ok) > 4:
-        p3_times, p3_vals = times[ok], p3[ok]
-    else:
-        p3_times = np.linspace(tstart, tstop, 8)
-        p3_vals = np.ones(8) * P3_BAD
-    return p3_times, p3_vals
+    return times[ok], p3[ok]
+
+
+def get_test_vals(scenario, p3_times, p3s, p3_avg, p3_fluence):
+    if scenario == 1:
+        # ACE unavailable for the last 8 hours.  No P3 avg from MTA.
+        print('Running test scenario 1')
+        p3s[:] = 100.0
+        bad = p3_times[-1] - p3_times < 3600 * 8
+        p3s[bad] = P3_BAD
+        p3_avg = P3_BAD
+        p3_fluence = 0.3e9
+    elif scenario == 2:
+        # ACE data flow resumes but MTA does not report an average
+        # value.  Expect ACE fluence to show as red because no P3 avg
+        # is available for fluence calculation.
+        print('Running test scenario 2')
+        p3s[:] = 5000
+        dt = (p3_times[-1] - p3_times) / 3600.0
+        bad = (dt < 8) & (dt > 2.5)
+        p3s[bad] = P3_BAD
+        p3_avg = P3_BAD
+        p3_fluence = 0.3e9
+    elif scenario == 3:
+        # ACE data flow resumes and MTA reports an average value
+        # and there is now enough data for a slope and fluence quantiles
+        print('Running test scenario 3')
+        p3s[:] = 5000
+        dt = (p3_times[-1] - p3_times) / 3600.0
+        bad = (dt < 8) & (dt > 2.5)
+        p3_avg = 5000
+        p3s[bad] = P3_BAD
+        p3_fluence = 0.0e9
+    elif scenario == 4:
+        # ACE data flow resumes and MTA reports an average value,
+        # but not enough data for a slope and fluence quantiles
+        print('Running test scenario 4')
+        p3s[:] = 5000
+        dt = (p3_times[-1] - p3_times) / 3600.0
+        bad = (dt < 8) & (dt > 0.5)
+        p3_avg = 5000
+        p3s[bad] = P3_BAD
+        p3_fluence = 0.0e9
+    elif scenario == 5:
+        # ACE completely unavailable during period.  No P3 avg from MTA.
+        print('Running test scenario 5')
+        p3s[:] = P3_BAD
+        p3_avg = P3_BAD
+        p3_fluence = 0.3e9
+    elif scenario == 6:
+        # Random ACE outages
+        print('Running test scenario 6')
+        bad = np.random.uniform(size=len(p3s)) < 0.05
+        p3s[:] = 1000.0
+        p3s[bad] = P3_BAD
+        p3_avg = 1000.0
+        p3_fluence = 0.3e9
+    return p3s, p3_avg, p3_fluence
 
 
 def get_hrc(tstart, tstop):
@@ -246,9 +301,13 @@ def get_p3_slope(p3_times, p3_vals):
     Compute the slope (log10(p3) per hour) of the last 6 hours of ACE P3 values.
     """
     ok = (p3_times[-1] - p3_times) < 6 * 3600  # Points within 6 hrs of last available data
-    x = (p3_times[ok] - p3_times[-1]) / 3600
-    y = np.log10(p3_vals[ok])
-    slope = np.polyfit(x, y, 1)[0]
+    ok = ok & (p3_vals > 0)  # Good P3 values
+    slope = None
+    if np.sum(ok) > 4:
+        x = (p3_times[ok] - p3_times[-1]) / 3600
+        if x[-1] - x[0] > 2:
+            y = np.log10(p3_vals[ok])
+            slope = np.polyfit(x, y, 1)[0]
 
     return slope
 
@@ -281,15 +340,20 @@ def main():
         fluence_date = now
     avg_flux = get_avg_flux(ACE_RATES_FILE)
 
-    # Compute the predicted fluence based on the current 2hr average flux.
-    fluence_times = np.arange(fluence_date.secs, stop.secs, args.dt)
-    rates = np.ones_like(fluence_times) * avg_flux * args.dt
-    fluence = calc_fluence(fluence_times, fluence0, rates, states)
-    zero_fluence_at_radzone(fluence_times, fluence, radzones)
-
     # Get the realtime ACE P3 and HRC proxy values over the time range
     p3_times, p3_vals = get_ace_p3(start.secs, now.secs)
     hrc_times, hrc_vals = get_hrc(start.secs, now.secs)
+
+    # For testing: inject predefined values for different scenarios
+    if args.test_scenario:
+        p3_vals, avg_flux, fluence0 = get_test_vals(
+            args.test_scenario, p3_times, p3_vals, avg_flux, fluence0)
+
+    # Compute the predicted fluence based on the current 2hr average flux.
+    fluence_times = np.arange(fluence_date.secs, stop.secs, args.dt)
+    rates = np.ones_like(fluence_times) * max(avg_flux, 0.0) * args.dt
+    fluence = calc_fluence(fluence_times, fluence0, rates, states)
+    zero_fluence_at_radzone(fluence_times, fluence, radzones)
 
     # Initialize the main plot figure
     plt.rc('legend', fontsize=10)
@@ -331,11 +395,11 @@ def main():
 
     plot_multi_line(x, y, z, [0, 1, 2], ['k', 'r', 'c'], ax)
 
-    if avg_flux != P3_BAD:
-        # Plot 10, 50, 90 percentiles of fluence
+    # Plot 10, 50, 90 percentiles of fluence
+    p3_slope = get_p3_slope(p3_times, p3_vals)
+    if p3_slope is not None and avg_flux > 0:
         p3_fits, p3_samps, fluences = cfd.get_fluences(
             os.path.join(args.data_dir, 'ACE_hourly_avg.npy'))
-        p3_slope = get_p3_slope(p3_times, p3_vals)
         hrs, fl10, fl50, fl90 = cfd.get_fluence_percentiles(
             avg_flux, p3_slope, p3_fits, p3_samps, fluences,
             args.min_flux_samples, args.max_slope_samples)
@@ -420,16 +484,15 @@ def main():
                               label1_size=10)
 
     # Plot observed ACE P3 rates and limits
-    if len(p3_times) > 0:
-        lp3 = log_scale(p3_vals)
-        pd = cxc2pd(p3_times)
-        ox = cxc2pd([start.secs, now.secs])
-        oy1 = log_scale(12000.)
-        plt.plot(ox, [oy1, oy1], '--b', lw=2)
-        oy1 = log_scale(55000.)
-        plt.plot(ox, [oy1, oy1], '--r', lw=2)
-        plt.plot(pd, lp3, '-k', alpha=0.3, lw=3)
-        plt.plot(pd, lp3, '.k', mec='k', ms=3)
+    lp3 = log_scale(p3_vals)
+    pd = cxc2pd(p3_times)
+    ox = cxc2pd([start.secs, now.secs])
+    oy1 = log_scale(12000.)
+    plt.plot(ox, [oy1, oy1], '--b', lw=2)
+    oy1 = log_scale(55000.)
+    plt.plot(ox, [oy1, oy1], '--r', lw=2)
+    plt.plot(pd, lp3, '-k', alpha=0.3, lw=3)
+    plt.plot(pd, lp3, '.k', mec='k', ms=3)
 
     # Plot observed HRC shield proxy rates and limits
     pd = cxc2pd(hrc_times)
@@ -572,18 +635,18 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
         if time < now_secs:
             now_idx += 1
             out['fluence'] = '{:.2f}e9'.format(fluence_now)
-            out['p3'] = '{:.0f}'.format(p3) if p3 > 1 else NOT_AVAIL
+            out['p3'] = '{:.0f}'.format(p3) if p3 > 0 else NOT_AVAIL
             out['hrc'] = '{:.0f}'.format(hrc)
         else:
             out['fluence'] = '{:.2f}e9'.format(fluence)
-            out['p3'] = '{:.0f}'.format(p3_now) if p3_now > 1 else NOT_AVAIL
+            out['p3'] = '{:.0f}'.format(p3_now) if p3_now > 0 else NOT_AVAIL
             out['hrc'] = '{:.0f}'.format(hrc_now)
         outs.append(out)
     data['states'] = outs
     data['now_idx'] = now_idx
     data['now_date'] = date_zulu(now)
-    data['p3_avg_now'] = '{:.0f}'.format(p3_avg) if p3_avg > 1 else NOT_AVAIL
-    data['p3_now'] = '{:.0f}'.format(p3_now) if p3_now > 1 else NOT_AVAIL
+    data['p3_avg_now'] = '{:.0f}'.format(p3_avg) if p3_avg > 0 else NOT_AVAIL
+    data['p3_now'] = '{:.0f}'.format(p3_now) if p3_now > 0 else NOT_AVAIL
     data['hrc_now'] = '{:.0f}'.format(hrc_now)
 
     track = next_comm['track_local']['value']
@@ -625,6 +688,10 @@ def get_fmt_dt(t1, t0):
 
 
 def log_scale(y):
+    if isinstance(y, np.ndarray):
+        bad = y < 0
+        y = y.copy()
+        y[bad] = 1e-10
     return (np.log10(y) - 1.0) / 2.0
 
 if __name__ == '__main__':
