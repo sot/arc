@@ -54,6 +54,7 @@ parser.add_argument('--test',
                     help='Use test data')
 args = parser.parse_args()
 
+P3_BAD = 0.1
 AXES_LOC = [0.08, 0.15, 0.83, 0.6]
 
 if args.test:
@@ -109,9 +110,11 @@ def get_avg_flux(filename):
     lines = [line for line in open(filename, 'r')
              if line.startswith('AVERAGE   ')]
     if len(lines) != 1:
-        raise ValueError('{} file contains {} lines that start with '
-                         'AVERAGE (expect one)'.format(ACE_RATES_FILE, len(lines)))
-    p3_avg_flux = float(lines[0].split()[4])
+        print('WARNING: {} file contains {} lines that start with '
+              'AVERAGE (expect one)'.format(ACE_RATES_FILE, len(lines)))
+        p3_avg_flux = P3_BAD
+    else:
+        p3_avg_flux = float(lines[0].split()[4])
     return p3_avg_flux
 
 
@@ -189,7 +192,12 @@ def get_ace_p3(tstart, tstop):
     p3 = h5.root.data.col('p3')
     ok = (tstart < times) & (times < tstop) & (p3 > 0)
     h5.close()
-    return times[ok], p3[ok]
+    if np.sum(ok) > 4:
+        p3_times, p3_vals = times[ok], p3[ok]
+    else:
+        p3_times = np.linspace(tstart, tstop, 8)
+        p3_vals = np.ones(8) * P3_BAD
+    return p3_times, p3_vals
 
 
 def get_hrc(tstart, tstop):
@@ -240,8 +248,9 @@ def get_p3_slope(p3_times, p3_vals):
     ok = (p3_times[-1] - p3_times) < 6 * 3600  # Points within 6 hrs of last available data
     x = (p3_times[ok] - p3_times[-1]) / 3600
     y = np.log10(p3_vals[ok])
-    r = np.polyfit(x, y, 1)
-    return r[0]
+    slope = np.polyfit(x, y, 1)[0]
+
+    return slope
 
 
 def main():
@@ -322,21 +331,22 @@ def main():
 
     plot_multi_line(x, y, z, [0, 1, 2], ['k', 'r', 'c'], ax)
 
-    # Plot 10, 50, 90 percentiles of fluence
-    p3_fits, p3_samps, fluences = cfd.get_fluences(
-        os.path.join(args.data_dir, 'ACE_hourly_avg.npy'))
-    p3_slope = get_p3_slope(p3_times, p3_vals)
-    hrs, fl10, fl50, fl90 = cfd.get_fluence_percentiles(
-        avg_flux, p3_slope, p3_fits, p3_samps, fluences,
-        args.min_flux_samples, args.max_slope_samples)
-    fluence_hours = (fluence_times - fluence_times[0]) / 3600.0
-    for fl_y, linecolor in zip((fl10, fl50, fl90),
-                               ('-g', '-b', '-r')):
-        fl_y = Ska.Numpy.interpolate(fl_y, hrs, fluence_hours)
-        rates = np.diff(fl_y)
-        fl_y_atten = calc_fluence(fluence_times[:-1], fluence0, rates, states)
-        zero_fluence_at_radzone(fluence_times[:-1], fl_y_atten, radzones)
-        plt.plot(x0 + fluence_hours[:-1] / 24.0, fl_y_atten, linecolor)
+    if avg_flux != P3_BAD:
+        # Plot 10, 50, 90 percentiles of fluence
+        p3_fits, p3_samps, fluences = cfd.get_fluences(
+            os.path.join(args.data_dir, 'ACE_hourly_avg.npy'))
+        p3_slope = get_p3_slope(p3_times, p3_vals)
+        hrs, fl10, fl50, fl90 = cfd.get_fluence_percentiles(
+            avg_flux, p3_slope, p3_fits, p3_samps, fluences,
+            args.min_flux_samples, args.max_slope_samples)
+        fluence_hours = (fluence_times - fluence_times[0]) / 3600.0
+        for fl_y, linecolor in zip((fl10, fl50, fl90),
+                                   ('-g', '-b', '-r')):
+            fl_y = Ska.Numpy.interpolate(fl_y, hrs, fluence_hours)
+            rates = np.diff(fl_y)
+            fl_y_atten = calc_fluence(fluence_times[:-1], fluence0, rates, states)
+            zero_fluence_at_radzone(fluence_times[:-1], fl_y_atten, radzones)
+            plt.plot(x0 + fluence_hours[:-1] / 24.0, fl_y_atten, linecolor)
 
     # Set x and y axis limits
     x0, x1 = cxc2pd([start.secs, stop.secs])
@@ -410,15 +420,16 @@ def main():
                               label1_size=10)
 
     # Plot observed ACE P3 rates and limits
-    lp3 = log_scale(p3_vals)
-    pd = cxc2pd(p3_times)
-    ox = cxc2pd([start.secs, now.secs])
-    oy1 = log_scale(12000.)
-    plt.plot(ox, [oy1, oy1], '--b', lw=2)
-    oy1 = log_scale(55000.)
-    plt.plot(ox, [oy1, oy1], '--r', lw=2)
-    plt.plot(pd, lp3, '-k', alpha=0.3, lw=3)
-    plt.plot(pd, lp3, '.k', mec='k', ms=3)
+    if len(p3_times) > 0:
+        lp3 = log_scale(p3_vals)
+        pd = cxc2pd(p3_times)
+        ox = cxc2pd([start.secs, now.secs])
+        oy1 = log_scale(12000.)
+        plt.plot(ox, [oy1, oy1], '--b', lw=2)
+        oy1 = log_scale(55000.)
+        plt.plot(ox, [oy1, oy1], '--r', lw=2)
+        plt.plot(pd, lp3, '-k', alpha=0.3, lw=3)
+        plt.plot(pd, lp3, '.k', mec='k', ms=3)
 
     # Plot observed HRC shield proxy rates and limits
     pd = cxc2pd(hrc_times)
@@ -543,6 +554,7 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
 
     # Iterate through each time step and create corresponding data structure
     # with pre-formatted values for display in the output table.
+    NOT_AVAIL = 'N/A'
     for time, pd, state_val, fluence, p3, hrc in izip(times, pds, state_vals,
                                                       fluences, p3s, hrcs):
         out = {}
@@ -560,18 +572,18 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
         if time < now_secs:
             now_idx += 1
             out['fluence'] = '{:.2f}e9'.format(fluence_now)
-            out['p3'] = '{:.0f}'.format(p3)
+            out['p3'] = '{:.0f}'.format(p3) if p3 > 1 else NOT_AVAIL
             out['hrc'] = '{:.0f}'.format(hrc)
         else:
             out['fluence'] = '{:.2f}e9'.format(fluence)
-            out['p3'] = '{:.0f}'.format(p3_now)
+            out['p3'] = '{:.0f}'.format(p3_now) if p3_now > 1 else NOT_AVAIL
             out['hrc'] = '{:.0f}'.format(hrc_now)
         outs.append(out)
     data['states'] = outs
     data['now_idx'] = now_idx
     data['now_date'] = date_zulu(now)
-    data['p3_avg_now'] = '{:.0f}'.format(p3_avg)
-    data['p3_now'] = '{:.0f}'.format(p3_now)
+    data['p3_avg_now'] = '{:.0f}'.format(p3_avg) if p3_avg > 1 else NOT_AVAIL
+    data['p3_now'] = '{:.0f}'.format(p3_now) if p3_now > 1 else NOT_AVAIL
     data['hrc_now'] = '{:.0f}'.format(hrc_now)
 
     track = next_comm['track_local']['value']

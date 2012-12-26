@@ -22,13 +22,20 @@ function getXY(e) {
     return [posx, posy]
 }
 
+function setNAToRed(val) {
+    if (val == 'N/A') {
+        val = '<span style="font-weight:bold;color:red">N/A</span>'
+    }
+    return val
+}
+
 function setStateTable(idx) {
     var state = data.states[idx]
     var keys = ['date', 'now_dt', 'simpos', 'pitch', 'ra', 'dec', 'roll',
                 'pcad_mode', 'si_mode', 'power_cmd', 'ccd_fep', 'vid_clock',
                 'fluence', 'p3', 'hrc'];
     for (var i=0; i<keys.length; i++) {
-        document.getElementById('tl_' + keys[i]).innerHTML = state[keys[i]];
+        document.getElementById('tl_' + keys[i]).innerHTML = setNAToRed(state[keys[i]]);
     }
 
     document.getElementById('tl_obsid').innerHTML =
