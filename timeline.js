@@ -22,13 +22,28 @@ function getXY(e) {
     return [posx, posy]
 }
 
+function spanColor(val, color) {
+    return '<span style="font-weight:bold;color:' + color + '">' + val + '</span>'
+}
+
+function setNAToRed(val) {
+    if (val == 'N/A') {
+        val = spanColor(val, 'red')
+    }
+    return val
+}
+
 function setStateTable(idx) {
     var state = data.states[idx]
     var keys = ['date', 'now_dt', 'simpos', 'pitch', 'ra', 'dec', 'roll',
                 'pcad_mode', 'si_mode', 'power_cmd', 'ccd_fep', 'vid_clock',
                 'fluence', 'p3', 'hrc'];
     for (var i=0; i<keys.length; i++) {
-        document.getElementById('tl_' + keys[i]).innerHTML = state[keys[i]];
+        document.getElementById('tl_' + keys[i]).innerHTML = setNAToRed(state[keys[i]]);
+    }
+
+    if (data['p3_avg_now'] == 'N/A') {
+        document.getElementById('tl_fluence').innerHTML = spanColor(state['fluence'], 'red')
     }
 
     document.getElementById('tl_obsid').innerHTML =
@@ -41,9 +56,7 @@ function setStateTable(idx) {
     } else {
         var color = 'red'
     }
-    document.getElementById('tl_si').innerHTML =
-        '<span style="font-weight:bold; color:' + color + ';">' + state['si'] + '</span>'
-    //document.getElementById('tl_si').innerHTML = '<font weight="bold" color="' + color + '">' + state['si'] + '</font>'
+    document.getElementById('tl_si').innerHTML = spanColor(state['si'], color)
 
     if (state['hetg'] == 'INSR') {
         var grating = 'HETG';
@@ -86,14 +99,14 @@ function initTimeLineHandlers() {
         document.onmousemove = null;
     }
     now_idx = data['now_idx']
-    setStateTable(now_idx);
+    setStateTable(now_idx, data);
     document.getElementById('tl_now').innerHTML = data['now_date']
     document.getElementById('tl_track_time').innerHTML = data['track_time']
     document.getElementById('tl_track_dt').innerHTML = data['track_dt']
     document.getElementById('tl_track_station').innerHTML = data['track_station']
     document.getElementById('tl_track_activity').innerHTML = data['track_activity']
-    document.getElementById('tl_p3_avg_now').innerHTML = data['p3_avg_now']
-    document.getElementById('tl_p3_now').innerHTML = data['p3_now']
+    document.getElementById('tl_p3_avg_now').innerHTML = setNAToRed(data['p3_avg_now'])
+    document.getElementById('tl_p3_now').innerHTML = setNAToRed(data['p3_now'])
     document.getElementById('tl_hrc_now').innerHTML = data['hrc_now']
 
 }
