@@ -71,6 +71,7 @@ else:
     DSN_COMMS_FILE = '/proj/sot/ska/data/dsn_summary/dsn_summary.yaml'
     RADMON_FILE = '/proj/sot/ska/data/arc/iFOT_events/radmon/*.rdb'
 
+GOES_X_H5_FILE = os.path.join(args.data_dir, 'GOES_X.h5')
 ACE_H5_FILE = os.path.join(args.data_dir, 'ACE.h5')
 HRC_H5_FILE = os.path.join(args.data_dir, 'hrc_shield.h5')
 
@@ -193,6 +194,18 @@ def get_ace_p3(tstart, tstop):
     h5 = tables.openFile(ACE_H5_FILE)
     times = h5.root.data.col('time')
     p3 = h5.root.data.col('p3')
+    ok = (tstart < times) & (times < tstop)
+    h5.close()
+    return times[ok], p3[ok]
+
+
+def get_goes_x(tstart, tstop):
+    """
+    Get the historical ACE P3 rates and filter out bad values.
+    """
+    h5 = tables.openFile(GOES_X_H5_FILE)
+    times = h5.root.data.col('time')
+    p3 = h5.root.data.col('long')
     ok = (tstart < times) & (times < tstop)
     h5.close()
     return times[ok], p3[ok]
@@ -341,6 +354,7 @@ def main():
     avg_flux = get_avg_flux(ACE_RATES_FILE)
 
     # Get the realtime ACE P3 and HRC proxy values over the time range
+    goes_x_times, goes_x_vals = get_goes_x(start.secs, now.secs)
     p3_times, p3_vals = get_ace_p3(start.secs, now.secs)
     hrc_times, hrc_vals = get_hrc(start.secs, now.secs)
 
@@ -483,6 +497,12 @@ def main():
                               box_axes_space=0.14,
                               label1_size=10)
 
+    # Plot observed GOES X-ray rates and limits
+    pd = cxc2pd(goes_x_times)
+    lgoesx = log_scale(goes_x_vals * 1e8)
+    plt.plot(pd, lgoesx, '-m', alpha=0.3, lw=1.5)
+    plt.plot(pd, lgoesx, '.m', mec='m', ms=3)
+
     # Plot observed ACE P3 rates and limits
     lp3 = log_scale(p3_vals)
     pd = cxc2pd(p3_times)
@@ -521,13 +541,16 @@ def main():
     ax2.set_xlim(0, 1)
     ax2.set_yscale('log')
     ax2.set_ylim(np.power(10.0, np.array([y0, y1]) * 2 + 1))
-    ax2.set_ylabel('ACE flux / HRC proxy')
+    ax2.set_ylabel('ACE flux / HRC proxy / GOES X-ray')
+    ax2.text(-0.015, 2.5e3, 'M', ha='right', color='m', weight='demibold')
+    ax2.text(-0.015, 2.5e4, 'X', ha='right', color='m', weight='semibold')
 
     # Draw dummy lines off the plot for the legend
     lx = [0, 1]
     ly = [1, 1]
     ax2.plot(lx, ly, '-k', lw=3, label='ACE')
     ax2.plot(lx, ly, '-c', lw=3, label='HRC')
+    ax2.plot(lx, ly, '-m', lw=3, label='GOES-X')
     ax2.legend(loc='upper left', labelspacing=0.15)
 
     plt.draw()

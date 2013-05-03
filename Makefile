@@ -6,7 +6,7 @@ FLIGHT_ENV = SKA
 # Set the names of all files that get installed
 BIN = get_iFOT_events.pl get_web_content.pl arc.pl
 SHARE = Event.pm Snap.pm parse_cm_file.pl arc_time_machine.pl \
-        get_hrc.py plot_hrc.py get_ace.py \
+        get_hrc.py plot_hrc.py get_ace.py get_goes_x.py \
 	make_timeline.py lineid_plot.py calc_fluence_dist.py
 DATA = iFOT_queries.cfg arc*.cfg web_content.cfg \
 	title_image.png \
