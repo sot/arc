@@ -201,7 +201,7 @@ def get_ace_p3(tstart, tstop):
 
 def get_goes_x(tstart, tstop):
     """
-    Get the historical ACE P3 rates and filter out bad values.
+    Get recent GOES 1-8 angstrom X-ray rates
     """
     h5 = tables.openFile(GOES_X_H5_FILE)
     times = h5.root.data.col('time')
