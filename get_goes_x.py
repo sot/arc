@@ -16,7 +16,7 @@ parser.add_argument('--h5',
                     help='HDF5 file name')
 args = parser.parse_args()
 
-url = 'http://www.swpc.noaa.gov/ftpdir/lists/xray/20130503_Gp_xr_5m.txt'
+url = 'http://www.swpc.noaa.gov/ftpdir/lists/xray/Gp_xr_5m.txt'
 
 for _ in range(3):
     try:
