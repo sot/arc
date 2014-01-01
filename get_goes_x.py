@@ -34,7 +34,7 @@ data_colnames = colnames[-3:]
 
 try:
     dat = ascii.read(urldat, guess=False, Reader=ascii.NoHeader,
-                     data_start=3, header_start=3, names=colnames)
+                     data_start=3, names=colnames)
 except Exception as err:
     print('Warning: malformed GOES_X data so table read failed: {}'
           .format(err))
