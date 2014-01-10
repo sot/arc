@@ -63,12 +63,10 @@ if args.test:
     ACIS_FLUENCE_FILE = os.path.join(args.data_dir, 'current.dat')
     ACE_RATES_FILE = os.path.join(args.data_dir, 'ace.html')
     DSN_COMMS_FILE = os.path.join(args.data_dir, 'dsn_summary.yaml')
-    RADMON_FILE = os.path.join(args.data_dir, 'radmon.rdb')
 else:
     ACIS_FLUENCE_FILE = '/data/mta4/www/alerts/current.dat'
     ACE_RATES_FILE = '/data/mta4/www/ace.html'
     DSN_COMMS_FILE = '/proj/sot/ska/data/dsn_summary/dsn_summary.yaml'
-    RADMON_FILE = '/proj/sot/ska/data/arc/iFOT_events/radmon/*.rdb'
 
 GOES_X_H5_FILE = os.path.join(args.data_dir, 'GOES_X.h5')
 ACE_H5_FILE = os.path.join(args.data_dir, 'ACE.h5')
@@ -319,7 +317,7 @@ def main():
 
     # TODO: refactor this into smaller functions where possible.
 
-    # Basic setup.  Set times and get input states, radmons, radzones and comms.
+    # Basic setup.  Set times and get input states, radzones and comms.
     now = DateTime('2012:249:00:35:00' if args.test else None)
     now = DateTime(now.date[:14] + ':00')  # truncate to 0 secs
     start = now - 1.0
