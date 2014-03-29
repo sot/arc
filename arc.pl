@@ -2,6 +2,7 @@
 
 use warnings;
 use strict;
+use File::Copy qw(copy);
 use IO::All;
 use Ska::RDB qw(read_rdb);
 use Ska::Run;
@@ -22,6 +23,7 @@ use subs qw(dbg);
 use Chandra::Time;
 use Safe;
 use Getopt::Long;
+use File::Basename qw(basename);
 
 # ToDo:
 # - Fix Ska::Convert to make time2date having configurable format
@@ -52,6 +54,8 @@ our %load_info;
 our $Debug = 0;
 our @warn;	# Global set of processing warnings (warn but don't die)
 
+our $file_cache;
+
 Event::set_CurrentTime($CurrentTime);
 Snap::set_CurrentTime($CurrentTime);
 Snap::set_snap_definition($opt{snap_definition});
@@ -68,12 +72,48 @@ umask 002;
 
     # Get web data & pointers to downloaded image files from get_web_content.pl task
     my %web_content = ParseConfig(-ConfigFile => "$TaskData/$opt{file}{web_content}");
-
-    my ($snap_warning_ref, %snap) = Snap::get_snap( $opt{file}{snap_archive},
+    my $print_time = $conv_time->date($CURRENT_TIME->unix);
+    $file_cache = "$ENV{SKA_DATA}/${Task}/cache_"
+                  . $opt{config} . "_" . "${print_time}";
+    if (not defined $opt{use_cache}){
+        if (not -e $file_cache){
+            mkdir $file_cache;
+        }
+        # store the run time in the file cache
+        open(my $RUNTIME, '>', "$file_cache/runtime.dat");
+        print $RUNTIME $print_time;
+        close($RUNTIME);
+        # copy config to the file cache
+        copy("$TaskData/$opt{file}{web_content}", $file_cache);
+        # copy snapshot archive to the file cache
+        my $snarc_dir = $opt{file}{snap_archive};
+        for my $snarc (glob "${snarc_dir}.???????"){
+            copy($snarc, $file_cache);
+        }
+    }
+    else{
+        # set the current time to actually be the runtime of the cached data
+        my $timetext = io("$opt{use_cache}/runtime.dat")->slurp();
+        chomp $timetext;
+        $CURRENT_TIME = Chandra::Time->new($timetext);
+        # override the snapshot paths to read from the cache
+        $opt{file}{snap_archive} = $opt{use_cache} . "/snarc";
+        $opt{file}{snap} = $opt{use_cache} . "/" . "chandra.snapshot";
+        $web_content{snapshot}{content}{snapshot}{outfile} = undef;
+    }
+    my ($snap_warning_ref, $snap_href, $snap_text) = Snap::get_snap( $opt{file}{snap_archive},
 						    [ $opt{file}{snap},
 						      $web_content{snapshot}{content}{snapshot}{outfile},
 						    ],
 						  );
+    my %snap = %{$snap_href};
+    if (not defined $opt{use_cache}){
+        # write out the snapshot as it was read to the file cache
+        open (my $snap_back, '>', "${file_cache}/chandra.snapshot");
+        print $snap_back "$snap_text";
+        close ($snap_back);
+    }
+
     # Info from snapshot is *req'd* for subsequent processing.  Snapshot unavailability
     # is almost always transient
     die(@{$snap_warning_ref}) if @{$snap_warning_ref};
@@ -129,7 +169,8 @@ sub get_config_options {
 # Read in config options and an optional test config options
     my %opt = ('config' => "arc");
     GetOptions(\%opt,
-	       'config=s');
+	       'config=s',
+               'use_cache=s');
 
     Hash::Merge::set_behavior( 'RIGHT_PRECEDENT' );
     foreach (split(':', $opt{config})) {
@@ -321,7 +362,14 @@ sub get_constraints_text {
     my $year = $yr + 1900 + ($yr<97 ? 100 : 0);
     my $path_approved = "PRODUCTS/APPR_LOADS/$year/$mon/$load_name";
     my $path_backstop = "Backstop/$load_name";
-    my $file = io("$TaskData/$opt{file}{pcad_constraints}/$occ_web_name");
+    my $filename = "$TaskData/$opt{file}{pcad_constraints}/$occ_web_name";
+    if (defined $opt{use_cache}){
+        $filename = "$opt{use_cache}/$occ_web_name";
+    }
+    my $file = io($filename);
+    if (not defined $opt{use_cache}){
+        copy("$TaskData/$opt{file}{pcad_constraints}/$occ_web_name", $file_cache);
+    }
     $load_info{name} = $load_name;
     if (-r "$file") {
 	$file > $_;
@@ -800,9 +848,19 @@ sub make_ephin_goes_table {
 						  );
     $goes_date = 'UNAVAILABLE' unless defined $goes_date;
 
+    if (defined $opt{use_cache}){
+        $opt{file}{hrc_shield} = $opt{use_cache} . "/" . basename($opt{file}{hrc_shield});
+        $opt{file}{p4gm} = $opt{use_cache} . "/" . basename($opt{file}{p4gm});
+        $opt{file}{p41gm} = $opt{use_cache} . "/" . basename($opt{file}{p41gm});
+    }
     my ($hrc_shield_proxy, $hrc_time) = split(' ', io($opt{file}{hrc_shield})->slurp());
     my ($p4gm_proxy, $p4gm_time) = split(' ', io($opt{file}{p4gm})->slurp());
     my ($p41gm_proxy, $p41gm_time) = split(' ', io($opt{file}{p41gm})->slurp());
+    if (not defined $opt{use_cache}){
+        copy($opt{file}{hrc_shield}, $file_cache);
+        copy($opt{file}{p4gm}, $file_cache);
+        copy($opt{file}{p41gm}, $file_cache);
+    }
 
     my $warning = ((not defined $p2) || (not defined $p5) || @{$p2} == 0 || @{$p5} == 0) ?
       '<h2 style="color:red;text-align:center">NO RECENT GOES DATA</h2>' : '';
@@ -1087,16 +1145,29 @@ sub get_iFOT_events {
     # were planned, when were the radmon en/disable etc.  If there was not an SCS107
     # run, then just use the current time plus a little pad.
 
-
+    my $ifot_dir = "$TaskData/$opt{file}{iFOT_events}";
+    if (defined $opt{use_cache}){
+        $ifot_dir = $opt{use_cache};
+    }
     # Grab proper event data for each iFOT table specified in config file
     foreach my $table_id (@table_id) {
 	my $cutoff_time = (defined $opt{stop_at_scs107}{$table_id} and defined $SCS107date) ?
 	  date2time($SCS107date, 'unix') :  $CurrentTime+10 ;
-	my @files = reverse sort glob("$TaskData/$opt{file}{iFOT_events}/$table_id/*.rdb");
+	my @files = reverse sort glob("$ifot_dir/$table_id/*.rdb");
       FILE: foreach (@files) {
 	    next unless m!/ ($DateRE) \.rdb \Z!x;
 	    if (date2time($1, 'unix') < $cutoff_time) {
 		print "Using event file $_\n" if $Debug;
+                if (not defined $opt{use_cache}){
+                    my $cache_dir = "${file_cache}/iFOT_events/${table_id}";
+                    if (not -e "${file_cache}/iFOT_events"){
+                        mkdir "${file_cache}/iFOT_events";
+                    }
+                    if (not -e $cache_dir){
+                        mkdir $cache_dir;
+                    }
+                    copy($_, $cache_dir);
+                }
 		my @event_data = read_rdb($_);
 		foreach (@event_data) {
 		    push @event, Event->new( %{$_} );
@@ -1137,6 +1208,12 @@ sub check_for_scs107 {
 # of EPS subformat
 
     my $scs107_history_file = "$TaskData/$opt{file}{scs107_history}";
+    if (defined $opt{use_cache}){
+        $scs107_history_file = "$opt{use_cache}/$opt{file}{scs107_history}";
+    }
+    else{
+        copy($scs107_history_file, $file_cache);
+    }
     my $load_running = (grep { $scs_state{"scs$_"} eq 'ACT' } qw(131 132 133)) ? 1 : 0;
 
     my $scs107_not_inac = ($scs_state{scs107} ne 'INAC') ? 1 : 0;
