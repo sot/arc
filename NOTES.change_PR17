@@ -1,0 +1,43 @@
+Change description and rationale
+--------------------------------
+
+Improve the method for determining radiation zones for the timeline plot.
+Previously the code queried iFOT for information about RADMON enable and
+disable commanding from loads.  This fails when no loads in the database
+have appropropriate commanding, as occurs during an extended safing shutdown.
+
+The new code uses the Kadi events database of radiation zones, which uses a
+more complicated but well-tested method of examining all planned load
+products in the SOT mission planning area, regardless of whether they
+actually get approved for flight.
+
+Code changes (list affected files and provide code diffs)
+---------------------------------------------------------
+
+The code change involves removing code that processed iFOT RADMON events
+and adding code to query the Kadi event database.
+
+See: https://github.com/sot/arc/pull/17/files
+
+Testing
+-------
+
+Ran code in the development environment on Jan. 10 and confirmed that the
+radiation zone period starting around day 011 1400Z was correctly displayed
+in the timeline plot.  Compared the rest of the plot to the current flight plot
+and observed no discrepancies.
+
+Interface impacts
+-----------------
+
+No change in interface.
+
+Review
+------
+
+No external code review due the simple nature of the change.
+
+Deployment plan
+---------------
+
+Will deploy following FD approval.

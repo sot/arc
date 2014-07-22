@@ -1,0 +1,39 @@
+Change description and rationale
+--------------------------------
+
+Fix a latent bug that resulted in failure to read GOES 5 min X-ray data on
+days where the month number equals the day number (e.g. 1/1/2013 or
+5/5/2013).  The bug was only revealed after the installation of astropy 0.3.
+See the pull request below for full details.
+
+Code changes (list affected files and provide code diffs)
+---------------------------------------------------------
+
+The code change amounts to removing "header_start=3" from the call to
+parse the GOES X-ray data into an internal table.  This should not have
+been in the function call.
+
+See: https://github.com/sot/arc/pull/16/files
+
+Testing
+-------
+
+Ran code in the development environment on Jan. 1 and confirmed that the
+GOES X-ray data were being read correctly.
+
+Interface impacts
+-----------------
+
+No change in interface.
+
+Review
+------
+
+No external code review due the simple nature of the change.
+
+Deployment plan
+---------------
+
+This was already deployed as an urgent fix because the current radiation
+environment warrants close attention.
+

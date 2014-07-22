@@ -1,0 +1,40 @@
+Change description and rationale
+--------------------------------
+
+Add a plot of the GOES 1-8 angstrom X-ray channel to the timeline plot.
+This facilitates evaluation of the radiation environment.
+
+Code changes (list affected files and provide code diffs)
+---------------------------------------------------------
+
+See: https://github.com/sot/arc/pull/14/files
+
+The new code to download, store, and plot GOES X-ray data was a simple
+modification of existing code to do the same for ACE p3 values.
+
+Testing
+-------
+
+Ran code in the development environment for several days and saw the
+expected plots.  Compared the timeline plot of GOES X-ray rates to the
+actual from SWPC and confirmed good agreement. There were no unexpected
+outputs in run logs.
+
+Interface impacts
+-----------------
+
+No change in interface.
+
+Review
+------
+
+Community was notified about development version and there no concerns
+raised about the changes.  No external code review due the simple nature
+of the changes and the fact that the GOES X-ray rates are not a direct
+criteria used in operational decisions.
+
+
+Deployment plan
+---------------
+
+Will be deployed as soon as approved.

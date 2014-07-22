@@ -1,0 +1,47 @@
+Change description and rationale
+--------------------------------
+
+Update Replan Central:
+
+  - Add an interactive timeline plot with ACE P3 fluence
+    predictions and uncertainties.  The uncertainties are based
+    on analysis documented at:
+      http://occweb.cfa.harvard.edu/twiki/Aspect/AceFluenceUncertainty
+  - Change web page auto-refresh time from 2 minutes to 5 minutes.
+
+Code changes (list affected files and provide code diffs)
+---------------------------------------------------------
+
+See: https://github.com/sot/arc/pull/9/files
+
+Testing
+-------
+
+Verified expected behavior for synthetic test data covering a
+range of detector and grating configurations.  Ran code in an
+operational mode in the Ska dev environment for 2 months and used
+it much of that time, including during several periods of high
+radiation rates.
+
+Interface impacts
+-----------------
+
+Changes web page format by adding a new table, but otherwise the
+format is unchanged.  No users raised any issues.
+
+Review
+------
+
+SOT and FOT were notified and given two months to view the test
+page running and one month to review the code.  Received feedback
+from MTA and ACIS ops that they good with the update.  MTA
+reviewed the fluence predictions.
+
+Deployment plan
+---------------
+
+Since there is no user interface impact, deployment will be done
+at a convenient time after approval. The previous version can be
+re-installed at any time if problems arise.  Post-deploy testing
+will consist of reviewing the output web page and logs to confirm
+expected behavior.
