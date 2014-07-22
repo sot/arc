@@ -1,0 +1,46 @@
+Change description and rationale
+--------------------------------
+
+Minor bug fix which updates Replan Central to version 1.0.1
+
+- The NOAA / Space Weather Prediction Center changed the URL and
+  format for the 3-day solar and geophysical forecast.  This made
+  the forecast data unavailable on the Replan Central page. This
+  request changes a single configuration file to fix the URL and
+  provide updated parse information so the forecast information
+  appears in Replan Central again.
+
+Code changes (list affected files and provide code diffs)
+---------------------------------------------------------
+
+No code diffs, just a configuration file specifying a URL and
+how to parse the required information from the web page.
+
+See: https://github.com/sot/arc/pull/11/files
+
+Testing
+-------
+
+Used the development Ska environment and new config file to verify that
+the expected solar and geophysical forecast text now appears in the
+web page.
+
+Interface impacts
+-----------------
+
+Restores information to the web page which was previously available.
+Since this is restoring content that was previously available before the
+SWPC URL changed,  the community was not polled prior to deployment.
+
+Review
+------
+
+No external review since there is no code change and no interface
+impact.
+
+Deployment plan
+---------------
+
+Since there is no user interface impact, deployment has been done.  If
+needed this can be backed out by installing version 1.0 of the Replan
+Central code.

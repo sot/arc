@@ -1,0 +1,44 @@
+Change description and rationale
+--------------------------------
+
+This PR improves the handling of missing ACE data and adds infrastructure to test various
+missing data scenarios.
+
+- Instead of dropping bad ACE data at the point of reading in values, leave the bad values
+  there (as indicated by a negative value) and do downstream handling of bad values.
+
+- Indicate bad or N/A values with bold red text in the state table. If there is no average
+  P3 from MTA then use 0.0 for fluence prediction but show fluence as red.
+
+- Plot bad ACE values so viewer can more easily see missing data. This shows up as a
+  vertical line to the bottom of the plot.
+
+Code changes (list affected files and provide code diffs)
+---------------------------------------------------------
+
+See: https://github.com/sot/arc/pull/13/files
+
+Testing
+-------
+
+Used unit tests to simulate various data loss scenarios and confirm
+desired behavior.  Ran code in the development environment for several
+months and saw no unexpected outputs in run logs.  Saw expected
+improvements during periods of actual ACE data loss (see attached figure).
+
+Interface impacts
+-----------------
+
+No change in interface.
+
+Review
+------
+
+Community was notified about development version.  No external code review.
+
+
+Deployment plan
+---------------
+
+Will be deployed as soon as approved due to current ACE data loss event.
+
