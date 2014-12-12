@@ -18,7 +18,7 @@ parser.add_argument('--data-dir', type=str,
                     help='Directory for output data files')
 args = parser.parse_args()
 
-url = 'http://www.swpc.noaa.gov/ftpdir/lists/pchan/Gp_pchan_5m.txt'
+url = 'ftp://ftp.swpc.noaa.gov/pub/lists/pchan/Gp_pchan_5m.txt'
 colnames = ('year month dom  hhmm  mjd secs p1  p2  p3 '
             'p4  p5  p6  p7  p8  p9 p10 p11').split()
 
