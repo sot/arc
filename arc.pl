@@ -563,7 +563,7 @@ sub make_web_page {
     $html .= $q->p({style => $image_title_style},
 		   $q->a({href => $opt{url}{todays_space_weather}}, "Solar X-ray Activity"),
 		   $q->br,
-		   $q->img({style=>"margin-top:0.35em", src => $web_data->{solar_xray}{image}{GOES_xray}{file}})
+		   $q->img({style=>"margin-top:0.35em", src => $web_data->{solar_xray}{content}{GOES_xray}{file}})
 		  );
 
     $html .= $q->p({style => $image_title_style},
