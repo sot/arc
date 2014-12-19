@@ -38,7 +38,7 @@ while (my ($web_name, $web) = each %web_data) {
         ($web_opt{user}, $web_opt{passwd}) = Ska::Web::get_user_passwd($web_opt{auth_file})
     }
         
-    my ($html, $error) = Ska::Web::get_url($url, %web_opt);
+    my ($html, $error, $header) = Ska::Web::get_url($url, %web_opt);
 
     if ($error) {
 	warning($web, "$error for web data $web_name ($url)");
@@ -57,6 +57,10 @@ while (my ($web_name, $web) = each %web_data) {
 	if ($content->{file}) {
 	    $content->{outfile} = "$TaskData/".$content->{file};
 	    $html_content > io($content->{outfile});
+            if (defined $header->last_modified){
+                my $timestamp = $header->last_modified;
+                utime($timestamp, $timestamp, $content->{outfile});
+            }
 	} else {
 	    $content->{content} = $html_content;
 	}
@@ -81,6 +85,8 @@ while (my ($web_name, $web) = each %web_data) {
                 if (length $image[0]->{data} > 100) {
                     $image->{outfile} = "$TaskData/$img_file";
                     $image[0]->{data} > io($image->{outfile});
+                    my $timestamp = $image[0]->{header}->last_modified;
+                    utime($timestamp, $timestamp, $image->{outfile});
                     last TRY;   # Got a good image so bail from TRY loop
                 } else {
                     if ($image->{warn_bad_image} and $try == $tries) {
