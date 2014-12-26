@@ -61,13 +61,12 @@ AXES_LOC = [0.08, 0.15, 0.83, 0.6]
 
 if args.test:
     ACIS_FLUENCE_FILE = os.path.join(args.data_dir, 'current.dat')
-    ACE_RATES_FILE = os.path.join(args.data_dir, 'ace.html')
     DSN_COMMS_FILE = os.path.join(args.data_dir, 'dsn_summary.yaml')
 else:
     ACIS_FLUENCE_FILE = '/data/mta4/www/alerts/current.dat'
-    ACE_RATES_FILE = '/data/mta4/www/ace.html'
     DSN_COMMS_FILE = '/proj/sot/ska/data/dsn_summary/dsn_summary.yaml'
 
+ACE_RATES_FILE = os.path.join(args.data_dir, 'ace.html')
 GOES_X_H5_FILE = os.path.join(args.data_dir, 'GOES_X.h5')
 ACE_H5_FILE = os.path.join(args.data_dir, 'ACE.h5')
 HRC_H5_FILE = os.path.join(args.data_dir, 'hrc_shield.h5')

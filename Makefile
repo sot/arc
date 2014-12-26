@@ -7,7 +7,8 @@ FLIGHT_ENV = SKA
 BIN = get_iFOT_events.pl get_web_content.pl arc.pl
 SHARE = Event.pm Snap.pm parse_cm_file.pl arc_time_machine.pl \
         get_hrc.py plot_hrc.py get_ace.py get_goes_x.py \
-	make_timeline.py lineid_plot.py calc_fluence_dist.py
+	make_timeline.py lineid_plot.py calc_fluence_dist.py \
+	get_mta_ace_rates.py
 DATA = iFOT_queries.cfg arc.cfg arc_test.cfg arc_ops.cfg web_content.cfg \
 	title_image.png \
 	blue_paper.gif \
