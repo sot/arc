@@ -537,23 +537,23 @@ sub make_web_page {
     my $image_title_style = "text-align:center;$opt{web_page}{table_caption_style}";
     $html .= $q->p({style => $image_title_style},
 		   "ACE particle rates (",
-		   $q->a({href=>$opt{url}{mta_ace}}, "MTA"),
-		   $q->a({href=>$opt{url}{sec_ace}}, "SEC"),
+		   $q->a({href=>$opt{url}{mta_ace}, target => "_blank"}, "MTA"),
+		   $q->a({href=>$opt{url}{swpc_ace_rtsw}, target => "_blank"}, "SWPC"),
 		   ")",
 		   $q->br,
-		   $q->img({style=>"margin-top:0.35em", src => $web_data->{ace}{image}{five_min}{file}}),
+		   $q->img({class=>"boxed", src => $web_data->{ace}{image}{five_min}{file}}),
 		  );
 
     $html .= $q->p({style => $image_title_style},
-		   $q->a({href => $opt{url}{mta_goes}}, "GOES particle rates"),
+		   $q->a({href => $opt{url}{mta_goes}, target => "_blank"}, "GOES particle rates"),
 		   $q->br,
-		   $q->img({style=>"margin-top:0.35em", src => $web_data->{goes}{image}{five_min}{file}})
+		   $q->img({class=>"boxed", src => $web_data->{goes}{image}{five_min}{file}})
 		  );
 
     $html .= $q->p({style => $image_title_style},
 		   "GOES proxy for HRC shield rates",
 		   $q->br,
-		   $q->img({style=>"margin-top:0.35em", src => "hrc_shield.png"})
+		   $q->img({class=>"boxed", src => "hrc_shield.png"})
 		  );
 
     $html .= # $q->div({style => 'width:700'},
@@ -561,21 +561,24 @@ sub make_web_page {
 #		   );
 
     $html .= $q->p({style => $image_title_style},
-		   $q->a({href => $opt{url}{todays_space_weather}}, "Solar X-ray Activity"),
+		   $q->a({href => $opt{url}{goes_xray_flux}, target => "_blank"}, "Solar X-ray Activity"),
 		   $q->br,
-		   $q->img({style=>"margin-top:0.35em", src => $web_data->{solar_xray}{image}{GOES_xray}{file}})
+		   $q->img({class=>"boxed", src => $web_data->{solar_xray}{content}{GOES_xray}{file}})
 		  );
 
     $html .= $q->p({style => $image_title_style},
-		   $q->a({href => $opt{url}{solar_wind}}, "Solar Wind Data"),
+                   "Solar Wind Data (",
+		   $q->a({href => $opt{url}{soho_solar_wind}, target => "_blank"}, "SOHO"),
+		   $q->a({href => $opt{url}{ace_solar_wind}, target => "_blank"}, "ACE"),
+                   ")",
 		   $q->br,
-		   $q->img({style=>"margin-top:0.35em", src => $web_data->{solar_wind}{content}{solar_wind}{file}})
+		   $q->img({class=>"boxed", src => $web_data->{solar_wind}{content}{solar_wind}{file}})
 		  );
 
     $html .= $q->p({style => $image_title_style},
-		   $q->a({href => $opt{url}{solar_flare_monitor}}, "Solar Flare Monitor"),
+		   $q->a({href => $opt{url}{solar_flare_monitor}, target => "_blank"}, "Solar Flare Monitor"),
 		   $q->br,
-		   $q->img({style=>"margin-top:0.35em", src => $web_data->{solar_flare_monitor}{image}{solar_flare_monitor}{file}})
+		   $q->img({class=>"boxed", src => $web_data->{solar_flare_monitor}{image}{solar_flare_monitor}{file}})
 		  );
 
     $html .= $q->end_html;
@@ -966,7 +969,7 @@ sub make_event_table {
 
     $table->setRowAlign(1, 'CENTER');
     my $load_link = ((defined $load_info{URL}) and (defined $load_info{name})) ?
-      " (Load: <a href=\"$load_info{URL}/$load_info{name}.html\">$load_info{name}</a>)"
+      " (Load: <a href=\"$load_info{URL}/$load_info{name}.html\" target =\"_blank\">$load_info{name}</a>)"
 	: " (Load link unavailable)";
     $table->setCaption("<span style=$opt{web_page}{table_caption_style}>"
 		       . "Chandra Events"
