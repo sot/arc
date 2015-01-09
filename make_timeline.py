@@ -9,7 +9,6 @@ fluence, 2hr average, and grating status.  It also shows DSN comms, radiation zo
 passages, instrument configuration.
 """
 import argparse
-import glob
 from itertools import izip
 import json
 import re
@@ -22,8 +21,8 @@ import tables
 import matplotlib
 matplotlib.use('Agg')
 
+from kadi import events
 import Ska.Numpy
-import asciitable
 from Chandra.Time import DateTime
 from Chandra.cmd_states import fetch_states, interpolate_states
 import lineid_plot
@@ -64,12 +63,10 @@ if args.test:
     ACIS_FLUENCE_FILE = os.path.join(args.data_dir, 'current.dat')
     ACE_RATES_FILE = os.path.join(args.data_dir, 'ace.html')
     DSN_COMMS_FILE = os.path.join(args.data_dir, 'dsn_summary.yaml')
-    RADMON_FILE = os.path.join(args.data_dir, 'radmon.rdb')
 else:
     ACIS_FLUENCE_FILE = '/data/mta4/www/alerts/current.dat'
     ACE_RATES_FILE = '/data/mta4/www/ace.html'
     DSN_COMMS_FILE = '/proj/sot/ska/data/dsn_summary/dsn_summary.yaml'
-    RADMON_FILE = '/proj/sot/ska/data/arc/iFOT_events/radmon/*.rdb'
 
 GOES_X_H5_FILE = os.path.join(args.data_dir, 'GOES_X.h5')
 ACE_H5_FILE = os.path.join(args.data_dir, 'ACE.h5')
@@ -122,27 +119,12 @@ def get_avg_flux(filename):
     return p3_avg_flux
 
 
-def get_radmons():
+def get_radzones():
     """
-    Get Radmon events from local file that has been pulled from iFOT by
-    get_iFOT_events.pl.
+    Constuct a list of complete radiation zones using kadi events
     """
-    files = glob.glob(RADMON_FILE)
-    dat = asciitable.read(sorted(files)[-1], Reader=asciitable.NoHeader,
-                          names=('radmon', 'proc', 'trans', 'date', 'date2'),
-                          data_start=2)
-    return dat
-
-
-def get_radzones(radmons):
-    """
-    Constuct a list of complete radiation zones from ``radmons``.
-    """
-    radzones = []
-    for d0, d1 in zip(radmons[:-1], radmons[1:]):
-        if d0['trans'] == 'Disable' and d1['trans'] == 'Enable':
-            radzones.append((d0['date'], d1['date']))
-    return radzones
+    radzones = events.rad_zones.filter(start=DateTime() - 5, stop=None)
+    return [(x.start, x.stop) for x in radzones]
 
 
 def get_comms():
@@ -335,7 +317,7 @@ def main():
 
     # TODO: refactor this into smaller functions where possible.
 
-    # Basic setup.  Set times and get input states, radmons, radzones and comms.
+    # Basic setup.  Set times and get input states, radzones and comms.
     now = DateTime('2012:249:00:35:00' if args.test else None)
     now = DateTime(now.date[:14] + ':00')  # truncate to 0 secs
     start = now - 1.0
@@ -343,8 +325,7 @@ def main():
     states = fetch_states(start, stop,
                           server='/proj/sot/ska/data/cmd_states/cmd_states.h5')
 
-    radmons = get_radmons()
-    radzones = get_radzones(radmons)
+    radzones = get_radzones()
     comms = get_comms()
 
     # Get the ACIS ops fluence estimate and current 2hr avg flux
@@ -457,7 +438,6 @@ def main():
             next_comm = comm
 
     # Draw radiation zones
-    radzones = get_radzones(radmons)
     for rad0, rad1 in radzones:
         t0 = DateTime(rad0).secs
         t1 = DateTime(rad1).secs
