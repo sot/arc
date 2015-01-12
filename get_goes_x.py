@@ -16,6 +16,17 @@ parser.add_argument('--h5',
                     help='HDF5 file name')
 args = parser.parse_args()
 
+h5 = tables.openFile(args.h5, mode='r',
+                     filters=tables.Filters(complevel=5, complib='zlib'))
+try:
+    table = h5.root.data
+    lasttime = table.col('time')[-1]
+except tables.NoSuchNodeError:
+    lasttime = None
+h5.close()
+
+stale_time = 20
+
 url = 'ftp://ftp.swpc.noaa.gov/pub/lists/xray/Gp_xr_5m.txt'
 
 for _ in range(3):
@@ -26,8 +37,19 @@ for _ in range(3):
     except Exception as err:
         time.sleep(5)
 else:
-    print 'Warning: failed to open URL {}: {}'.format(url, err)
+    # If we don't have any old data to determine "staleness"
+    # raise a warning at this point.
+    if lasttime is None:
+        print 'Warning: failed to open URL {}: {}'.format(url, err)
+    # Otherwise, raise warnings only if data stale more than
+    # stale_time threshold
+    else:
+        if lasttime + (stale_time * 60) < DateTime().secs:
+            how_old = (DateTime().secs - lasttime) / 60.
+            print 'Warning: GOES data stale {}mins'.format(how_old)
+            print 'Warning: failed to open URL {}: {}'.format(url, err)
     sys.exit(0)
+
 
 colnames = 'year month dom  hhmm  mjd secs short long ratio'.split()
 data_colnames = colnames[-3:]
