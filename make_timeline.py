@@ -21,6 +21,12 @@ import tables
 import matplotlib
 matplotlib.use('Agg')
 
+# Ignore compiler warnings that seem to be coming from a django.db
+# interaction (via kadi.events)
+import warnings
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+    import compiler
 from kadi import events
 import Ska.Numpy
 from Chandra.Time import DateTime
