@@ -35,6 +35,13 @@ import lineid_plot
 import calc_fluence_dist as cfd
 from Ska.Matplotlib import cxctime2plotdate as cxc2pd
 
+# Ignore known numexpr.necompiler and table.conditions warning
+warnings.filterwarnings(
+    'ignore',
+    message="using `oa_ndim == 0` when `op_axes` is NULL is deprecated.*",
+    category=DeprecationWarning)
+
+
 parser = argparse.ArgumentParser(description='Get ACE data')
 parser.add_argument('--data-dir',
                     default='t_pred_fluence',
