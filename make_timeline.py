@@ -31,9 +31,8 @@ from kadi import events
 import Ska.Numpy
 from Chandra.Time import DateTime
 from Chandra.cmd_states import fetch_states, interpolate_states
-import lineid_plot
 import calc_fluence_dist as cfd
-from Ska.Matplotlib import cxctime2plotdate as cxc2pd
+from Ska.Matplotlib import lineid_plot, cxctime2plotdate as cxc2pd
 
 parser = argparse.ArgumentParser(description='Get ACE data')
 parser.add_argument('--data-dir',
