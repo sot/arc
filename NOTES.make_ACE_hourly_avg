@@ -1,0 +1,18 @@
+Making ACE Hourly average data
+==============================
+http://www.srl.caltech.edu/ACE/ASC/browse/view_browse_data.html
+
+Then select Brose Data: Launch - current
+
+http://www.srl.caltech.edu/cgi-bin/dib/rundibviewbr/ACE/ASC/DATA/browse-data?ACE_BROWSE.HDF!hdfref;tag=1962,ref=3,s=0
+
+Then edit the file:
+
+- Save as ACE_hourly_avg.dat
+- Comment out the initial metadata
+- Add column header row "year fp_year DOY p3"
+- Read:
+    from astropy.table import Table
+    dat = Table.read('ACE_hourly_avg.dat', format='ascii', guess=False)
+- Write:
+    np.save('ACE_hourly_avg.npy', dat.as_array())
