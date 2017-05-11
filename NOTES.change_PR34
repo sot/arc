@@ -1,0 +1,48 @@
+Change description and rationale
+--------------------------------
+
+Update Replan Central web page and processing in response to missing ACE P3 data.
+
+The code that makes the interactive plot at top was exiting with an error if ACE p3
+fluence could not be calculated from the available data.  This code change changes that
+behavior so the code will now warn and continue.
+
+Code changes (list affected files and provide code diffs)
+---------------------------------------------------------
+
+This change is the product of one pull requests, 34:
+
+ https://github.com/sot/arc/pull/34/files
+
+Testing
+-------
+
+Ran code in the development environment and verified that processing
+completed with only the expected new warning and that the output web page has the expected
+changes.  Clicked all links and verified expected behavior.  In live testing the MAY0817B
+link was broken, but also appears broken in the approved tool (new issue opened).
+
+ACE p3 data was missing or corrupt on 10-May-2017 and 11-May-2017, so live testing on
+11-May-2017 shows that these code changes work as intended.
+
+
+Interface impacts
+-----------------
+
+Previous code resulted in outdated timeline figure at top; new code has updated figure
+(though fluence values are, as expected, not present).
+
+Review
+------
+
+Code changes by Jean Connelly, internal code review by Tom Aldcroft.
+
+The development version output is available at:
+
+   http://cxc.cfa.harvard.edu/mta/ASPECT/arc_ace_dev/
+
+Deployment plan
+---------------
+
+Will be deployed after approval at a convenient time.
+
