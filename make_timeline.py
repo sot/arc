@@ -403,21 +403,25 @@ def main():
     plot_multi_line(x, y, z, [0, 1, 2], ['k', 'r', 'c'], ax)
 
     # Plot 10, 50, 90 percentiles of fluence
-    p3_slope = get_p3_slope(p3_times, p3_vals)
-    if p3_slope is not None and avg_flux > 0:
-        p3_fits, p3_samps, fluences = cfd.get_fluences(
-            os.path.join(args.data_dir, 'ACE_hourly_avg.npy'))
-        hrs, fl10, fl50, fl90 = cfd.get_fluence_percentiles(
-            avg_flux, p3_slope, p3_fits, p3_samps, fluences,
-            args.min_flux_samples, args.max_slope_samples)
-        fluence_hours = (fluence_times - fluence_times[0]) / 3600.0
-        for fl_y, linecolor in zip((fl10, fl50, fl90),
-                                   ('-g', '-b', '-r')):
-            fl_y = Ska.Numpy.interpolate(fl_y, hrs, fluence_hours)
-            rates = np.diff(fl_y)
-            fl_y_atten = calc_fluence(fluence_times[:-1], fluence0, rates, states)
-            zero_fluence_at_radzone(fluence_times[:-1], fl_y_atten, radzones)
-            plt.plot(x0 + fluence_hours[:-1] / 24.0, fl_y_atten, linecolor)
+    try:
+        p3_slope = get_p3_slope(p3_times, p3_vals)
+        if p3_slope is not None and avg_flux > 0:
+            p3_fits, p3_samps, fluences = cfd.get_fluences(
+                os.path.join(args.data_dir, 'ACE_hourly_avg.npy'))
+            hrs, fl10, fl50, fl90 = cfd.get_fluence_percentiles(
+                avg_flux, p3_slope, p3_fits, p3_samps, fluences,
+                args.min_flux_samples, args.max_slope_samples)
+            fluence_hours = (fluence_times - fluence_times[0]) / 3600.0
+            for fl_y, linecolor in zip((fl10, fl50, fl90),
+                                       ('-g', '-b', '-r')):
+                fl_y = Ska.Numpy.interpolate(fl_y, hrs, fluence_hours)
+                rates = np.diff(fl_y)
+                fl_y_atten = calc_fluence(fluence_times[:-1], fluence0, rates, states)
+                zero_fluence_at_radzone(fluence_times[:-1], fl_y_atten, radzones)
+                plt.plot(x0 + fluence_hours[:-1] / 24.0, fl_y_atten, linecolor)
+    except Exception as e:
+        print('WARNING: p3 fluence not plotted, error : {}'.format(e))
+
 
     # Set x and y axis limits
     x0, x1 = cxc2pd([start.secs, stop.secs])
