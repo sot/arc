@@ -4,10 +4,9 @@ use strict;
 use warnings;
 
 use LWP::UserAgent;
-use HTML::TableExtract;
+use Data::ParseTable;
 use IO::All;
 use Config::General;
-use Data::Dumper;
 use Ska::Convert qw(:all);
 use Ska::RDB qw(write_rdb);
 use Ska::Web;
@@ -30,18 +29,22 @@ foreach my $query_id (@{$opt{query_name}}) {
     my $query = make_iFOT_query($query_id);
     print "Query = '$query'\n" if $Debug;
     my ($ifot_user, $ifot_passwd) = Ska::Web::get_user_passwd($ifot{auth_file});
-    my $req_html = Ska::Web::get_url($query,
+    my $req_tsv = Ska::Web::get_url($query,
                                      user => $ifot_user,
                                      passwd => $ifot_passwd,
                                      timeout => $ifot{timeout}
                                     );
-
-    # Extract the desired table
-    my ($table, $cols) = extract_iFOT_table($req_html);
-    next unless (defined $table and defined $cols); # Skip empty table
+    # Remove trailing whitespace
+    $req_tsv =~ s/\s+$//;
+    # Split into an array of lines and parse
+    my @text = split("\n", $req_tsv);
+    # Parse the Table
+    my $table = Data::ParseTable::parse_table( \@text, {return_as_hash => 1, field_separator => "\t"});
+    my @cols = keys %{$table};
+    next unless (defined $table); # Skip empty table
 
     # Update RDB iFOT archive files (add new one and possibly remove old)
-    update_iFOT_archive($query_id, $table, $cols);
+    update_iFOT_archive($query_id, $table, \@cols);
 }
 
 ##***************************************************************************
@@ -87,45 +90,6 @@ sub get_url {
     } else {
 	croak $response->status_line;
     }
-}
-
-##***************************************************************************
-sub extract_iFOT_table {
-##***************************************************************************
-    my $req_html = shift;
-
-    # Find the desired iFOT HTML table in the returned result
-    my $headers = $ifot{table_match_headers};
-    $headers = [ $headers ] unless ref $headers eq 'ARRAY';
-
-    # Find a table with those headers
-    my $te = new HTML::TableExtract( headers => $headers );
-    $te->parse($req_html);
-
-    # Insist that exactly one table match.  (Use more robust error handling eventually)
-    my @ts = $te->table_states;
-    warn "ERROR - more than one HTML table had the required headers" if (@ts > 1);
-# die "ERROR - HTML table does not have the required headers" if (@ts < 1);
-    return if (@ts < 1);  # No data in table
-
-    # Find the table coordinates and now parse the entire table, not just the 
-    # spec'd header columns
-    my @table_coords = $ts[0]->coords;
-    $te = new HTML::TableExtract;
-    $te->parse($req_html);
-    my $ts = $te->table_state(@table_coords);
-
-    # Get the data into a useful form (hash of arrays)
-    my @rows = $ts->rows();
-    my @cols = @{$rows[0]};
-    map { s/\A [\s<>]+ | [\s<>]+ \Z//gx } @cols;  # clean column names 
-    my %data;
-    foreach my $i (0 .. $#cols) {
-	$data{$cols[$i]} = [ map { $_->[$i] } @rows[1..$#rows] ];
-    }
-
-#    return  Ska::HashTable->new(\%data, cols => \@cols);
-    return \%data, \@cols;
 }
 
 
