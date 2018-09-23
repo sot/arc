@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import os
-import sys
 import urllib
 import argparse
 import time
@@ -23,4 +22,4 @@ for locname, url in swpc_urls.items():
             time.sleep(5)
     else:
         print 'Warning: failed to open URL {}: {}'.format(url, err)
-        sys.exit(0)
+
