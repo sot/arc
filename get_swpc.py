@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import os
-import urllib
+import requests
 import argparse
 import time
 
@@ -16,7 +16,9 @@ for locname, url in swpc_urls.items():
     for _ in range(3):
         try:
             outfile = os.path.join(args.out, locname)
-            urllib.urlretrieve(url, outfile)
+            response = requests.get(url)
+            with open(outfile, 'wb') as fh:
+                fh.write(response.content)
             break
         except Exception as err:
             time.sleep(5)
