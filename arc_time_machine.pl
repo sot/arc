@@ -12,7 +12,7 @@
 
 use strict;
 use warnings;
-use Config::General;
+use Config::General qw(ParseConfig);
 use Carp;
 use Ska::Run qw( run );
 use Ska::Convert qw( time2date );
@@ -21,12 +21,13 @@ use Getopt::Long;
 
 my $Task     = 'arc';
 my $TaskData = "$ENV{SKA_DATA}/$Task";
+my $TaskShare = "$ENV{SKA_SHARE}/$Task";
 my $CurrentTime = time;	# Use time at start of program for output names
 my $date = time2date($CurrentTime, 'unix_time');
 my $time_machine_dir = "$TaskData/iFOT_time_machine";
 
 # Global task options
-my %opt  = ParseConfig(-ConfigFile => "$TaskData/$Task.cfg");
+my %opt  = ParseConfig(-ConfigFile => "$TaskShare/$Task.cfg");
 
 my %cmd_opt = ( verbose => 0 );
 GetOptions( \%cmd_opt,
