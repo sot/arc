@@ -7,7 +7,7 @@ use Ska::RDB qw(read_rdb);
 use Ska::Run;
 use Ska::Convert qw(time2date date2time);
 use Ska::Web;
-use Config::General;
+use Config::General qw(ParseConfig);
 use Data::Dumper;
 use HTML::Table;
 use CGI;
@@ -31,6 +31,7 @@ use Getopt::Long;
 
 our $Task     = 'arc';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
+our $TaskShare = "$ENV{SKA_SHARE}/$Task";
 our $VERSION = '$Id: arc.pl,v 1.21 2007-08-21 15:47:50 aldcroft Exp $';
 
 require "$ENV{SKA_SHARE}/$Task/Event.pm";
@@ -133,7 +134,7 @@ sub get_config_options {
 
     Hash::Merge::set_behavior( 'RIGHT_PRECEDENT' );
     foreach (split(':', $opt{config})) {
-	my $cfg_file = "$TaskData/$_.cfg";
+	my $cfg_file = "$TaskShare/$_.cfg";
 	if (-r $cfg_file) {
 	    my %new_opt = ParseConfig(-ConfigFile => $cfg_file);
 	    %opt = %{ Hash::Merge::merge(\%opt, \%new_opt)};
@@ -599,13 +600,20 @@ sub install_web_files {
 
     $html > io("$opt{file}{web_dir}/$opt{file}{web_page}");
 
-    # (Used to have several images..)
-    foreach (qw(title_image blue_paper blue_paper_test
-		timeline_js timeline_css timeline_png timeline_states vert_line)) {
+
+    foreach (qw(timeline_png timeline_states)){
 	my $in = io("$TaskData/$opt{file}{$_}");
 	my $out =io("$opt{file}{web_dir}/$opt{file}{$_}");
 	$in > $out if (not -e "$out" or $in->mtime > $out->mtime);
     }
+
+    foreach (qw(title_image blue_paper blue_paper_test
+		timeline_js timeline_css vert_line)) {
+	my $in = io("$TaskShare/$opt{file}{$_}");
+	my $out =io("$opt{file}{web_dir}/$opt{file}{$_}");
+	$in > $out if (not -e "$out" or $in->mtime > $out->mtime);
+    }
+
 
     # Go through each web site where data/images were retrieved
     foreach my $web (values %{$web_content}) {

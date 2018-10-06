@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 
 import sys
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import argparse
 import tables
 import time
 
 import numpy as np
-import asciitable
+from astropy.io import ascii
 from Chandra.Time import DateTime
 
 parser = argparse.ArgumentParser(description='Get ACE data')
@@ -23,13 +23,13 @@ colnames = ('year month dom  hhmm  mjd secs p1  p2  p3 '
 
 for _ in range(3):
     try:
-        urlob = urllib2.urlopen(url)
-        urldat = urlob.read()
+        urlob = urllib.request.urlopen(url)
+        urldat = urlob.read().decode()
         break
     except Exception as err:
         time.sleep(5)
 else:
-    print 'Warning: failed to open URL {}: {}'.format(url, err)
+    print('Warning: failed to open URL {}: {}'.format(url, err))
     sys.exit(0)
 
 colnames = ('year month dom  hhmm  mjd secs '
@@ -37,11 +37,11 @@ colnames = ('year month dom  hhmm  mjd secs '
 data_colnames = ('destat de1 de4 pstat p1 p3 p5 p6 p7').split()
 
 try:
-    dat = asciitable.read(urldat, guess=False, Reader=asciitable.NoHeader,
-                          data_start=3, header_start=3, names=colnames)
+    dat = ascii.read(urldat, guess=False, Reader=ascii.NoHeader,
+                          data_start=3, names=colnames)
 except Exception as err:
-    print('Warning: malformed ACE data so table read failed: {}'
-          .format(err))
+    print(('Warning: malformed ACE data so table read failed: {}'
+          .format(err)))
     sys.exit(0)
 
 # Strip up to two rows at the end if any values are bad (i.e. negative)
@@ -60,7 +60,7 @@ for colname in colnames:
     newdat[colname] = dat[colname]
 newdat['time'] = secs
 
-h5 = tables.openFile(args.h5, mode='a',
+h5 = tables.open_file(args.h5, mode='a',
                      filters=tables.Filters(complevel=5, complib='zlib'))
 try:
     table = h5.root.data
@@ -69,7 +69,7 @@ try:
     newdat = newdat[ok]
     h5.root.data.append(newdat)
 except tables.NoSuchNodeError:
-    table = h5.createTable(h5.root, 'data', newdat,
+    table = h5.create_table(h5.root, 'data', newdat,
                            "ACE rates", expectedrows=2e7)
 h5.root.data.flush()
 h5.close()

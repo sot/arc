@@ -6,7 +6,7 @@ use warnings;
 use LWP::UserAgent;
 use HTML::TableExtract;
 use IO::All;
-use Config::General;
+use Config::General qw(ParseConfig);
 use Data::Dumper;
 use Ska::Convert qw(:all);
 use Ska::RDB qw(write_rdb);
@@ -14,15 +14,16 @@ use Ska::Web;
 use Carp;
 
 our $Task     = 'arc';
+our $TaskShare = "$ENV{SKA_SHARE}/$Task";
 our $TaskData = "$ENV{SKA_DATA}/$Task";
 our $Debug    = 0;
 our $CurrentTime = time;	# Use time at start of program for output names
 
 # Global task options
-our %opt  = ParseConfig(-ConfigFile => "$TaskData/$Task.cfg");
+our %opt  = ParseConfig(-ConfigFile => "$TaskShare/$Task.cfg");
 
 # iFOT query definitions
-our %ifot = ParseConfig(-ConfigFile => "$TaskData/iFOT_queries.cfg");
+our %ifot = ParseConfig(-ConfigFile => "$TaskShare/iFOT_queries.cfg");
 
 foreach my $query_id (@{$opt{query_name}}) {
     print "Getting $query_id from iFOT\n" if $Debug;

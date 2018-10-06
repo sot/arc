@@ -9,7 +9,7 @@ fluence, 2hr average, and grating status.  It also shows DSN comms, radiation zo
 passages, instrument configuration.
 """
 import argparse
-from itertools import izip
+
 import json
 import re
 import os
@@ -21,12 +21,7 @@ import tables
 import matplotlib
 matplotlib.use('Agg')
 
-# Ignore compiler warnings that seem to be coming from a django.db
-# interaction (via kadi.events)
-import warnings
-with warnings.catch_warnings():
-    warnings.filterwarnings("ignore", category=DeprecationWarning)
-    import compiler
+
 from kadi import events
 import Ska.Numpy
 from Chandra.Time import DateTime
@@ -34,11 +29,12 @@ from Chandra.cmd_states import fetch_states, interpolate_states
 import calc_fluence_dist as cfd
 from Ska.Matplotlib import lineid_plot, cxctime2plotdate as cxc2pd
 
-# Ignore known numexpr.necompiler and table.conditions warning
+import warnings
+import matplotlib.cbook
 warnings.filterwarnings(
     'ignore',
-    message="using `oa_ndim == 0` when `op_axes` is NULL is deprecated.*",
-    category=DeprecationWarning)
+    category=matplotlib.cbook.mplDeprecation)
+
 
 
 parser = argparse.ArgumentParser(description='Get ACE data')
@@ -123,8 +119,8 @@ def get_avg_flux(filename):
     lines = [line for line in open(filename, 'r')
              if line.startswith('AVERAGE   ')]
     if len(lines) != 1:
-        print('WARNING: {} file contains {} lines that start with '
-              'AVERAGE (expect one)'.format(ACE_RATES_FILE, len(lines)))
+        print(('WARNING: {} file contains {} lines that start with '
+              'AVERAGE (expect one)'.format(ACE_RATES_FILE, len(lines))))
         p3_avg_flux = P3_BAD
     else:
         p3_avg_flux = float(lines[0].split()[4])
@@ -185,7 +181,7 @@ def get_ace_p3(tstart, tstop):
     """
     Get the historical ACE P3 rates and filter out bad values.
     """
-    h5 = tables.openFile(ACE_H5_FILE)
+    h5 = tables.open_file(ACE_H5_FILE)
     times = h5.root.data.col('time')
     p3 = h5.root.data.col('p3')
     ok = (tstart < times) & (times < tstop)
@@ -197,7 +193,7 @@ def get_goes_x(tstart, tstop):
     """
     Get recent GOES 1-8 angstrom X-ray rates
     """
-    h5 = tables.openFile(GOES_X_H5_FILE)
+    h5 = tables.open_file(GOES_X_H5_FILE)
     times = h5.root.data.col('time')
     p3 = h5.root.data.col('long')
     ok = (tstart < times) & (times < tstop)
@@ -266,7 +262,7 @@ def get_hrc(tstart, tstop):
     """
     Get the historical HRC proxy rates and filter out bad values.
     """
-    h5 = tables.openFile(HRC_H5_FILE)
+    h5 = tables.open_file(HRC_H5_FILE)
     times = h5.root.data.col('time')
     hrc = h5.root.data.col('hrc_shield') * 256.0
     ok = (tstart < times) & (times < tstop) & (hrc > 0)
@@ -420,7 +416,7 @@ def main():
                 zero_fluence_at_radzone(fluence_times[:-1], fl_y_atten, radzones)
                 plt.plot(x0 + fluence_hours[:-1] / 24.0, fl_y_atten, linecolor)
     except Exception as e:
-        print('WARNING: p3 fluence not plotted, error : {}'.format(e))
+        print(('WARNING: p3 fluence not plotted, error : {}'.format(e)))
 
 
     # Set x and y axis limits
@@ -637,7 +633,7 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
     # Iterate through each time step and create corresponding data structure
     # with pre-formatted values for display in the output table.
     NOT_AVAIL = 'N/A'
-    for time, pd, state_val, fluence, p3, hrc in izip(times, pds, state_vals,
+    for time, pd, state_val, fluence, p3, hrc in zip(times, pds, state_vals,
                                                       fluences, p3s, hrcs):
         out = {}
         out['date'] = date_zulu(time)

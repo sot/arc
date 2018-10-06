@@ -4,7 +4,7 @@ use warnings;
 use strict;
 
 use IO::All;
-use Config::General;
+use Config::General qw(ParseConfig);
 use Data::Dumper;
 use Ska::Convert qw(time2date date2time);
 use Ska::Web;
@@ -13,13 +13,14 @@ use Carp;
 
 our $Task     = 'arc';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
+our $TaskShare = "$ENV{SKA_SHARE}/$Task";
 
 # Set global current time at beginning of execution
 our $CurrentTime = @ARGV ? date2time(shift @ARGV, 'unix') : time;	
 our $Debug = 0;
 our @warn;	# Global set of processing warnings (warn but don't die)
-our %opt = ParseConfig(-ConfigFile => "$TaskData/$Task.cfg");
-our %web_content_cfg = ParseConfig(-ConfigFile => "$TaskData/$opt{file}{web_content_cfg}");
+our %opt = ParseConfig(-ConfigFile => "$TaskShare/$Task.cfg");
+our %web_content_cfg = ParseConfig(-ConfigFile => "$TaskShare/$opt{file}{web_content_cfg}");
 
 our %web_data = %{ clone(\%web_content_cfg) };
 

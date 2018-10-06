@@ -4,20 +4,18 @@ TASK = arc
 FLIGHT_ENV = SKA
 
 # Set the names of all files that get installed
-BIN = get_iFOT_events.pl get_web_content.pl arc.pl
 SHARE = Event.pm Snap.pm parse_cm_file.pl arc_time_machine.pl \
         get_hrc.py plot_hrc.py get_ace.py get_goes_x.py \
-	make_timeline.py calc_fluence_dist.py
-
-# See NOTES.make_ACE_hourly_avg if ACE_hourly_avg.npy needs to be created.
-DATA = iFOT_queries.cfg arc.cfg arc_test.cfg arc_ops.cfg web_content.cfg \
+	make_timeline.py calc_fluence_dist.py \
+        get_iFOT_events.pl get_web_content.pl arc.pl \
+        iFOT_queries.cfg arc.cfg arc_test.cfg arc_ops.cfg web_content.cfg \
 	title_image.png \
 	blue_paper.gif \
 	blue_paper_test.gif \
 	alert_limits.html \
-	task_schedule.cfg \
-	timeline.js timeline.css vert_line.gif \
-	ACE_hourly_avg.npy
+	timeline.js timeline.css vert_line.gif
+
+DATA =	ACE_hourly_avg.npy task_schedule.cfg
 DOC =
 
 include /proj/sot/ska/include/Makefile.FLIGHT
@@ -98,12 +96,12 @@ t_arcx:
 
 install:
 #  Uncomment the lines which apply for this task
-	mkdir -p $(INSTALL_BIN)
+#	mkdir -p $(INSTALL_BIN)
 	mkdir -p $(INSTALL_DATA)
 	mkdir -p $(INSTALL_SHARE)
 #	mkdir -p $(INSTALL_DOC)
 #	mkdir -p $(INSTALL_LIB)
-	rsync --times --cvs-exclude $(BIN) $(INSTALL_BIN)/
+#	rsync --times --cvs-exclude $(BIN) $(INSTALL_BIN)/
 	rsync --times --cvs-exclude $(DATA) $(INSTALL_DATA)/
 	rsync --times --cvs-exclude $(SHARE) $(INSTALL_SHARE)/
 #	rsync --times --cvs-exclude $(DOC) $(INSTALL_DOC)/
