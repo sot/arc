@@ -1,5 +1,5 @@
 # Set the task name
-TASK = arc
+TASK = arc3
 
 FLIGHT_ENV = SKA
 
@@ -22,7 +22,7 @@ include /proj/sot/ska/include/Makefile.FLIGHT
 
 # Define outside data and bin dependencies required for testing,
 #
-TEST_DEP = data/arc/
+TEST_DEP = data/arc3/
 
 .PHONY: test test_char test_get test_scs107 t_scs107 test_current t_current clean t_now t_arcx
 

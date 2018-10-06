@@ -5,7 +5,7 @@
 # the iFOT_time_machine mercurial repository can then be used to get the iFOT status
 # at any time with something like:
 # 
-# hg pull -u $ska/data/arc/iFOT_time_machine
+# hg pull -u $ska/data/arc3/iFOT_time_machine
 # hg update --date " < <date-time> "
 
 
@@ -19,7 +19,7 @@ use Ska::Convert qw( time2date );
 use File::chdir;
 use Getopt::Long;
 
-my $Task     = 'arc';
+my $Task     = 'arc3';
 my $TaskData = "$ENV{SKA_DATA}/$Task";
 my $TaskShare = "$ENV{SKA_SHARE}/$Task";
 my $CurrentTime = time;	# Use time at start of program for output names

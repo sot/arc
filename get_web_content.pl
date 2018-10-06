@@ -11,7 +11,7 @@ use Ska::Web;
 use Clone qw(clone);
 use Carp;
 
-our $Task     = 'arc';
+our $Task     = 'arc3';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
 our $TaskShare = "$ENV{SKA_SHARE}/$Task";
 

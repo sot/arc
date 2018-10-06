@@ -29,7 +29,7 @@ use Getopt::Long;
 # - Improve get_obsid_event so that it does violation checks during manv'r
 # - Make sure logs and all other files w/ passwd are secure
 
-our $Task     = 'arc';
+our $Task     = 'arc3';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
 our $TaskShare = "$ENV{SKA_SHARE}/$Task";
 our $VERSION = '$Id: arc.pl,v 1.21 2007-08-21 15:47:50 aldcroft Exp $';

@@ -13,7 +13,7 @@ use Ska::RDB qw(write_rdb);
 use Ska::Web;
 use Carp;
 
-our $Task     = 'arc';
+our $Task     = 'arc3';
 our $TaskShare = "$ENV{SKA_SHARE}/$Task";
 our $TaskData = "$ENV{SKA_DATA}/$Task";
 our $Debug    = 0;
