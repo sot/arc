@@ -108,26 +108,17 @@ def get_fluence(filename):
     return start, p3_fluence
 
 
-def get_avg_flux(filename):
+def get_avg_flux(times, fluxes, now):
     """
-    # Get the ACE 2 hour average flux (parse stuff below)
-
-                         DE1          DE4         P2          P3        P3S..
-                        38-53       175-315     47-68       115-195      11..
-
-    AVERAGE           28126.087     147.783   32152.174   10211.739   16480..
-    MINIMUM           26400.000     137.000   29400.000    9310.000   15260..
-    FLUENCE          2.0251e+08  1.0640e+06  2.3150e+08  7.3525e+07  1.1866..
+    # Get the ACE 2 hour average flux from the ACE.h5 file
     """
 
-    lines = [line for line in open(filename, 'r')
-             if line.startswith('AVERAGE   ')]
-    if len(lines) != 1:
-        print('WARNING: {} file contains {} lines that start with '
-              'AVERAGE (expect one)'.format(ACE_RATES_FILE, len(lines)))
+    ok = times > now.secs - 3600 * 2
+    if np.count_nonzero(ok) < 3:
         p3_avg_flux = P3_BAD
     else:
-        p3_avg_flux = float(lines[0].split()[4])
+        p3_avg_flux = np.mean(fluxes[ok])
+
     return p3_avg_flux
 
 
@@ -344,12 +335,13 @@ def main():
     fluence_date, fluence0 = get_fluence(ACIS_FLUENCE_FILE)
     if fluence_date.secs < now.secs:
         fluence_date = now
-    avg_flux = get_avg_flux(ACE_RATES_FILE)
 
     # Get the realtime ACE P3 and HRC proxy values over the time range
     goes_x_times, goes_x_vals = get_goes_x(start.secs, now.secs)
     p3_times, p3_vals = get_ace_p3(start.secs, now.secs)
     hrc_times, hrc_vals = get_hrc(start.secs, now.secs)
+
+    avg_flux = get_avg_flux(p3_times, p3_vals, now)
 
     # For testing: inject predefined values for different scenarios
     if args.test_scenario:
