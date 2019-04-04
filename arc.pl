@@ -973,7 +973,7 @@ sub make_event_table {
 
     $table->setRowAlign(1, 'CENTER');
     my $load_link = ((defined $load_info{URL}) and (defined $load_info{name})) ?
-      " (Load: <a href=\"$load_info{URL}/$load_info{name}.html\" target =\"_blank\">$load_info{name}</a>)"
+      " (Load: <a href=\"$load_info{URL}/$load_info{name}.php\" target =\"_blank\">$load_info{name}</a>)"
 	: " (Load link unavailable)";
     $table->setCaption("<span style=$opt{web_page}{table_caption_style}>"
 		       . "Chandra Events"
