@@ -829,8 +829,9 @@ sub make_ephin_goes_table {
     $val{GOES}{"HRC shield"} = sprintf("%.0f", $hrc_shield_proxy);
     $val{CXO}{"HRC shield"} = $snap->{hrcshield}{value};
     $val{CXO}{"HRC MCP"} = $snap->{hrcmcp}{value};
-    $val{CXO}{E150} = sprintf("%.0f", $snap->{E150}{value});
-    $val{CXO}{E1300} = sprintf("%.1f", $snap->{E1300}{value});
+    # Should these values be removed?
+    $val{CXO}{E150} = '---';
+    $val{CXO}{E1300} = '---';
     $val{CXO}{P4GM}  = '---';
     $val{CXO}{P41GM} = '---';
     $val{Limit}{"HRC shield"} = 250;
