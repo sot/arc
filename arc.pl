@@ -829,15 +829,10 @@ sub make_ephin_goes_table {
     $val{GOES}{"HRC shield"} = sprintf("%.0f", $hrc_shield_proxy);
     $val{CXO}{"HRC shield"} = $snap->{hrcshield}{value};
     $val{CXO}{"HRC MCP"} = $snap->{hrcmcp}{value};
-    # Should these values be removed?
-    $val{CXO}{E150} = '---';
-    $val{CXO}{E1300} = '---';
     $val{CXO}{P4GM}  = '---';
     $val{CXO}{P41GM} = '---';
     $val{Limit}{"HRC shield"} = 250;
     $val{Limit}{"HRC MCP"} = 30;
-    $val{Limit}{E150} = 800000;
-    $val{Limit}{E1300} = 1000;
     $val{Limit}{P4GM} = 300.0;
     $val{Limit}{P41GM} = 8.47;
 
