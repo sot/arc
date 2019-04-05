@@ -573,7 +573,7 @@ sub make_web_page {
 		   $q->a({href => $opt{url}{ace_solar_wind}, target => "_blank"}, "ACE"),
                    ")",
 		   $q->br,
-		   $q->img({class=>"boxed", src => $web_data->{solar_wind}{content}{solar_wind}{file}})
+		   $q->img({class=>"boxed", src => $web_data->{solar_wind}{image}{solar_wind}{file}})
 		  );
 
     $html .= $q->p({style => $image_title_style},
