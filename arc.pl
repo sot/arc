@@ -706,10 +706,13 @@ sub make_ace_table {
     my $n_col = @{$tab_def{col}}+1;
 
     my $start = qr/YR \s+ MO \s+ DA \s+ HHMM \s+ 38-53 .+ \s*/x;
-    my ($ace_date, $ace_p3) = parse_mta_rad_data($start,
-						 $web_data->{ace}{content}{flux}{content},
-						7);
 
+    my ($ace_date, $ace_p3);
+    if (defined $web_data->{ace}{content}{flux}{content}){
+        ($ace_date, $ace_p3) = parse_mta_rad_data($start,
+                                                  $web_data->{ace}{content}{flux}{content},
+                                                  7);
+    }
     return '<h2 style="color:red;text-align:center">NO RECENT ACE DATA</h2>' unless (defined $ace_p3 and @{$ace_p3});
 
     my ($fluence_date, $orbital_fluence) = parse_mta_rad_data(qr/ACIS Fluence data...Start DOY,SOD/,
@@ -805,10 +808,13 @@ sub make_ephin_goes_table {
 
     my $start = qr/P1 \s+ P2  \s+ P5 \s+ P8  \s+ P10 \s+ P11 \s+ H2/x;
 
-    my ($goes_date, $p2, $p5) = parse_mta_rad_data($start,
-						   $web_data->{goes}{content}{flux}{content},
-						   5, 6,
-						  );
+    my ($goes_date, $p2, $p5);
+    if (defined $web_data->{goes}{content}{flux}{content}){
+        ($goes_date, $p2, $p5) = parse_mta_rad_data($start,
+                                                    $web_data->{goes}{content}{flux}{content},
+                                                    5, 6,
+                                                );
+    }
     $goes_date = 'UNAVAILABLE' unless defined $goes_date;
 
     my ($hrc_shield_proxy, $hrc_time) = split(' ', io($opt{file}{hrc_shield})->slurp());
