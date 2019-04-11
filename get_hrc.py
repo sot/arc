@@ -22,15 +22,17 @@ url = 'ftp://ftp.swpc.noaa.gov/pub/lists/pchan/Gp_pchan_5m.txt'
 colnames = ('year month dom  hhmm  mjd secs p1  p2  p3 '
             'p4  p5  p6  p7  p8  p9 p10 p11').split()
 
+last_err = None
 for _ in range(3):
     try:
         urlob = urllib.request.urlopen(url)
         urldat = urlob.read().decode()
         break
     except Exception as err:
+        last_err = err
         time.sleep(5)
 else:
-    print('Warning: failed to open URL {}: {}'.format(url, err))
+    print('Warning: failed to open URL {}: {}'.format(url, last_err))
     sys.exit(0)
 
 dat = ascii.read(urldat, Reader=ascii.NoHeader, names=colnames,
