@@ -7,7 +7,7 @@ use Ska::RDB qw(read_rdb);
 use Ska::Run;
 use Ska::Convert qw(time2date date2time);
 use Ska::Web;
-use Config::General;
+use Config::General qw(ParseConfig);
 use Data::Dumper;
 use HTML::Table;
 use CGI;
@@ -29,9 +29,10 @@ use Getopt::Long;
 # - Improve get_obsid_event so that it does violation checks during manv'r
 # - Make sure logs and all other files w/ passwd are secure
 
-our $Task     = 'arc';
+our $Task     = 'arc3';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
-our $VERSION = '$Id: arc.pl,v 1.21 2007-08-21 15:47:50 aldcroft Exp $';
+our $TaskShare = "$ENV{SKA_SHARE}/$Task";
+our $VERSION = '4.0';
 
 require "$ENV{SKA_SHARE}/$Task/Event.pm";
 require "$ENV{SKA_SHARE}/$Task/Snap.pm";
@@ -127,13 +128,13 @@ sub interpolate_config_file_options {
 sub get_config_options {
 ####################################################################################
 # Read in config options and an optional test config options
-    my %opt = ('config' => "arc");
+    my %opt = ('config' => "arc3");
     GetOptions(\%opt,
 	       'config=s');
 
     Hash::Merge::set_behavior( 'RIGHT_PRECEDENT' );
     foreach (split(':', $opt{config})) {
-	my $cfg_file = "$TaskData/$_.cfg";
+	my $cfg_file = "$TaskShare/$_.cfg";
 	if (-r $cfg_file) {
 	    my %new_opt = ParseConfig(-ConfigFile => $cfg_file);
 	    %opt = %{ Hash::Merge::merge(\%opt, \%new_opt)};
@@ -572,7 +573,7 @@ sub make_web_page {
 		   $q->a({href => $opt{url}{ace_solar_wind}, target => "_blank"}, "ACE"),
                    ")",
 		   $q->br,
-		   $q->img({class=>"boxed", src => $web_data->{solar_wind}{content}{solar_wind}{file}})
+		   $q->img({class=>"boxed", src => $web_data->{solar_wind}{image}{solar_wind}{file}})
 		  );
 
     $html .= $q->p({style => $image_title_style},
@@ -599,13 +600,20 @@ sub install_web_files {
 
     $html > io("$opt{file}{web_dir}/$opt{file}{web_page}");
 
-    # (Used to have several images..)
-    foreach (qw(title_image blue_paper blue_paper_test
-		timeline_js timeline_css timeline_png timeline_states vert_line)) {
+
+    foreach (qw(timeline_png timeline_states)){
 	my $in = io("$TaskData/$opt{file}{$_}");
 	my $out =io("$opt{file}{web_dir}/$opt{file}{$_}");
 	$in > $out if (not -e "$out" or $in->mtime > $out->mtime);
     }
+
+    foreach (qw(title_image blue_paper blue_paper_test
+		timeline_js timeline_css vert_line)) {
+	my $in = io("$TaskShare/$opt{file}{$_}");
+	my $out =io("$opt{file}{web_dir}/$opt{file}{$_}");
+	$in > $out if (not -e "$out" or $in->mtime > $out->mtime);
+    }
+
 
     # Go through each web site where data/images were retrieved
     foreach my $web (values %{$web_content}) {
@@ -698,10 +706,13 @@ sub make_ace_table {
     my $n_col = @{$tab_def{col}}+1;
 
     my $start = qr/YR \s+ MO \s+ DA \s+ HHMM \s+ 38-53 .+ \s*/x;
-    my ($ace_date, $ace_p3) = parse_mta_rad_data($start,
-						 $web_data->{ace}{content}{flux}{content},
-						7);
 
+    my ($ace_date, $ace_p3);
+    if (defined $web_data->{ace}{content}{flux}{content}){
+        ($ace_date, $ace_p3) = parse_mta_rad_data($start,
+                                                  $web_data->{ace}{content}{flux}{content},
+                                                  7);
+    }
     return '<h2 style="color:red;text-align:center">NO RECENT ACE DATA</h2>' unless (defined $ace_p3 and @{$ace_p3});
 
     my ($fluence_date, $orbital_fluence) = parse_mta_rad_data(qr/ACIS Fluence data...Start DOY,SOD/,
@@ -797,10 +808,13 @@ sub make_ephin_goes_table {
 
     my $start = qr/P1 \s+ P2  \s+ P5 \s+ P8  \s+ P10 \s+ P11 \s+ H2/x;
 
-    my ($goes_date, $p2, $p5) = parse_mta_rad_data($start,
-						   $web_data->{goes}{content}{flux}{content},
-						   5, 6,
-						  );
+    my ($goes_date, $p2, $p5);
+    if (defined $web_data->{goes}{content}{flux}{content}){
+        ($goes_date, $p2, $p5) = parse_mta_rad_data($start,
+                                                    $web_data->{goes}{content}{flux}{content},
+                                                    5, 6,
+                                                );
+    }
     $goes_date = 'UNAVAILABLE' unless defined $goes_date;
 
     my ($hrc_shield_proxy, $hrc_time) = split(' ', io($opt{file}{hrc_shield})->slurp());
@@ -821,14 +835,10 @@ sub make_ephin_goes_table {
     $val{GOES}{"HRC shield"} = sprintf("%.0f", $hrc_shield_proxy);
     $val{CXO}{"HRC shield"} = $snap->{hrcshield}{value};
     $val{CXO}{"HRC MCP"} = $snap->{hrcmcp}{value};
-    $val{CXO}{E150} = sprintf("%.0f", $snap->{E150}{value});
-    $val{CXO}{E1300} = sprintf("%.1f", $snap->{E1300}{value});
     $val{CXO}{P4GM}  = '---';
     $val{CXO}{P41GM} = '---';
     $val{Limit}{"HRC shield"} = 250;
     $val{Limit}{"HRC MCP"} = 30;
-    $val{Limit}{E150} = 800000;
-    $val{Limit}{E1300} = 1000;
     $val{Limit}{P4GM} = 300.0;
     $val{Limit}{P41GM} = 8.47;
 
@@ -969,7 +979,7 @@ sub make_event_table {
 
     $table->setRowAlign(1, 'CENTER');
     my $load_link = ((defined $load_info{URL}) and (defined $load_info{name})) ?
-      " (Load: <a href=\"$load_info{URL}/$load_info{name}.html\" target =\"_blank\">$load_info{name}</a>)"
+      " (Load: <a href=\"$load_info{URL}/$load_info{name}.php\" target =\"_blank\">$load_info{name}</a>)"
 	: " (Load link unavailable)";
     $table->setCaption("<span style=$opt{web_page}{table_caption_style}>"
 		       . "Chandra Events"

@@ -3,23 +3,25 @@
 use warnings;
 use strict;
 
+use Try::Tiny qw(try catch);
 use IO::All;
-use Config::General;
+use Config::General qw(ParseConfig);
 use Data::Dumper;
 use Ska::Convert qw(time2date date2time);
 use Ska::Web;
 use Clone qw(clone);
 use Carp;
 
-our $Task     = 'arc';
+our $Task     = 'arc3';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
+our $TaskShare = "$ENV{SKA_SHARE}/$Task";
 
 # Set global current time at beginning of execution
 our $CurrentTime = @ARGV ? date2time(shift @ARGV, 'unix') : time;	
 our $Debug = 0;
 our @warn;	# Global set of processing warnings (warn but don't die)
-our %opt = ParseConfig(-ConfigFile => "$TaskData/$Task.cfg");
-our %web_content_cfg = ParseConfig(-ConfigFile => "$TaskData/$opt{file}{web_content_cfg}");
+our %opt = ParseConfig(-ConfigFile => "$TaskShare/$Task.cfg");
+our %web_content_cfg = ParseConfig(-ConfigFile => "$TaskShare/$opt{file}{web_content_cfg}");
 
 our %web_data = %{ clone(\%web_content_cfg) };
 
@@ -38,7 +40,7 @@ while (my ($web_name, $web) = each %web_data) {
         ($web_opt{user}, $web_opt{passwd}) = Ska::Web::get_user_passwd($web_opt{auth_file})
     }
         
-    my ($html, $error) = Ska::Web::get_url($url, %web_opt);
+    my ($html, $error, $header) = Ska::Web::get_url($url, %web_opt);
 
     if ($error) {
 	warning($web, "$error for web data $web_name ($url)");
@@ -57,6 +59,9 @@ while (my ($web_name, $web) = each %web_data) {
 	if ($content->{file}) {
 	    $content->{outfile} = "$TaskData/".$content->{file};
 	    $html_content > io($content->{outfile});
+            if (defined $header->last_modified){
+                utime($header->last_modified, $header->last_modified, $content->{outfile});
+            }
 	} else {
 	    $content->{content} = $html_content;
 	}
@@ -65,32 +70,47 @@ while (my ($web_name, $web) = each %web_data) {
     # Grab each image
     while (my ($image_name, $image) = each %{$web->{image}}) {
         my $tries = $image->{tries} || 1;
+        my $img_file = $image->{file};
+        $image->{outfile} = "$TaskData/$img_file";
+        my $got_image = 0;
       TRY: for my $try (1 .. $tries) {
-            my ($html_content, $error, @image) = Ska::Web::get_html_content($html,
-                                                                            url    => $url,
-                                                                            filter => $image->{filter});
-
-            if ($error) {
-                warning($image, "$error for web image $image_name ($url)");
-            }
-
-            $image->{content} = $html_content;
-
-            my $img_file = $image->{file};
-            if (@image == 1) {
-                if (length $image[0]->{data} > 100) {
-                    $image->{outfile} = "$TaskData/$img_file";
-                    $image[0]->{data} > io($image->{outfile});
-                    last TRY;   # Got a good image so bail from TRY loop
-                } else {
-                    if ($image->{warn_bad_image} and $try == $tries) {
-                        warning($image, "Retrieved malformed $img_file image after $tries try(s)")
-                    }
-                    sleep($image->{'sleep'} || 10) if $try < $tries;
+            try {
+                my ($html_content, $error, @image) = Ska::Web::get_html_content(
+                    $html,
+                    url    => $url,
+                    filter => $image->{filter});
+                if ($error) {
+                    die $error;
                 }
-            } else {
-                warning($image, "Did not get exactly one $img_file image");
-                last TRY;  # Too many images, bail from TRY loop
+                if (@image != 1) {
+                    die "Did not get exactly one $img_file image";
+                }
+                if ((length $image[0]->{data}) < 100) {
+                    die "Retrieved malformed $img_file image after $tries try(s)";
+                }
+                $image->{content} = $html_content;
+                $image[0]->{data} > io($image->{outfile});
+                utime($image[0]->{header}->last_modified,
+                      $image[0]->{header}->last_modified,
+                      $image->{outfile});
+                $got_image = 1;
+            }
+            catch {
+                if ($try < $tries){
+                    sleep($image->{'sleep'} || 10)
+                }
+                if (not defined $image->{warn_age_hours} and
+                        $image->{warn_bad_image} and $try == $tries) {
+                    warning($image, $_);
+                }
+            };
+            last TRY if $got_image == 1;
+        }
+        if (($got_image == 0) and (defined $image->{warn_age_hours})){
+            if (((-M $image->{outfile}) * 24) > $image->{warn_age_hours}){
+                warning(
+                    $image,
+                    "Did not get $img_file and more than $image->{warn_age_hours} hours old");
             }
         }
     }

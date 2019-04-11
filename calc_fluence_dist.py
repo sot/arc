@@ -66,9 +66,9 @@ def get_fluence_percentiles(p3_avg_now, p3_slope_now, p3_fits, p3_samps, fluence
 
 if __name__ == '__main__':
     p3_fits, p3_samps, fluences = get_fluences()
-    print 'p3_avg_now',
-    p3_avg_now = float(raw_input())
-    print 'p3_slope_now',
-    p3_slope_now = float(raw_input())
+    print('p3_avg_now', end=' ')
+    p3_avg_now = float(input())
+    print('p3_slope_now', end=' ')
+    p3_slope_now = float(input())
     hrs, fl10, fl50, fl90 = get_fluence_percentiles(
         p3_avg_now, p3_slope_now, p3_fits, p3_samps, fluences)

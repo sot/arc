@@ -7,7 +7,7 @@ use warnings;
 use strict;
 use IO::All;
 use Ska::RDB qw(read_rdb);
-use Config::General;
+use Config::General qw(ParseConfig);
 use Data::Dumper;
 use HTML::Table;
 use Ska::Convert qw(date2time time2date);

@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 import argparse
-
-import tables
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
+import tables
+
+from Ska.Matplotlib import plot_cxctime
 
 parser = argparse.ArgumentParser(description='View CygOB2 detection groups')
 parser.add_argument('--out', type=str,
@@ -15,12 +16,10 @@ parser.add_argument('--h5',
                     help='HDF5 file name')
 args = parser.parse_args()
 
-from Ska.Matplotlib import plot_cxctime
-
 colnames = ('year month dom  hhmm  mjd secs_of_day p1  p2  p3 '
             'p4  p5  p6  p7  p8  p9 p10 p11').split()
 
-h5 = tables.openFile(args.h5, mode='r')
+h5 = tables.open_file(args.h5, mode='r')
 table = h5.root.data
 secs = table.col('time')[-864:]
 hrc_shield = table.col('hrc_shield')[-864:]
