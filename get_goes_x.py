@@ -18,16 +18,19 @@ args = parser.parse_args()
 
 url = 'ftp://ftp.swpc.noaa.gov/pub/lists/xray/Gp_xr_5m.txt'
 
+last_err = None
 for _ in range(3):
     try:
         urlob = urllib.request.urlopen(url)
         urldat = urlob.read().decode()
         break
     except Exception as err:
+        last_err = err
         time.sleep(5)
 else:
-    print(('Warning: failed to open URL {}: {}'.format(url, err)))
+    print(('Warning: failed to open URL {}: {}'.format(url, last_err)))
     sys.exit(0)
+
 
 colnames = 'year month dom  hhmm  mjd secs short long ratio'.split()
 data_colnames = colnames[-3:]
