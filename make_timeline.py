@@ -267,7 +267,10 @@ def get_hrc(tstart, tstop):
     hrc = h5.root.data.col('hrc_shield') * 256.0
     ok = (tstart < times) & (times < tstop) & (hrc > 0)
     h5.close()
-    return times[ok], hrc[ok]
+    if np.count_nonzero(ok) < 2:
+        return np.array([tstart, tstop]), np.array([1, 1])
+    else:
+        return times[ok], hrc[ok]
 
 
 def plot_multi_line(x, y, z, bins, colors, ax):
