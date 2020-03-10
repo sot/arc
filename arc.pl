@@ -515,6 +515,7 @@ sub make_web_page {
 		       Event::format_date(time2date($CurrentTime, 'unix_time')),
 		       " (", Event::calc_local_date($CurrentTime), ")"
 		      );
+    push @warn, 'HRC proxy data are being stubbed out at this time and should be ignored.';
     $html .= make_warning_table(@warn) . $q->p if (@warn);
 
     my $snap_table = make_snap_table($snap) . $q->p;
@@ -551,11 +552,12 @@ sub make_web_page {
 		   $q->img({class=>"boxed", src => $web_data->{goes}{image}{five_min}{file}})
 		  );
 
-    $html .= $q->p({style => $image_title_style},
-		   "GOES proxy for HRC shield rates",
-		   $q->br,
-		   $q->img({class=>"boxed", src => "hrc_shield.png"})
-		  );
+    #$html .= $q->p({style => $image_title_style},
+    #"GOES proxy for HRC shield rates",
+    #$q->br,
+    #$q->img({class=>"boxed", src => "hrc_shield.png"})
+    #);
+    $html .= '<h2 style="color:red;text-align:center">NO data for HRC PROXY</h2>';
 
     $html .= # $q->div({style => 'width:700'},
 		   make_solar_forecast_table($web_data);
@@ -822,7 +824,7 @@ sub make_ephin_goes_table {
     my ($p41gm_proxy, $p41gm_time) = split(' ', io($opt{file}{p41gm})->slurp());
 
     my $warning = ((not defined $p2) || (not defined $p5) || @{$p2} == 0 || @{$p5} == 0) ?
-      '<h2 style="color:red;text-align:center">NO RECENT GOES DATA</h2>' : '';
+      '<h2 style="color:red;text-align:center">NO RECENT GOES DATA<br/> NO data for HRC PROXY</h2>' : '';
 
     my $ephin_date = $snap->{obt}{value} . ' (' .
 		  Event::calc_delta_date($snap->{obt}{value}) . ')';
