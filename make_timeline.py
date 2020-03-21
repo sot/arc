@@ -198,7 +198,10 @@ def get_goes_x(tstart, tstop):
     p3 = h5.root.data.col('long')
     ok = (tstart < times) & (times < tstop)
     h5.close()
-    return times[ok], p3[ok]
+    if np.count_nonzero(ok) < 2:
+        return np.array([tstart, tstop]), np.array([1e-10, 1e-10])
+    else:
+        return times[ok], p3[ok]
 
 
 def get_test_vals(scenario, p3_times, p3s, p3_avg, p3_fluence):
