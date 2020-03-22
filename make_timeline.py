@@ -76,7 +76,7 @@ else:
     ACE_RATES_FILE = '/data/mta4/www/ace.html'
     DSN_COMMS_FILE = '/proj/sot/ska/data/dsn_summary/dsn_summary.yaml'
 
-GOES_X_H5_FILE = os.path.join(args.data_dir, 'GOES_X.h5')
+GOES_X_H5_FILE = os.path.join(args.data_dir, 'GOES_X_16.h5')
 ACE_H5_FILE = os.path.join(args.data_dir, 'ACE.h5')
 HRC_H5_FILE = os.path.join(args.data_dir, 'hrc_shield.h5')
 
