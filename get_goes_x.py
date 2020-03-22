@@ -5,18 +5,20 @@ import urllib.request, urllib.error, urllib.parse
 import argparse
 import tables
 import time
+import json
 
 import numpy as np
 from astropy.io import ascii
+from astropy.table import Table, join
 from Chandra.Time import DateTime
 
 parser = argparse.ArgumentParser(description='Get GOES_X data')
 parser.add_argument('--h5',
-                    default='GOES_X.h5',
+                    default='GOES_X_16.h5',
                     help='HDF5 file name')
 args = parser.parse_args()
 
-url = 'ftp://ftp.swpc.noaa.gov/pub/lists/xray/Gp_xr_5m.txt'
+url = 'https://services.swpc.noaa.gov/json/goes/primary/xrays-3-day.json'
 
 last_err = None
 for _ in range(3):
@@ -31,33 +33,32 @@ else:
     print(('Warning: failed to open URL {}: {}'.format(url, last_err)))
     sys.exit(0)
 
-
-colnames = 'year month dom  hhmm  mjd secs short long ratio'.split()
-data_colnames = colnames[-3:]
-
 try:
-    dat = ascii.read(urldat, guess=False, Reader=ascii.NoHeader,
-                     data_start=3, names=colnames)
+    dat = Table(json.loads(urldat))
 except Exception as err:
     print(('Warning: malformed GOES_X data so table read failed: {}'
           .format(err)))
     sys.exit(0)
 
-# Strip up to two rows at the end if any values are bad (i.e. negative)
-for _ in range(2):
-    if any(dat[name][-1] < 0 for name in data_colnames):
-        dat = dat[:-1]
+# Select only the GOES 16 data (which is all there is)
+dat = dat[dat['satellite'] == 16]
+# Make a table for each of the two wavelengths
+shortdat = dat[dat['energy'] == '0.05-0.4nm']['flux', 'time_tag']
+shortdat.rename_column('flux', 'short_flux')
+longdat = dat[dat['energy'] == '0.1-0.8nm']['flux', 'time_tag']
+longdat.rename_column('flux', 'long_flux')
+# Join them on time (seems to be OK for these data)
+joindat = join(shortdat, longdat)
 
-mjd = dat['mjd'] + dat['secs'] / 86400.
+# Add a time column with Chandra secs
+secs = []
+for row in joindat:
+    secs.append(DateTime(row['time_tag'].strip('Z')).secs)
+joindat['time'] = secs
+joindat.remove_column('time_tag')
 
-secs = DateTime(mjd, format='mjd').secs
-
-descrs = dat.dtype.descr
-descrs.append(('time', 'f8'))
-newdat = np.ndarray(len(dat), dtype=descrs)
-for colname in colnames:
-    newdat[colname] = dat[colname]
-newdat['time'] = secs
+# Save to h5
+newdat = joindat.as_array()
 
 h5 = tables.open_file(args.h5, mode='a',
                      filters=tables.Filters(complevel=5, complib='zlib'))
