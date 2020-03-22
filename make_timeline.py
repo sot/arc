@@ -710,7 +710,7 @@ def get_fmt_dt(t1, t0):
 
 def log_scale(y):
     if isinstance(y, np.ndarray):
-        bad = y < 0
+        bad = y <= 0
         y = y.copy()
         y[bad] = 1e-10
     return (np.log10(y) - 1.0) / 2.0
