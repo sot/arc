@@ -42,11 +42,13 @@ except Exception as err:
 
 # Select only the GOES 16 data (which is all there is)
 dat = dat[dat['satellite'] == 16]
+
 # Make a table for each of the two wavelengths
 shortdat = dat[dat['energy'] == '0.05-0.4nm']['flux', 'time_tag']
 shortdat.rename_column('flux', 'short')
 longdat = dat[dat['energy'] == '0.1-0.8nm']['flux', 'time_tag']
 longdat.rename_column('flux', 'long')
+
 # Join them on time (seems to be OK for these data)
 joindat = join(shortdat, longdat)
 
