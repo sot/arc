@@ -16,6 +16,10 @@ parser = argparse.ArgumentParser(description='Get GOES_X data')
 parser.add_argument('--h5',
                     default='GOES_X_16.h5',
                     help='HDF5 file name')
+parser.add_argument('--satellite',
+                    default=16,
+                    type=int,
+                    help='Select which satelite from the json file by int id')
 args = parser.parse_args()
 
 url = 'https://services.swpc.noaa.gov/json/goes/primary/xrays-3-day.json'
@@ -40,8 +44,11 @@ except Exception as err:
           .format(err)))
     sys.exit(0)
 
-# Select only the GOES 16 data (which is all there is)
-dat = dat[dat['satellite'] == 16]
+# Select only the GOES satellite specified from the args
+dat = dat[dat['satellite'] == args.satellite]
+if len(dat) == 0:
+    print('Warning: No data in fetched file for satellite {}'.format(args.satellite))
+    sys.exit(0)
 
 # Make a table for each of the two wavelengths
 shortdat = dat[dat['energy'] == '0.05-0.4nm']['flux', 'time_tag']
