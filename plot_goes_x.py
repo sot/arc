@@ -26,7 +26,7 @@ with tables.open_file(args.h5, mode='r') as h5:
 plt.figure(1, figsize=(6, 4))
 for wave, color in zip(['long', 'short'], ['red', 'blue']):
     vals = table[wave]
-    vals[vals <= 0] = 1e-10
+    vals = vals.clip(min=1e-10)
     ticks, fig, ax = plot_cxctime(table['time'], vals, color=color, linewidth=.5,
                                   label=f'GOES 16 {wave}')
 ax.set_ylim(1e-9, 1e-2)
