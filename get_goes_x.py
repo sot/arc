@@ -14,7 +14,7 @@ from astropy.time import Time
 
 parser = argparse.ArgumentParser(description='Get GOES_X data')
 parser.add_argument('--h5',
-                    default='GOES_X_16.h5',
+                    default='GOES_X.h5',
                     help='HDF5 file name')
 parser.add_argument('--satellite',
                     default=16,
