@@ -17,15 +17,11 @@ parser.add_argument('--h5',
                     help='HDF5 file name')
 args = parser.parse_args()
 
-
-
-
-h5 = tables.open_file(args.h5, mode='r')
-table = h5.root.data[:]
-# Use just last 3 days if available
-table = table[table['time'] >= (DateTime() - 3).secs ]
-h5.close()
-
+with tables.open_file(args.h5, mode='r') as h5:
+    table = h5.root.data[:]
+    # Use just last 3 days if available
+    table = table[table['time'] >= (DateTime() - 3).secs ]
+    h5.close()
 
 plt.figure(1, figsize=(6, 4))
 for wave, color in zip(['long', 'short'], ['red', 'blue']):
