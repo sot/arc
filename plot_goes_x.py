@@ -29,7 +29,7 @@ with tables.open_file(args.h5, mode='r') as h5:
     h5.close()
 
 plt.figure(1, figsize=(6, 4))
-for col, wavelength, color in zip(['long', 'short',
+for col, wavelength, color in zip(['long', 'short'],
                                    ['0.1-0.8nm', '0.05-0.4nm'],
                                    ['red', 'blue']):
     vals = table[wave]
