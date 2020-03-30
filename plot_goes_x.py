@@ -4,8 +4,8 @@ import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import tables
-from Chandra.Time import DateTime
 
+from Chandra.Time import DateTime
 from Ska.Matplotlib import plot_cxctime
 
 parser = argparse.ArgumentParser(description='')
