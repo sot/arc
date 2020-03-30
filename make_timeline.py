@@ -195,13 +195,13 @@ def get_goes_x(tstart, tstop):
     """
     h5 = tables.open_file(GOES_X_H5_FILE)
     times = h5.root.data.col('time')
-    p3 = h5.root.data.col('long')
+    xray_long = h5.root.data.col('long')
     ok = (tstart < times) & (times < tstop)
     h5.close()
     if np.count_nonzero(ok) < 2:
         return np.array([tstart, tstop]), np.array([1e-10, 1e-10])
     else:
-        return times[ok], p3[ok]
+        return times[ok], xray_long[ok]
 
 
 def get_test_vals(scenario, p3_times, p3s, p3_avg, p3_fluence):
