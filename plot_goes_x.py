@@ -18,7 +18,7 @@ parser.add_argument('--out', type=str,
                     default='goes_x.png',
                     help='Plot file name')
 parser.add_argument('--h5',
-                    default='GOES_X_16.h5',
+                    default='GOES_X.h5',
                     help='HDF5 file name')
 args = parser.parse_args()
 
