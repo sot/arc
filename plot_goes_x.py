@@ -24,13 +24,15 @@ with tables.open_file(args.h5, mode='r') as h5:
     h5.close()
 
 plt.figure(1, figsize=(6, 4))
-for wave, color in zip(['long', 'short'], ['red', 'blue']):
+for col, wavelength, color in zip(['long', 'short',
+                                   ['0.1-0.8nm', '0.05-0.4nm'],
+                                   ['red', 'blue']):
     vals = table[wave]
     vals = vals.clip(min=1e-10)
-    ticks, fig, ax = plot_cxctime(table['time'], vals, color=color, linewidth=.5,
-                                  label=f'GOES 16 {wave}')
-ax.set_ylim(1e-9, 1e-2)
-ax.set_yscale('log')
+    plot_cxctime(table['time'], vals, color=color, linewidth=.5,
+                 label=f'GOES 16 {wavelength}')
+plt.ylim(1e-9, 1e-2)
+plt.yscale('log')
 plt.grid()
 plt.ylabel('Watts / m**2')
 plt.legend()
