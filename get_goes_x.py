@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
+"""
+Fetch GOES X-ray data and update h5 table
+"""
 
 import sys
 import urllib.request, urllib.error, urllib.parse

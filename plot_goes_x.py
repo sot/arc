@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
+"""
+Plot GOES X-ray data for use in Replan Central
+"""
+
 import argparse
 import matplotlib
 matplotlib.use('agg')
@@ -8,7 +13,7 @@ import tables
 from Chandra.Time import DateTime
 from Ska.Matplotlib import plot_cxctime
 
-parser = argparse.ArgumentParser(description='')
+parser = argparse.ArgumentParser(description='Plot GOES X data for Replan Central')
 parser.add_argument('--out', type=str,
                     default='goes_x.png',
                     help='Plot file name')
