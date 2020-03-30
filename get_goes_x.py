@@ -62,11 +62,26 @@ if len(longdat) != len(shortdat):
 joindat = join(shortdat, longdat)
 
 # Add a time column with Chandra secs and remove original time_tags
-joindat['time'] = Time(joindat['time_tag']).cxcsec
+times = Time(joindat['time_tag'])
+joindat['time'] = times.cxcsec
 joindat.remove_column('time_tag')
 
+# Add the other columns the old file format wanted
+joindat['mjd'] = times.mjd.astype(int)
+joindat['secs'] = np.array(np.round((times.mjd - joindat['mjd']) * 86400, decimals=0)).astype(int)
+joindat['year'] = [t.year for t in times.datetime]
+joindat['month'] = [t.month for t in times.datetime]
+joindat['dom'] = [t.day for t in times.datetime]
+joindat['hhmm'] = np.array([f"{t.hour}{t.minute}" for t in times.datetime]).astype(int)
+
+joindat['ratio'] = -100000.0
+ok = (joindat['long'] != 0) & (joindat['long'] != -100000.0)
+joindat['ratio'][ok] = joindat['short'][ok] / joindat['long'][ok]
+
 # Save to h5
-newdat = joindat.as_array()
+joindat['satellite'] = args.satellite
+newdat = joindat['year', 'month', 'dom', 'hhmm', 'mjd', 'secs',
+                'short', 'long', 'ratio', 'time', 'satellite'].as_array()
 
 h5 = tables.open_file(args.h5, mode='a',
                      filters=tables.Filters(complevel=5, complib='zlib'))
