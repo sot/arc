@@ -32,15 +32,15 @@ plt.figure(1, figsize=(6, 4))
 for col, wavelength, color in zip(['long', 'short'],
                                    ['0.1-0.8nm', '0.05-0.4nm'],
                                    ['red', 'blue']):
-    vals = table[wave]
+    vals = table[col]
     vals = vals.clip(min=1e-10)
     plot_cxctime(table['time'], vals, color=color, linewidth=.5,
-                 label=f'GOES 16 {wavelength}')
+                 label=f'{wavelength}')
 plt.ylim(1e-9, 1e-2)
 plt.yscale('log')
 plt.grid()
 plt.ylabel('Watts / m**2')
 plt.legend()
-plt.title('GOES Xray Flux from GOES16')
+plt.title('GOES Xray Flux')
 plt.tight_layout()
 plt.savefig(args.out)
