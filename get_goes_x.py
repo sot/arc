@@ -68,7 +68,8 @@ joindat.remove_column('time_tag')
 
 # Add the other columns the old file format wanted
 joindat['mjd'] = times.mjd.astype(int)
-joindat['secs'] = np.array(np.round((times.mjd - joindat['mjd']) * 86400, decimals=0)).astype(int)
+joindat['secs'] = np.array(np.round((times.mjd - joindat['mjd']) * 86400,
+                                    decimals=0)).astype(int)
 joindat['year'] = [t.year for t in times.datetime]
 joindat['month'] = [t.month for t in times.datetime]
 joindat['dom'] = [t.day for t in times.datetime]
@@ -83,16 +84,16 @@ joindat['satellite'] = args.satellite
 newdat = joindat['year', 'month', 'dom', 'hhmm', 'mjd', 'secs',
                 'short', 'long', 'ratio', 'time', 'satellite'].as_array()
 
-h5 = tables.open_file(args.h5, mode='a',
-                     filters=tables.Filters(complevel=5, complib='zlib'))
-try:
-    table = h5.root.data
-    lasttime = table.col('time')[-1]
-    ok = newdat['time'] > lasttime
-    newdat = newdat[ok]
-    h5.root.data.append(newdat)
-except tables.NoSuchNodeError:
-    table = h5.create_table(h5.root, 'data', newdat,
-                           "GOES_X rates", expectedrows=2e7)
-h5.root.data.flush()
-h5.close()
+with tables.open_file(args.h5, mode='a',
+                      filters=tables.Filters(complevel=5, complib='zlib')) as h5:
+    try:
+        table = h5.root.data
+        lasttime = table.col('time')[-1]
+        ok = newdat['time'] > lasttime
+        newdat = newdat[ok]
+        h5.root.data.append(newdat)
+    except tables.NoSuchNodeError:
+        table = h5.create_table(h5.root, 'data', newdat,
+                               "GOES_X rates", expectedrows=2e7)
+    h5.root.data.flush()
+
