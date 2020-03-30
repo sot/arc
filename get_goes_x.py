@@ -10,7 +10,7 @@ import json
 import numpy as np
 from astropy.io import ascii
 from astropy.table import Table, join
-from Chandra.Time import DateTime
+from astropy.time import Time
 
 parser = argparse.ArgumentParser(description='Get GOES_X data')
 parser.add_argument('--h5',
@@ -52,11 +52,8 @@ longdat.rename_column('flux', 'long')
 # Join them on time (seems to be OK for these data)
 joindat = join(shortdat, longdat)
 
-# Add a time column with Chandra secs
-secs = []
-for row in joindat:
-    secs.append(DateTime(row['time_tag'].strip('Z')).secs)
-joindat['time'] = secs
+# Add a time column with Chandra secs and remove original time_tags
+joindat['time'] = Time(joindat['time_tag']).cxcsec
 joindat.remove_column('time_tag')
 
 # Save to h5
