@@ -50,7 +50,7 @@ else:
 try:
     dat = Table(json.loads(urldat))
 except Exception as err:
-    print(('Warning: malformed GOES_X data so table read failed: {}'
+    print(('Malformed GOES_X data so table read failed: {}'
           .format(err)))
     sys.exit(0)
 
