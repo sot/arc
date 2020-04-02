@@ -2,6 +2,12 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
 Fetch GOES X-ray data and update h5 table
+
+The code now works from SWPC JSON files from GOES 16.  The GOES 15
+data was updated to include a column for 'satellite' with this gist:
+
+https://gist.github.com/jeanconn/2a34a5219129ed090f8bfaee5582788d
+
 """
 
 import sys
