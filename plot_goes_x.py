@@ -40,7 +40,7 @@ plt.ylim(1e-9, 1e-2)
 plt.yscale('log')
 plt.grid()
 plt.ylabel('Watts / m**2')
-plt.legend()
+plt.legend(loc='upper left')
 plt.title('GOES Xray Flux')
 plt.tight_layout()
 
