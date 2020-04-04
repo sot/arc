@@ -549,7 +549,8 @@ sub make_web_page {
     $html .= $q->p({style => $image_title_style},
 		   $q->a({href => $opt{url}{mta_goes}, target => "_blank"}, "GOES particle rates"),
 		   $q->br,
-		   $q->img({class=>"boxed", src => $web_data->{goes}{image}{five_min}{file}})
+		   $q->img({class=>"boxed", width => 700,
+			    src => $web_data->{goes}{image}{five_min}{file}})
 		  );
 
     #$html .= $q->p({style => $image_title_style},
@@ -566,7 +567,7 @@ sub make_web_page {
     $html .= $q->p({style => $image_title_style},
 		   $q->a({href => $opt{url}{goes_xray_flux}, target => "_blank"}, "Solar X-ray Activity"),
 		   $q->br,
-		   $q->img({class=>"boxed", src => $web_data->{solar_xray}{content}{GOES_xray}{file}})
+		   $q->img({class=>"boxed", src => 'goes_x.png'})
 		  );
 
     $html .= $q->p({style => $image_title_style},
