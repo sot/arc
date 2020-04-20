@@ -2,13 +2,13 @@
 
 import os
 import sys
-import urllib.request, urllib.error, urllib.parse
+import requests
 import argparse
 import tables
 import time
 
 import numpy as np
-from astropy.io import ascii
+from astropy.table import Table
 from Chandra.Time import DateTime
 
 parser = argparse.ArgumentParser(description='Archive GOES data and '
@@ -18,46 +18,65 @@ parser.add_argument('--data-dir', type=str,
                     help='Directory for output data files')
 args = parser.parse_args()
 
-url = 'ftp://ftp.swpc.noaa.gov/pub/lists/pchan/Gp_pchan_5m.txt'
-colnames = ('year month dom  hhmm  mjd secs p1  p2  p3 '
-            'p4  p5  p6  p7  p8  p9 p10 p11').split()
+url = 'https://services.swpc.noaa.gov/json/goes/primary/differential-protons-6-hour.json'
 
 last_err = None
 for _ in range(3):
     try:
-        urlob = urllib.request.urlopen(url)
-        urldat = urlob.read().decode()
+        json_file = requests.get(url)
+        data = json_file.json()
         break
     except Exception as err:
         last_err = err
         time.sleep(5)
 else:
-    print('Warning: failed to open URL {}: {}'.format(url, last_err))
+    print(f'Warning: failed to open URL {url}: {last_err}')
     sys.exit(0)
 
-dat = ascii.read(urldat, Reader=ascii.NoHeader, names=colnames,
-                 data_start=3)
-hrc_bad = (dat['p4'] < 0) | (dat['p5'] < 0) | (dat['p6'] < 0)
+dat = Table(data)
 
-mjd = dat['mjd'] + dat['secs'] / 86400.
+secs = []
+for row in dat:
+    sec = DateTime(row['time_tag'][:-1], format='fits').secs
+    secs.append(sec)
+dat['time'] = secs
 
-secs = DateTime(mjd, format='mjd').secs
+descrs = [('time', 'f8'), ('hrc_shield', 'f8')]
+channels = ['P1', 'P2A', 'P2B', 'P3', 'P4', 'P5', 'P6',
+            'P7', 'P8A', 'P8B', 'P8C', 'P9', 'P10']
 
-hrc_shield = (6000 * dat['p4'] + 270000 * dat['p5']
-              + 100000 * dat['p6']) / 256.
+tabs = []
+for channel in channels:
+    ok = dat['channel'] == channel
+    t = dat[ok]
+    t.rename_column('flux', channel)
+    tabs.append(t)
+    descrs.append((channel, 'f8'))
 
-descrs = dat.dtype.descr
-descrs.append(('hrc_shield', 'f8'))
-descrs.append(('time', 'f8'))
-newdat = np.ndarray(len(dat), dtype=descrs)
-for colname in colnames:
-    newdat[colname] = dat[colname]
+newdat = np.ndarray(len(tabs[0]), dtype=descrs)
+newdat['time'] = tabs[0]['time']
+
+for t in tabs:
+    if not all(t['time'] == newdat['time']):
+        print(f'Warning: mismatch in channel time column')
+        sys.exit(0)
+    else:
+        for col in t.colnames:
+            if col in channels:
+                newdat[col] = t[col]
+
+# TBD
+hrc_shield = (6000 * newdat['P5'] + 270000 * newdat['P7']
+              + 100000 * newdat['P9']) / 256.
+hrc_bad = (newdat['P5'] < 0) | (newdat['P7'] < 0) | (newdat['P9'] < 0)
+
 newdat['hrc_shield'] = hrc_shield
 newdat['hrc_shield'][hrc_bad] = -1.0e5  # flag bad inputs
-newdat['time'] = secs
 
 os.chdir(args.data_dir)
 
+
+# WIP
 h5 = tables.open_file('hrc_shield.h5', mode='a',
                      filters=tables.Filters(complevel=5, complib='zlib'))
 try:
