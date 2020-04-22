@@ -10,6 +10,7 @@ import time
 import numpy as np
 from astropy.table import Table
 from Chandra.Time import DateTime
+from astropy.time import Time
 
 parser = argparse.ArgumentParser(description='Archive GOES data and '
                                  'HRC shield rate proxy')
@@ -35,13 +36,9 @@ else:
 
 dat = Table(data)
 
-secs = []
-for row in dat:
-    sec = DateTime(row['time_tag'][:-1], format='fits').secs
-    secs.append(sec)
-dat['time'] = secs
-
-descrs = [('time', 'f8'), ('hrc_shield', 'f8')]
+descrs = [('time', 'f8'), ('hrc_shield', 'f8'), ('satellite', 'i8'),
+          ('mjd', 'i8'), ('secs', 'f8'), ('year', 'i8'),
+          ('month', 'U2'), ('dom', 'U2'), ('hhmm', 'U4')]
 channels = ['P1', 'P2A', 'P2B', 'P3', 'P4', 'P5', 'P6',
             'P7', 'P8A', 'P8B', 'P8C', 'P9', 'P10']
 
@@ -54,10 +51,12 @@ for channel in channels:
     descrs.append((channel, 'f8'))
 
 newdat = np.ndarray(len(tabs[0]), dtype=descrs)
-newdat['time'] = tabs[0]['time']
+newdat['satellite'] = tabs[0]['satellite']
+
+time_ref = tabs[0]['time_tag']
 
 for t in tabs:
-    if not all(t['time'] == newdat['time']):
+    if not all(t['time_tag'] == time_ref):
         print(f'Warning: mismatch in channel time column')
         sys.exit(0)
     else:
@@ -65,7 +64,18 @@ for t in tabs:
             if col in channels:
                 newdat[col] = t[col]
 
-# TBD
+# Add the time columns the old file format wanted
+times = Time(time_ref)
+newdat['time'] = times.cxcsec
+newdat['mjd'] = times.mjd.astype(int)
+newdat['secs'] = np.array(np.round((times.mjd - newdat['mjd']) * 86400,
+                                    decimals=0)).astype(int)
+newdat['year'] = [t.year for t in times.datetime]
+newdat['month'] = [f"{t.month:02}" for t in times.datetime]
+newdat['dom'] = [f"{t.day:02}" for t in times.datetime]
+newdat['hhmm'] = [f"{t.hour:02}{t.minute:02}" for t in times.datetime]
+
+# HRC formula TBD
 hrc_shield = (6000 * newdat['P5'] + 270000 * newdat['P7']
               + 100000 * newdat['P9']) / 256.
 hrc_bad = (newdat['P5'] < 0) | (newdat['P7'] < 0) | (newdat['P9'] < 0)
