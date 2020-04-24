@@ -38,13 +38,14 @@ dat = Table(data)
 
 descrs = [('time', 'f8'), ('hrc_shield', 'f8'), ('satellite', 'i8'),
           ('mjd', 'i8'), ('secs', 'f8'), ('year', 'i8'),
-          ('month', 'U2'), ('dom', 'U2'), ('hhmm', 'U4')]
-channels = ['P1', 'P2A', 'P2B', 'P3', 'P4', 'P5', 'P6',
-            'P7', 'P8A', 'P8B', 'P8C', 'P9', 'P10']
+          ('month', 'i8'), ('dom', 'i8'), ('hhmm', 'i8'),
+          ('p11', 'f8')]
+channels = ['p1', 'p2a', 'p2b', 'p3', 'p4', 'p5', 'p6',
+            'p7', 'p8a', 'p8b', 'p8c', 'p9', 'p10']
 
 tabs = []
 for channel in channels:
-    ok = dat['channel'] == channel
+    ok = dat['channel'] == channel.upper()
     t = dat[ok]
     t.rename_column('flux', channel)
     tabs.append(t)
@@ -71,22 +72,24 @@ newdat['mjd'] = times.mjd.astype(int)
 newdat['secs'] = np.array(np.round((times.mjd - newdat['mjd']) * 86400,
                                     decimals=0)).astype(int)
 newdat['year'] = [t.year for t in times.datetime]
-newdat['month'] = [f"{t.month:02}" for t in times.datetime]
-newdat['dom'] = [f"{t.day:02}" for t in times.datetime]
-newdat['hhmm'] = [f"{t.hour:02}{t.minute:02}" for t in times.datetime]
+newdat['month'] = [t.month for t in times.datetime]
+newdat['dom'] = [t.day for t in times.datetime]
+newdat['hhmm'] = np.array([f"{t.hour}{t.minute:02}" for t in times.datetime]).astype(int)
 
-# HRC formula TBD
-hrc_shield = (6000 * newdat['P5'] + 270000 * newdat['P7']
-              + 100000 * newdat['P9']) / 256.
-hrc_bad = (newdat['P5'] < 0) | (newdat['P7'] < 0) | (newdat['P9'] < 0)
+# Add the p11 channel column the old file wanted
+newdat['p11'] = np.full(len(times), -1.0e5)
 
+# HRC proxy, GOES-16, TBD
+# For GOES < 16 use columns p5, p6, p7
+hrc_shield = (6000 * newdat['p5'] + 270000 * newdat['p7']
+              + 100000 * newdat['p9']) / 256.
 newdat['hrc_shield'] = hrc_shield
+
+hrc_bad = (newdat['p5'] < 0) | (newdat['p7'] < 0) | (newdat['p9'] < 0)
 newdat['hrc_shield'][hrc_bad] = -1.0e5  # flag bad inputs
 
 os.chdir(args.data_dir)
 
-
-# WIP
 h5 = tables.open_file('hrc_shield.h5', mode='a',
                      filters=tables.Filters(complevel=5, complib='zlib'))
 try:
@@ -109,8 +112,10 @@ if len(hrc_shield[ok]) > 0:
     with open('hrc_shield.dat', 'w') as f:
         print(hrc_shield[ok].mean(), times[ok].mean(), file=f)
 
+# Use ('p2', 'p5') and (3.3, 12.0) for GOES earlier than 16
+# scale for GOES-16 TBD
 for colname, scale, filename in zip(
-    ('p2', 'p5'), (3.3, 12.0), ('p4gm.dat', 'p41gm.dat')):
+    ('p4', 'p7'), (3.3, 12.0), ('p4gm.dat', 'p41gm.dat')):
     proxy = dat[colname][-3:] * scale
     ok = proxy > 0
     if len(proxy[ok]) > 0:
