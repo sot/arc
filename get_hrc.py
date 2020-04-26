@@ -65,7 +65,7 @@ for t in tabs:
             if col in channels:
                 newdat[col] = t[col]
 
-# Add the time columns the old file format wanted
+# Add p11 column and the time columns the old file format wanted
 times = Time(time_ref)
 newdat['time'] = times.cxcsec
 newdat['mjd'] = times.mjd.astype(int)
@@ -75,12 +75,10 @@ newdat['year'] = [t.year for t in times.datetime]
 newdat['month'] = [t.month for t in times.datetime]
 newdat['dom'] = [t.day for t in times.datetime]
 newdat['hhmm'] = np.array([f"{t.hour}{t.minute:02}" for t in times.datetime]).astype(int)
-
-# Add the p11 channel column the old file wanted
 newdat['p11'] = np.full(len(times), -1.0e5)
 
 # HRC proxy, GOES-16, TBD
-# For GOES < 16 use columns p5, p6, p7
+# For GOES earlier than 16 use columns p5, p6, p7
 hrc_shield = (6000 * newdat['p5'] + 270000 * newdat['p7']
               + 100000 * newdat['p9']) / 256.
 newdat['hrc_shield'] = hrc_shield
@@ -113,7 +111,7 @@ if len(hrc_shield[ok]) > 0:
         print(hrc_shield[ok].mean(), times[ok].mean(), file=f)
 
 # Use ('p2', 'p5') and (3.3, 12.0) for GOES earlier than 16
-# scale for GOES-16 TBD
+# ``Scale`` for GOES-16 TBD
 for colname, scale, filename in zip(
     ('p4', 'p7'), (3.3, 12.0), ('p4gm.dat', 'p41gm.dat')):
     proxy = dat[colname][-3:] * scale
