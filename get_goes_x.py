@@ -83,7 +83,7 @@ joindat['secs'] = np.array(np.round((times.mjd - joindat['mjd']) * 86400,
 joindat['year'] = [t.year for t in times.datetime]
 joindat['month'] = [t.month for t in times.datetime]
 joindat['dom'] = [t.day for t in times.datetime]
-joindat['hhmm'] = np.array([f"{t.hour}{t.minute}" for t in times.datetime]).astype(int)
+joindat['hhmm'] = np.array([f"{t.hour}{t.minute:02}" for t in times.datetime]).astype(int)
 
 joindat['ratio'] = -100000.0
 ok = (joindat['long'] != 0) & (joindat['long'] != -100000.0)
