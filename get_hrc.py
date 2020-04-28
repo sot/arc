@@ -36,10 +36,10 @@ else:
 
 dat = Table(data)
 
-descrs = [('time', 'f8'), ('hrc_shield', 'f8'), ('satellite', 'i8'),
-          ('mjd', 'i8'), ('secs', 'f8'), ('year', 'i8'),
-          ('month', 'i8'), ('dom', 'i8'), ('hhmm', 'i8'),
-          ('p11', 'f8')]
+with tables.open_file('hrc_shield.h5', mode='r',
+                       filters=tables.Filters(complevel=5, complib='zlib')) as h5:
+    descrs = h5.root.data.dtype
+
 channels = ['p1', 'p2a', 'p2b', 'p3', 'p4', 'p5', 'p6',
             'p7', 'p8a', 'p8b', 'p8c', 'p9', 'p10']
 
@@ -88,18 +88,17 @@ newdat['hrc_shield'][hrc_bad] = -1.0e5  # flag bad inputs
 
 os.chdir(args.data_dir)
 
-h5 = tables.open_file('hrc_shield.h5', mode='a',
-                     filters=tables.Filters(complevel=5, complib='zlib'))
-try:
-    table = h5.root.data
-    lasttime = table.col('time')[-1]
-    ok = newdat['time'] > lasttime
-    h5.root.data.append(newdat[ok])
-except tables.NoSuchNodeError:
-    table = h5.create_table(h5.root, 'data', newdat,
-                           "HRC Antico shield + GOES", expectedrows=2e7)
-h5.root.data.flush()
-h5.close()
+with tables.open_file('hrc_shield.h5', mode='a',
+                      filters=tables.Filters(complevel=5, complib='zlib')) as h5:
+    try:
+        table = h5.root.data
+        lasttime = table.col('time')[-1]
+        ok = newdat['time'] > lasttime
+        h5.root.data.append(newdat[ok])
+    except tables.NoSuchNodeError:
+        table = h5.create_table(h5.root, 'data', newdat,
+                                "HRC Antico shield + GOES", expectedrows=2e7)
+    h5.root.data.flush()
 
 # Also write the mean of the last three values (15 minutes) to
 # hrc_shield.dat.  Only include good values.
