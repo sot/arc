@@ -77,10 +77,14 @@ newdat['dom'] = [t.day for t in times.datetime]
 newdat['hhmm'] = np.array([f"{t.hour}{t.minute:02}" for t in times.datetime]).astype(int)
 newdat['p11'] = np.full(len(times), -1.0e5)
 
+# For GOES earlier than 16: use columns p5, p6, p7
+# hrc_shield = (6000 * newdat['p5'] + 270000 * newdat['p6']
+#               + 100000 * newdat['p7']) / 256.
+
 # HRC proxy, GOES-16, TBD
-# For GOES earlier than 16 use columns p5, p6, p7
 hrc_shield = (6000 * newdat['p5'] + 270000 * newdat['p7']
               + 100000 * newdat['p9']) / 256.
+
 newdat['hrc_shield'] = hrc_shield
 
 hrc_bad = (newdat['p5'] < 0) | (newdat['p7'] < 0) | (newdat['p9'] < 0)
@@ -109,8 +113,11 @@ if len(hrc_shield[ok]) > 0:
     with open('hrc_shield.dat', 'w') as f:
         print(hrc_shield[ok].mean(), times[ok].mean(), file=f)
 
-# Use ('p2', 'p5') and (3.3, 12.0) for GOES earlier than 16
-# ``Scale`` for GOES-16 TBD
+# For GOES earlier than 16:
+# for colname, scale, filename in zip(
+#     ('p2', 'p5'), (3.3, 12.0), ('p4gm.dat', 'p41gm.dat')):
+
+# GOES-16, ``scale`` TBD
 for colname, scale, filename in zip(
     ('p4', 'p7'), (3.3, 12.0), ('p4gm.dat', 'p41gm.dat')):
     proxy = dat[colname][-3:] * scale
