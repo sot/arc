@@ -67,7 +67,7 @@ def get_json_data(url):
     return dat
 
 
-def munge_xray_data(dat, satellite):
+def process_xray_data(dat, satellite):
     """
     Take the astropy table of 'dat' and rearrange to give a single
     row for each sample time, include the historical time
@@ -131,13 +131,13 @@ def main():
 
     # Use the 6 hour file by default
     dat = get_json_data(URL_6H)
-    newdat = munge_xray_data(dat, args.satellite)
+    newdat = process_xray_data(dat, args.satellite)
 
     # Use the 7-day file if there is a gap
     if (lasttime < newdat['time'][0]):
         print("WARNING: Data gap or error in X-ray data.  Fetching 7-day JSON file")
         dat = get_json_data(URL_7D)
-        newdat = munge_xray_data(dat, args.satellite)
+        newdat = process_xray_data(dat, args.satellite)
 
     # Update the data table with the new records
     with tables.open_file(args.h5, mode='a',
