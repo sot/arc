@@ -126,13 +126,13 @@ def main():
     args = get_options()
 
     # Read the data file just to get the last record
-    with tables.open_file(args.h5, mode='r',
-                          filters=tables.Filters(complevel=5, complib='zlib')) as h5:
-        try:
+    try:
+        with tables.open_file(args.h5, mode='r',
+                              filters=tables.Filters(complevel=5, complib='zlib')) as h5:
             table = h5.root.data
             lasttime = table.col('time')[-1]
-        except:
-            lasttime = -1
+    except (OSError, IOError, tables.NoSuchNodeError):
+        lasttime = -1
 
     # Use the 6 hour file by default
     dat = get_json_data(URL_6H)
