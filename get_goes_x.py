@@ -132,6 +132,7 @@ def main():
             table = h5.root.data
             lasttime = table.col('time')[-1]
     except (OSError, IOError, tables.NoSuchNodeError):
+        print("Warning: No previous GOES X data, using -1 as last time")
         lasttime = -1
 
     # Use the 6 hour file by default
@@ -139,10 +140,15 @@ def main():
     newdat = process_xray_data(dat, args.satellite)
 
     # Use the 7-day file if there is a gap
-    if (lasttime < newdat['time'][0]):
-        print("WARNING: Data gap or error in X-ray data.  Fetching 7-day JSON file")
+    if lasttime < newdat['time'][0]:
+        print("Warning: Data gap or error in X-ray data.  Fetching 7-day JSON file")
         dat = get_json_data(URL_7D)
         newdat = process_xray_data(dat, args.satellite)
+
+    # Print a warning if there is still a gap
+    if lasttime < newdat['time'][0]:
+        print(
+            f"Warning: Gap from {lasttime} to X-ray 7-day start {newdat['time'][0]}")
 
     # Update the data table with the new records
     with tables.open_file(args.h5, mode='a',
