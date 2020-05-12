@@ -34,7 +34,6 @@ def get_options():
                         default='GOES_X.h5',
                         help='HDF5 file name')
     parser.add_argument('--satellite',
-                        default=16,
                         type=int,
                         help='Select which satelite from the json file by int id')
     args = parser.parse_args()
@@ -67,28 +66,36 @@ def get_json_data(url):
     return dat
 
 
-def process_xray_data(dat, satellite):
+def process_xray_data(dat, satellite=None):
     """
     Take the astropy table of 'dat' and rearrange to give a single
     row for each sample time, include the historical time
     columns, and add a column to describe the satellite.
+
+    If optional satellite arg is supplied, filter the source data to include
+    only records that match that satellite.
     """
 
-    # Select only the GOES satellite specified from the args
-    dat = dat[dat['satellite'] == satellite]
     if len(dat) == 0:
-        print('Warning: No data in fetched file for satellite {}'.format(satellite))
+        print('Warning: No data in fetched file')
         sys.exit(0)
 
+    # Select only the GOES satellite specified from the args
+    if satellite is not None:
+        dat = dat[dat['satellite'] == satellite]
+        if len(dat) == 0:
+            print('Warning: No data in fetched file for satellite {}'.format(satellite))
+            sys.exit(0)
+
     # Make a table for each of the two wavelengths
-    shortdat = dat[dat['energy'] == '0.05-0.4nm']['flux', 'time_tag']
+    shortdat = dat[dat['energy'] == '0.05-0.4nm']['flux', 'satellite', 'time_tag']
     shortdat.rename_column('flux', 'short')
-    longdat = dat[dat['energy'] == '0.1-0.8nm']['flux', 'time_tag']
+    longdat = dat[dat['energy'] == '0.1-0.8nm']['flux', 'satellite', 'time_tag']
     longdat.rename_column('flux', 'long')
     if len(longdat) != len(shortdat):
         print('Warning: "short" and "long" table have mismatched lengths')
 
-    # Join them on time (seems to be OK for these data)
+    # Join them on time and satellite (seems to be OK for these data)
     joindat = join(shortdat, longdat)
 
     # Add a time column with Chandra secs and remove original time_tags
@@ -110,8 +117,6 @@ def process_xray_data(dat, satellite):
     ok = (joindat['long'] != 0) & (joindat['long'] != -100000.0)
     joindat['ratio'][ok] = joindat['short'][ok] / joindat['long'][ok]
 
-    # Return table for h5 file
-    joindat['satellite'] = satellite
     return joindat['year', 'month', 'dom', 'hhmm', 'mjd', 'secs',
                    'short', 'long', 'ratio', 'time', 'satellite'].as_array()
 
