@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import os
 import sys
 import requests
 import argparse
@@ -12,9 +11,26 @@ from astropy.table import Table
 from Chandra.Time import DateTime
 from astropy.time import Time
 
-PATH = 'https://services.swpc.noaa.gov/json/goes/primary/'
+# URLs for 6 hour and 7 day JSON files
+URL_NOAA = 'https://services.swpc.noaa.gov/json/goes/primary/'
+URL_6H = f'{URL_NOAA}/differential-protons-6-hour.json'
+URL_7D = f'{URL_NOAA}/differential-protons-7-day.json'
 
-def get_json_data(url=f'{PATH}/differential-protons-6-hour.json'):
+
+def get_options():
+    parser = argparse.ArgumentParser(description='Archive GOES data and '
+                                     'HRC shield rate proxy')
+    parser.add_argument('--data-dir', type=str,
+                        default='.',
+                        help='Directory for output data files')
+    parser.add_argument('--h5',
+                        default='hrc_shield.h5',
+                        help='HDF5 file name')
+    args = parser.parse_args()
+    return args
+
+
+def get_json_data(url):
     """
     Open the json file and return it as an astropy table
     """
@@ -47,16 +63,11 @@ def calc_hrc_shield(dat):
     return hrc_shield
 
 
-def format_proton_data(dat, descrs=None):
+def format_proton_data(dat, descrs):
     """
     Manipulate the data and return them in a desired format
     including columns that the old h5 file format wanted.
     """
-
-    if descrs is None:
-        with tables.open_file('hrc_shield.h5', mode='r',
-                               filters=tables.Filters(complevel=5, complib='zlib')) as h5:
-            descrs = h5.root.data.dtype
 
     channels = [chan.lower() for chan in np.unique(dat['channel'])]
 
@@ -65,6 +76,8 @@ def format_proton_data(dat, descrs=None):
         ok = dat['channel'] == channel.upper()
         t = dat[ok]
         t.rename_column('flux', channel)
+        # Convert from particles/cm2-s-ster-keV to particles/cm2-s-ster-MeV
+        t[channel] = t[channel] * 1000.0
         tabs.append(t)
 
     newdat = np.ndarray(len(tabs[0]), dtype=descrs)
@@ -101,31 +114,36 @@ def format_proton_data(dat, descrs=None):
     hrc_bad = (newdat['p5'] < 0) | (newdat['p7'] < 0) | (newdat['p9'] < 0)
     newdat['hrc_shield'][hrc_bad] = -1.0e5  # flag bad inputs
 
-    return newdat, descrs, hrc_bad
+    return newdat, hrc_bad
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Archive GOES data and '
-                                     'HRC shield rate proxy')
-    parser.add_argument('--data-dir', type=str,
-                        default='.',
-                        help='Directory for output data files')
-    args = parser.parse_args()
+    args = get_options()
 
-    dat = get_json_data()
-    newdat, descrs, hrc_bad = format_proton_data(dat)
+    try:
+        with tables.open_file(args.h5, mode='r',
+                              filters=tables.Filters(complevel=5, complib='zlib')) as h5:
+            table = h5.root.data
+            descrs = table.dtype
+            lasttime = table.col('time')[-1]
+    except (OSError, IOError, tables.NoSuchNodeError):
+        print("Warning: No previous GOES shield data, using -1 as last time")
+        lasttime = -1
 
-    os.chdir(args.data_dir)
+    # Use the 6-hour file by default
+    dat = get_json_data(url=URL_6H)
+    newdat, hrc_bad = format_proton_data(dat, descrs=descrs)
 
-    with tables.open_file('hrc_shield.h5', mode='a',
+    # Use the 7-day file if there is a gap
+    if lasttime < newdat['time'][0]:
+        print("Warning: Data gap or error in GOES proton data.  Fetching 7-day JSON file")
+        dat = get_json_data(URL_7D)
+        newdat, hrc_bad = format_proton_data(dat, descrs=descrs)
+
+    with tables.open_file(args.h5, mode='a',
                           filters=tables.Filters(complevel=5, complib='zlib')) as h5:
         try:
             table = h5.root.data
-            lasttime = table.col('time')[-1]
-            if newdat['time'][0] - lasttime > 5 * 60.0:
-                # Fetch the 7-day file if a data gap is detected
-                dat = get_json_data(url=f'{PATH}/differential-protons-7-day.json')
-                newdat, descrs, hrc_bad = format_proton_data(dat, descrs=descrs)
             ok = newdat['time'] > lasttime
             h5.root.data.append(newdat[ok])
         except tables.NoSuchNodeError:
