@@ -5,6 +5,7 @@ import requests
 import argparse
 import tables
 import time
+from pathlib import Path
 
 import numpy as np
 from astropy.table import Table
@@ -157,7 +158,8 @@ def main():
     hrc_shield = newdat['hrc_shield'][-3:]
     ok = ~hrc_bad[-3:]
     if len(hrc_shield[ok]) > 0:
-        with open('hrc_shield.dat', 'w') as f:
+        Path(args.data_dir).mkdir(exist_ok=True)
+        with open(Path(args.data_dir, 'hrc_shield.dat'), 'w') as f:
             print(hrc_shield[ok].mean(), times[ok].mean(), file=f)
 
     # For GOES earlier than 16:
