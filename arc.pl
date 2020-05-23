@@ -824,7 +824,7 @@ sub make_ephin_goes_table {
     my ($p41gm_proxy, $p41gm_time) = split(' ', io($opt{file}{p41gm})->slurp());
 
     my $warning = ((not defined $p2) || (not defined $p5) || @{$p2} == 0 || @{$p5} == 0) ?
-      '<h2 style="color:red;text-align:center">NO RECENT GOES DATA<br/> NO data for HRC PROXY</h2>' : '';
+      '<h2 style="color:red;text-align:center">NO RECENT GOES DATA</h2>': '';
 
     my $ephin_date = $snap->{obt}{value} . ' (' .
 		  Event::calc_delta_date($snap->{obt}{value}) . ')';
