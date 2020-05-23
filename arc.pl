@@ -32,7 +32,7 @@ use Getopt::Long;
 our $Task     = 'arc3';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
 our $TaskShare = "$ENV{SKA_SHARE}/$Task";
-our $VERSION = '4.2.0';
+our $VERSION = '4.3.0';
 
 require "$ENV{SKA_SHARE}/$Task/Event.pm";
 require "$ENV{SKA_SHARE}/$Task/Snap.pm";
