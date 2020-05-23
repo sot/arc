@@ -128,8 +128,8 @@ def main():
             descrs = table.dtype
             lasttime = table.col('time')[-1]
     except (OSError, IOError, tables.NoSuchNodeError):
-        print("Warning: No previous GOES shield data, using -1 as last time")
-        lasttime = -1
+        print("Warning: No previous GOES shield data, exiting")
+        sys.exit(0)
 
     # Use the 6-hour file by default
     dat = get_json_data(url=URL_6H)
