@@ -823,8 +823,7 @@ sub make_ephin_goes_table {
     my ($p4gm_proxy, $p4gm_time) = split(' ', io($opt{file}{p4gm})->slurp());
     my ($p41gm_proxy, $p41gm_time) = split(' ', io($opt{file}{p41gm})->slurp());
 
-    my $warning = ((not defined $p2) || (not defined $p5) || @{$p2} == 0 || @{$p5} == 0) ?
-      '<h2 style="color:red;text-align:center">NO RECENT GOES DATA</h2>': '';
+    my $warning = '';
 
     my $ephin_date = $snap->{obt}{value} . ' (' .
 		  Event::calc_delta_date($snap->{obt}{value}) . ')';
