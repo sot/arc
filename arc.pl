@@ -860,7 +860,7 @@ sub make_ephin_goes_table {
 
     my $footnotes = "CXO: from snapshot at $ephin_date<br />";
     $footnotes .= "RadMon: DISABLED<br />" if ($snap->{radmon}{value} ne 'ENAB');
-    $footnotes .= "GOES proxies: scaled 15 min average of GOES-13 <br />";
+    $footnotes .= "GOES proxies: scaled 15 min average of GOES-16 <br />";
     $footnotes .= "Last avgs at HRC: $hrc_delta &nbsp; P4GM: $p4gm_delta &nbsp; P41GM: $p41gm_delta";
     $table[$n_row][0] = $footnotes;
 
