@@ -171,7 +171,7 @@ def main():
         proxy = newdat[colname][-3:] * scale
         ok = proxy > 0
         if len(proxy[ok]) > 0:
-            with open(filename, 'w') as f:
+            with open(Path(args.data_dir, filename), 'w') as f:
                 print(proxy[ok].mean(), times[ok].mean(), file=f)
 
 
