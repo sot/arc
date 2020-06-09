@@ -808,22 +808,9 @@ sub make_ephin_goes_table {
     my %val;
     my %tab_def = %{$opt{ephin_goes_table}};
 
-    my $start = qr/P1 \s+ P2  \s+ P5 \s+ P8  \s+ P10 \s+ P11 \s+ H2/x;
-
-    my ($goes_date, $p2, $p5);
-    if (defined $web_data->{goes}{content}{flux}{content}){
-        ($goes_date, $p2, $p5) = parse_mta_rad_data($start,
-                                                    $web_data->{goes}{content}{flux}{content},
-                                                    5, 6,
-                                                );
-    }
-    $goes_date = 'UNAVAILABLE' unless defined $goes_date;
-
     my ($hrc_shield_proxy, $hrc_time) = split(' ', io($opt{file}{hrc_shield})->slurp());
     my ($p4gm_proxy, $p4gm_time) = split(' ', io($opt{file}{p4gm})->slurp());
     my ($p41gm_proxy, $p41gm_time) = split(' ', io($opt{file}{p41gm})->slurp());
-
-    my $warning = '';
 
     my $ephin_date = $snap->{obt}{value} . ' (' .
 		  Event::calc_delta_date($snap->{obt}{value}) . ')';
@@ -831,8 +818,23 @@ sub make_ephin_goes_table {
     my $p4gm_delta = Event::calc_delta_date($p4gm_time);
     my $p41gm_delta = Event::calc_delta_date($p41gm_time);
 
-    $val{GOES}{P4GM}  = (defined $p2 and @{$p2}) ? sprintf("%.2f", $p4gm_proxy) : '---'; # See http://asc.harvard.edu/mta/G10.html
-    $val{GOES}{P41GM} = (defined $p5 and @{$p5}) ? sprintf("%.2f", $p41gm_proxy) : '---'; # ditto
+    # Add a warning above the CXO GOES rates table if the proton data for these
+    # is stale.  Since these times are all from the proton/get_hrc data they
+    # should be the same, but that implementation could change.
+    my $warning = '<h2 style="color:red;text-align:center">';
+    if (($CurrentTime - $hrc_time) > 86400){
+	$warning .= "HRC proxy data stale<br/>";
+    }
+    if (($CurrentTime - $p4gm_time) > 86400){
+	$warning .= "P4GM data stale<br/>";
+    }
+    if (($CurrentTime - $p41gm_time) > 86400){
+	$warning .= "P41GM data stale<br/>";
+    }
+    $warning .= "</h2>";
+
+    $val{GOES}{P4GM}  = sprintf("%.2f", $p4gm_proxy);
+    $val{GOES}{P41GM} = sprintf("%.2f", $p41gm_proxy);
     $val{GOES}{"HRC shield"} = sprintf("%.0f", $hrc_shield_proxy);
     $val{CXO}{"HRC shield"} = $snap->{hrcshield}{value};
     $val{CXO}{"HRC MCP"} = $snap->{hrcmcp}{value};
