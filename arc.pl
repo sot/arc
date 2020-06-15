@@ -32,7 +32,7 @@ use Getopt::Long;
 our $Task     = 'arc3';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
 our $TaskShare = "$ENV{SKA_SHARE}/$Task";
-our $VERSION = '4.2.0';
+our $VERSION = '4.3.0';
 
 require "$ENV{SKA_SHARE}/$Task/Event.pm";
 require "$ENV{SKA_SHARE}/$Task/Snap.pm";
@@ -515,7 +515,7 @@ sub make_web_page {
 		       Event::format_date(time2date($CurrentTime, 'unix_time')),
 		       " (", Event::calc_local_date($CurrentTime), ")"
 		      );
-    push @warn, 'HRC proxy data are being stubbed out at this time and should be ignored.';
+
     $html .= make_warning_table(@warn) . $q->p if (@warn);
 
     my $snap_table = make_snap_table($snap) . $q->p;
@@ -553,12 +553,11 @@ sub make_web_page {
 			    src => $web_data->{goes}{image}{five_min}{file}})
 		  );
 
-    #$html .= $q->p({style => $image_title_style},
-    #"GOES proxy for HRC shield rates",
-    #$q->br,
-    #$q->img({class=>"boxed", src => "hrc_shield.png"})
-    #);
-    $html .= '<h2 style="color:red;text-align:center">NO data for HRC PROXY</h2>';
+    $html .= $q->p({style => $image_title_style},
+    "GOES proxy for HRC shield rates",
+    $q->br,
+    $q->img({class=>"boxed", src => "hrc_shield.png"})
+    );
 
     $html .= # $q->div({style => 'width:700'},
 		   make_solar_forecast_table($web_data);
@@ -809,23 +808,9 @@ sub make_ephin_goes_table {
     my %val;
     my %tab_def = %{$opt{ephin_goes_table}};
 
-    my $start = qr/P1 \s+ P2  \s+ P5 \s+ P8  \s+ P10 \s+ P11 \s+ H2/x;
-
-    my ($goes_date, $p2, $p5);
-    if (defined $web_data->{goes}{content}{flux}{content}){
-        ($goes_date, $p2, $p5) = parse_mta_rad_data($start,
-                                                    $web_data->{goes}{content}{flux}{content},
-                                                    5, 6,
-                                                );
-    }
-    $goes_date = 'UNAVAILABLE' unless defined $goes_date;
-
     my ($hrc_shield_proxy, $hrc_time) = split(' ', io($opt{file}{hrc_shield})->slurp());
     my ($p4gm_proxy, $p4gm_time) = split(' ', io($opt{file}{p4gm})->slurp());
     my ($p41gm_proxy, $p41gm_time) = split(' ', io($opt{file}{p41gm})->slurp());
-
-    my $warning = ((not defined $p2) || (not defined $p5) || @{$p2} == 0 || @{$p5} == 0) ?
-      '<h2 style="color:red;text-align:center">NO RECENT GOES DATA<br/> NO data for HRC PROXY</h2>' : '';
 
     my $ephin_date = $snap->{obt}{value} . ' (' .
 		  Event::calc_delta_date($snap->{obt}{value}) . ')';
@@ -833,8 +818,23 @@ sub make_ephin_goes_table {
     my $p4gm_delta = Event::calc_delta_date($p4gm_time);
     my $p41gm_delta = Event::calc_delta_date($p41gm_time);
 
-    $val{GOES}{P4GM}  = (defined $p2 and @{$p2}) ? sprintf("%.2f", $p4gm_proxy) : '---'; # See http://asc.harvard.edu/mta/G10.html
-    $val{GOES}{P41GM} = (defined $p5 and @{$p5}) ? sprintf("%.2f", $p41gm_proxy) : '---'; # ditto
+    # Add a warning above the CXO GOES rates table if the proton data for these
+    # is stale.  Since these times are all from the proton/get_hrc data they
+    # should be the same, but that implementation could change.
+    my $warning = '<h2 style="color:red;text-align:center">';
+    if (($CurrentTime - $hrc_time) > 86400){
+	$warning .= "HRC proxy data stale<br/>";
+    }
+    if (($CurrentTime - $p4gm_time) > 86400){
+	$warning .= "P4GM data stale<br/>";
+    }
+    if (($CurrentTime - $p41gm_time) > 86400){
+	$warning .= "P41GM data stale<br/>";
+    }
+    $warning .= "</h2>";
+
+    $val{GOES}{P4GM}  = sprintf("%.2f", $p4gm_proxy);
+    $val{GOES}{P41GM} = sprintf("%.2f", $p41gm_proxy);
     $val{GOES}{"HRC shield"} = sprintf("%.0f", $hrc_shield_proxy);
     $val{CXO}{"HRC shield"} = $snap->{hrcshield}{value};
     $val{CXO}{"HRC MCP"} = $snap->{hrcmcp}{value};
@@ -862,7 +862,7 @@ sub make_ephin_goes_table {
 
     my $footnotes = "CXO: from snapshot at $ephin_date<br />";
     $footnotes .= "RadMon: DISABLED<br />" if ($snap->{radmon}{value} ne 'ENAB');
-    $footnotes .= "GOES proxies: scaled 15 min average of GOES-13 <br />";
+    $footnotes .= "GOES proxies: scaled 15 min average of GOES-16 <br />";
     $footnotes .= "Last avgs at HRC: $hrc_delta &nbsp; P4GM: $p4gm_delta &nbsp; P41GM: $p41gm_delta";
     $table[$n_row][0] = $footnotes;
 
