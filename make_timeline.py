@@ -23,9 +23,9 @@ matplotlib.use('Agg')
 
 
 from kadi import events
+import kadi.commands.states as kadi_states
 import Ska.Numpy
 from Chandra.Time import DateTime
-from Chandra.cmd_states import fetch_states, interpolate_states
 import calc_fluence_dist as cfd
 from Ska.Matplotlib import lineid_plot, cxctime2plotdate as cxc2pd
 
@@ -336,9 +336,7 @@ def main():
     now = DateTime(now.date[:14] + ':00')  # truncate to 0 secs
     start = now - 1.0
     stop = start + args.hours / 24.0
-    states = fetch_states(start, stop,
-                          server='/proj/sot/ska/data/cmd_states/cmd_states.h5')
-
+    states = kadi_states.get_states(start=start, stop=stop)
     radzones = get_radzones()
     comms = get_comms()
 
@@ -520,7 +518,7 @@ def main():
 
     # Draw SI state
     times = np.arange(start.secs, stop.secs, 300)
-    state_vals = interpolate_states(states, times)
+    state_vals = kadi_states.interpolate_states(states, times)
     y_si = -0.23
     x = cxc2pd(times)
     y = np.zeros_like(times) + y_si
@@ -625,7 +623,7 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
     ok = (ax_xy[:, 0] > 0.0) & (ax_xy[:, 0] < 1.0)
     times = times[ok]
     pds = pds[ok]
-    state_vals = interpolate_states(states, times)
+    state_vals = kadi_states.interpolate_states(states, times)
 
     # Set the current values
     p3_now = p3s[-1]
