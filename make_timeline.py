@@ -369,7 +369,7 @@ def main():
     fig = plt.figure(1, figsize=(9, 5))
     fig.clf()
     fig.patch.set_alpha(0.0)
-    ax = fig.add_axes(AXES_LOC, axis_bgcolor='w')
+    ax = fig.add_axes(AXES_LOC, facecolor='w')
     ax.yaxis.tick_right()
     ax.yaxis.set_label_position('right')
     ax.yaxis.set_offset_position('right')
@@ -532,7 +532,7 @@ def main():
              ha='left', va='center', size='small')
 
     # Draw log scale y-axis on left
-    ax2 = fig.add_axes(AXES_LOC, axis_bgcolor='w',
+    ax2 = fig.add_axes(AXES_LOC, facecolor='w',
                        frameon=False)
     ax2.set_autoscale_on(False)
     ax2.xaxis.set_visible(False)
