@@ -139,7 +139,7 @@ def get_comms():
     """
     Get the list of comm passes from the DSN summary file.
     """
-    dat = yaml.load(open(DSN_COMMS_FILE, 'r'), Loader=yaml.BaseLoader)
+    dat = yaml.safe_load(open(DSN_COMMS_FILE, 'r'))
     return dat
 
 
