@@ -16,7 +16,7 @@ SHARE = Event.pm Snap.pm parse_cm_file.pl arc_time_machine.pl \
 	timeline.js timeline.css vert_line.gif \
 	task_schedule.cfg
 
-DATA =	ACE_hourly_avg.npy
+DATA =
 DOC =
 
 include /proj/sot/ska/include/Makefile.FLIGHT
