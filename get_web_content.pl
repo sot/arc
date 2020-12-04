@@ -36,16 +36,11 @@ while (my ($web_name, $web) = each %web_data) {
 
     my %web_opt = map { $_ => $web->{$_} } grep {not ref($web->{$_})} keys %{$web};
 
-    # Get username and password from authorization file(s) (which might be a glob)
-    if (defined $web_opt{auth_file}) {
-	if ($web_opt{auth_file} eq 'occweb'){
-	    my $netrc = Net::Netrc->lookup('occweb');
-	    $web_opt{user} = $netrc->login;
-	    $web_opt{passwd} = $netrc->password;
-	}
-	else{
-	    ($web_opt{user}, $web_opt{passwd}) = Ska::Web::get_user_passwd($web_opt{auth_file})
-	}
+    # Get username and password from netrc if required
+    if (defined $web_opt{netrc}) {
+	my $netrc = Net::Netrc->lookup($web_opt{netrc});
+	$web_opt{user} = $netrc->login;
+	$web_opt{passwd} = $netrc->password;
     }
         
     my ($html, $error, $header) = Ska::Web::get_url($url, %web_opt);
