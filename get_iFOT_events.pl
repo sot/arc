@@ -6,6 +6,7 @@ use warnings;
 use LWP::UserAgent;
 use HTML::TableExtract;
 use IO::All;
+use Net::Netrc;
 use Config::General qw(ParseConfig);
 use Data::Dumper;
 use Ska::Convert qw(:all);
@@ -30,7 +31,9 @@ foreach my $query_id (@{$opt{query_name}}) {
     # Make HTTP web query for iFOT and do it  (NEED to set timeout and deal with it)
     my $query = make_iFOT_query($query_id);
     print "Query = '$query'\n" if $Debug;
-    my ($ifot_user, $ifot_passwd) = Ska::Web::get_user_passwd($ifot{auth_file});
+    my $netrc = Net::Netrc->lookup('occweb');
+    my $ifot_user = $netrc->login;
+    my $ifot_passwd = $netrc->password;
     my $req_html = Ska::Web::get_url($query,
                                      user => $ifot_user,
                                      passwd => $ifot_passwd,

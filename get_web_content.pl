@@ -6,6 +6,7 @@ use strict;
 use Try::Tiny qw(try catch);
 use IO::All;
 use Config::General qw(ParseConfig);
+use Net::Netrc;
 use Data::Dumper;
 use Ska::Convert qw(time2date date2time);
 use Ska::Web;
@@ -35,9 +36,11 @@ while (my ($web_name, $web) = each %web_data) {
 
     my %web_opt = map { $_ => $web->{$_} } grep {not ref($web->{$_})} keys %{$web};
 
-    # Get username and password from authorization file(s) (which might be a glob)
-    if (defined $web_opt{auth_file}) {
-        ($web_opt{user}, $web_opt{passwd}) = Ska::Web::get_user_passwd($web_opt{auth_file})
+    # Get username and password from netrc if required
+    if (defined $web_opt{netrc}) {
+	my $netrc = Net::Netrc->lookup($web_opt{netrc});
+	$web_opt{user} = $netrc->login;
+	$web_opt{passwd} = $netrc->password;
     }
         
     my ($html, $error, $header) = Ska::Web::get_url($url, %web_opt);
