@@ -102,9 +102,11 @@ def format_proton_data(dat, descrs):
 
     # Add the other channel data marking as 1.0e5 if missing
     for t in tabs:
-        # Take the second return of intersect1d as the mask of good data
-        ok = np.intersect1d(time_ref, t['time_tag'], assume_unique=True,
-                             return_indices=True)[1]
+        # Take the second return of intersect1d and make a mask of good data
+        ok = np.zeros(len(time_ref)).astype(bool)
+        idx_ok = np.intersect1d(time_ref, t['time_tag'], assume_unique=True,
+                                return_indices=True)[1]
+        ok[idx_ok] = True
         for col in channels:
             if col in t.colnames:
                 newdat[col][ok] = t[col]
