@@ -81,20 +81,15 @@ def format_proton_data(dat, descrs):
         t[channel] = t[channel] * 1000.0
         tabs.append(t)
 
-    newdat = np.ndarray(len(tabs[0]), dtype=descrs)
-
-    newdat['satellite'] = tabs[0]['satellite']
-
-    time_ref = tabs[0]['time_tag']
-
+    # Get the union of times present in the per-channel tables
+    time_ref = set()
     for t in tabs:
-        if not all(t['time_tag'] == time_ref):
-            print(f'Warning: mismatch in channel time column')
-            sys.exit(0)
-        else:
-            for col in t.colnames:
-                if col in channels:
-                    newdat[col] = t[col]
+        time_ref = time_ref.union(set(t['time_tag']))
+    time_ref = np.array(sorted(list(time_ref)))
+
+    # Create a new table of the length of the union of the times
+    newdat = np.ndarray(len(time_ref), dtype=descrs)
+    newdat['satellite'] = tabs[0]['satellite'][0]
 
     # Add p11 column and the time columns the old file format wanted
     times = Time(time_ref)
@@ -107,6 +102,16 @@ def format_proton_data(dat, descrs):
     newdat['dom'] = [t.day for t in times.datetime]
     newdat['hhmm'] = np.array([f"{t.hour}{t.minute:02}" for t in times.datetime]).astype(int)
     newdat['p11'] = np.full(len(times), -1.0e5)
+
+    # Add the other channel data marking as 1.0e5 if missing
+    for t in tabs:
+        # Take the second return of intersect1d as the mask of good data
+        ok = np.intersect1d(time_ref, t['time_tag'], assume_unique=True,
+                             return_indices=True)[1]
+        for col in channels:
+            if col in t.colnames:
+                newdat[col][ok] = t[col]
+                newdat[col][~ok] = -1.0e5
 
     hrc_shield = calc_hrc_shield(newdat)
 
