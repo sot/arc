@@ -84,7 +84,7 @@ def format_proton_data(dat, descrs):
     # Get the unique times in the dat
     time_ref = np.unique(dat['time_tag'])
 
-    # Create a new table of the length of the union of the times
+    # Create a new table of the length of the unique times
     newdat = np.ndarray(len(time_ref), dtype=descrs)
     newdat['satellite'] = tabs[0]['satellite'][0]
 
