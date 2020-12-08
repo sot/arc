@@ -81,11 +81,8 @@ def format_proton_data(dat, descrs):
         t[channel] = t[channel] * 1000.0
         tabs.append(t)
 
-    # Get the union of times present in the per-channel tables
-    time_ref = set()
-    for t in tabs:
-        time_ref = time_ref.union(set(t['time_tag']))
-    time_ref = np.array(sorted(list(time_ref)))
+    # Get the unique times in the dat
+    time_ref = np.unique(dat['time_tag'])
 
     # Create a new table of the length of the union of the times
     newdat = np.ndarray(len(time_ref), dtype=descrs)
