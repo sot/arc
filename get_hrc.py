@@ -17,6 +17,9 @@ URL_NOAA = 'https://services.swpc.noaa.gov/json/goes/primary/'
 URL_6H = f'{URL_NOAA}/differential-protons-6-hour.json'
 URL_7D = f'{URL_NOAA}/differential-protons-7-day.json'
 
+# Bad or missing data value
+BAD_VALUE = -1.0e5
+
 
 def get_options():
     parser = argparse.ArgumentParser(description='Archive GOES data and '
@@ -98,7 +101,7 @@ def format_proton_data(dat, descrs):
     newdat['month'] = [t.month for t in times.datetime]
     newdat['dom'] = [t.day for t in times.datetime]
     newdat['hhmm'] = np.array([f"{t.hour}{t.minute:02}" for t in times.datetime]).astype(int)
-    newdat['p11'] = np.full(len(times), -1.0e5)
+    newdat['p11'] = np.full(len(times), BAD_VALUE)
 
     # Add the other channel data marking as 1.0e5 if missing
     for t in tabs:
@@ -110,14 +113,14 @@ def format_proton_data(dat, descrs):
         for col in channels:
             if col in t.colnames:
                 newdat[col][ok] = t[col]
-                newdat[col][~ok] = -1.0e5
+                newdat[col][~ok] = BAD_VALUE
 
     hrc_shield = calc_hrc_shield(newdat)
 
     newdat['hrc_shield'] = hrc_shield
 
     hrc_bad = (newdat['p5'] < 0) | (newdat['p7'] < 0) | (newdat['p9'] < 0)
-    newdat['hrc_shield'][hrc_bad] = -1.0e5  # flag bad inputs
+    newdat['hrc_shield'][hrc_bad] = BAD_VALUE  # flag bad inputs
 
     return newdat, hrc_bad
 
