@@ -97,13 +97,6 @@ def format_proton_data(dat, descrs):
     newdat['dom'] = [t.day for t in times.datetime]
     newdat['hhmm'] = np.array([f"{t.hour}{t.minute:02}" for t in times.datetime]).astype(int)
 
-    hrc_shield = calc_hrc_shield(newdat)
-
-    newdat['hrc_shield'] = hrc_shield
-
-    hrc_bad = (newdat['p5'] < 0) | (newdat['p7'] < 0) | (newdat['p9'] < 0)
-    newdat['hrc_shield'][hrc_bad] = BAD_VALUE  # flag bad inputs
-
     # Take the Table and make it into an ndarray with the supplied type
     arr = np.ndarray(len(newdat), dtype=descrs)
     for col in arr.dtype.names:
@@ -113,6 +106,12 @@ def format_proton_data(dat, descrs):
             arr[col] = BAD_VALUE
         else:
             arr[col] = newdat[col]
+
+    # Calculate the hrc shield values using the numpy array and save into the array
+    hrc_shield = calc_hrc_shield(arr)
+    arr['hrc_shield'] = hrc_shield
+    hrc_bad = (arr['p5'] < 0) | (arr['p7'] < 0) | (arr['p9'] < 0)
+    arr['hrc_shield'][hrc_bad] = BAD_VALUE  # flag bad inputs
 
     return arr, hrc_bad
 
