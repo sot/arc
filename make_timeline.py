@@ -72,7 +72,7 @@ if args.test:
     ACE_RATES_FILE = os.path.join(args.data_dir, 'ace.html')
     DSN_COMMS_FILE = os.path.join(args.data_dir, 'dsn_summary.yaml')
 else:
-    ACIS_FLUENCE_FILE = '/data/mta4/www/alerts/current.dat'
+    ACIS_FLUENCE_FILE = '/proj/web-cxc/htdocs/acis/Fluence/current.dat'
     ACE_RATES_FILE = '/data/mta4/www/ace.html'
     DSN_COMMS_FILE = '/proj/sot/ska/data/dsn_summary/dsn_summary.yaml'
 
