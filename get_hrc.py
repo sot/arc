@@ -6,6 +6,7 @@ import argparse
 import tables
 import time
 from pathlib import Path
+import collections
 
 import numpy as np
 from astropy.table import Table
@@ -73,26 +74,20 @@ def format_proton_data(dat, descrs):
     including columns that the old h5 file format wanted.
     """
 
-    channels = [chan.lower() for chan in np.unique(dat['channel'])]
+    # Create a dictionary to capture the channel data for each time
+    out = collections.defaultdict(dict)
+    for row in dat:
+        out[row['time_tag']][row['channel'].lower()] = row['flux'] * 1000
 
-    tabs = []
-    for channel in channels:
-        ok = dat['channel'] == channel.upper()
-        t = dat[ok]
-        t.rename_column('flux', channel)
-        # Convert from particles/cm2-s-ster-keV to particles/cm2-s-ster-MeV
-        t[channel] = t[channel] * 1000.0
-        tabs.append(t)
+    # Reshape that data into a table with the channels as columns
+    newdat = Table(list(out.values())).filled(BAD_VALUE)
+    newdat['time_tag'] = list(out.keys())  # Already in time order if dat rows in order
 
-    # Get the unique times in the dat
-    time_ref = np.unique(dat['time_tag'])
+    # Assume the satellite is the same for all of the records of one dat/file
+    newdat['satellite'] = dat['satellite'][0]
 
-    # Create a new table of the length of the unique times
-    newdat = np.ndarray(len(time_ref), dtype=descrs)
-    newdat['satellite'] = tabs[0]['satellite'][0]
-
-    # Add p11 column and the time columns the old file format wanted
-    times = Time(time_ref)
+    # Add some time columns
+    times = Time(newdat['time_tag'])
     newdat['time'] = times.cxcsec
     newdat['mjd'] = times.mjd.astype(int)
     newdat['secs'] = np.array(np.round((times.mjd - newdat['mjd']) * 86400,
@@ -101,19 +96,6 @@ def format_proton_data(dat, descrs):
     newdat['month'] = [t.month for t in times.datetime]
     newdat['dom'] = [t.day for t in times.datetime]
     newdat['hhmm'] = np.array([f"{t.hour}{t.minute:02}" for t in times.datetime]).astype(int)
-    newdat['p11'] = np.full(len(times), BAD_VALUE)
-
-    # Add the other channel data marking as 1.0e5 if missing
-    for t in tabs:
-        # Take the second return of intersect1d and make a mask of good data
-        ok = np.zeros(len(time_ref)).astype(bool)
-        idx_ok = np.intersect1d(time_ref, t['time_tag'], assume_unique=True,
-                                return_indices=True)[1]
-        ok[idx_ok] = True
-        for col in channels:
-            if col in t.colnames:
-                newdat[col][ok] = t[col]
-                newdat[col][~ok] = BAD_VALUE
 
     hrc_shield = calc_hrc_shield(newdat)
 
@@ -122,7 +104,17 @@ def format_proton_data(dat, descrs):
     hrc_bad = (newdat['p5'] < 0) | (newdat['p7'] < 0) | (newdat['p9'] < 0)
     newdat['hrc_shield'][hrc_bad] = BAD_VALUE  # flag bad inputs
 
-    return newdat, hrc_bad
+    # Take the Table and make it into an ndarray with the supplied type
+    arr = np.ndarray(len(newdat), dtype=descrs)
+    for col in arr.dtype.names:
+
+        # This gets any channels that were just missing altogether.  Looks like p2 and p11 now
+        if col not in newdat.colnames:
+            arr[col] = BAD_VALUE
+        else:
+            arr[col] = newdat[col]
+
+    return arr, hrc_bad
 
 
 def main():
