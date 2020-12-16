@@ -6,6 +6,7 @@ import argparse
 import tables
 import time
 from pathlib import Path
+import collections
 
 import numpy as np
 from astropy.table import Table
@@ -16,6 +17,9 @@ from astropy.time import Time
 URL_NOAA = 'https://services.swpc.noaa.gov/json/goes/primary/'
 URL_6H = f'{URL_NOAA}/differential-protons-6-hour.json'
 URL_7D = f'{URL_NOAA}/differential-protons-7-day.json'
+
+# Bad or missing data value
+BAD_VALUE = -1.0e5
 
 
 def get_options():
@@ -70,34 +74,20 @@ def format_proton_data(dat, descrs):
     including columns that the old h5 file format wanted.
     """
 
-    channels = [chan.lower() for chan in np.unique(dat['channel'])]
+    # Create a dictionary to capture the channel data for each time
+    out = collections.defaultdict(dict)
+    for row in dat:
+        out[row['time_tag']][row['channel'].lower()] = row['flux'] * 1000
 
-    tabs = []
-    for channel in channels:
-        ok = dat['channel'] == channel.upper()
-        t = dat[ok]
-        t.rename_column('flux', channel)
-        # Convert from particles/cm2-s-ster-keV to particles/cm2-s-ster-MeV
-        t[channel] = t[channel] * 1000.0
-        tabs.append(t)
+    # Reshape that data into a table with the channels as columns
+    newdat = Table(list(out.values())).filled(BAD_VALUE)
+    newdat['time_tag'] = list(out.keys())  # Already in time order if dat rows in order
 
-    newdat = np.ndarray(len(tabs[0]), dtype=descrs)
+    # Assume the satellite is the same for all of the records of one dat/file
+    newdat['satellite'] = dat['satellite'][0]
 
-    newdat['satellite'] = tabs[0]['satellite']
-
-    time_ref = tabs[0]['time_tag']
-
-    for t in tabs:
-        if not all(t['time_tag'] == time_ref):
-            print(f'Warning: mismatch in channel time column')
-            sys.exit(0)
-        else:
-            for col in t.colnames:
-                if col in channels:
-                    newdat[col] = t[col]
-
-    # Add p11 column and the time columns the old file format wanted
-    times = Time(time_ref)
+    # Add some time columns
+    times = Time(newdat['time_tag'])
     newdat['time'] = times.cxcsec
     newdat['mjd'] = times.mjd.astype(int)
     newdat['secs'] = np.array(np.round((times.mjd - newdat['mjd']) * 86400,
@@ -106,16 +96,24 @@ def format_proton_data(dat, descrs):
     newdat['month'] = [t.month for t in times.datetime]
     newdat['dom'] = [t.day for t in times.datetime]
     newdat['hhmm'] = np.array([f"{t.hour}{t.minute:02}" for t in times.datetime]).astype(int)
-    newdat['p11'] = np.full(len(times), -1.0e5)
 
-    hrc_shield = calc_hrc_shield(newdat)
+    # Take the Table and make it into an ndarray with the supplied type
+    arr = np.ndarray(len(newdat), dtype=descrs)
+    for col in arr.dtype.names:
 
-    newdat['hrc_shield'] = hrc_shield
+        # This gets any channels that were just missing altogether.  Looks like p2 and p11 now
+        if col not in newdat.colnames:
+            arr[col] = BAD_VALUE
+        else:
+            arr[col] = newdat[col]
 
-    hrc_bad = (newdat['p5'] < 0) | (newdat['p7'] < 0) | (newdat['p9'] < 0)
-    newdat['hrc_shield'][hrc_bad] = -1.0e5  # flag bad inputs
+    # Calculate the hrc shield values using the numpy array and save into the array
+    hrc_shield = calc_hrc_shield(arr)
+    arr['hrc_shield'] = hrc_shield
+    hrc_bad = (arr['p5'] < 0) | (arr['p7'] < 0) | (arr['p9'] < 0)
+    arr['hrc_shield'][hrc_bad] = BAD_VALUE  # flag bad inputs
 
-    return newdat, hrc_bad
+    return arr, hrc_bad
 
 
 def main():
