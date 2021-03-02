@@ -62,8 +62,8 @@ umask 002;
 
 # Get authorization for access to OCCweb
 my $netrc = Net::Netrc->lookup('occweb');
-$opt{authorization}{occweb}{user} = $netrc->login;
-$opt{authorization}{occweb}{passwd} = $netrc->password;
+my $occweb_user = $netrc->login;
+my $occweb_passwd = $netrc->password;
 {
     # Substitute any ENV vars in $opt{file}.  Do this in a Safe way.
     interpolate_config_file_options();
@@ -333,8 +333,8 @@ sub get_constraints_text {
 	foreach my $path ($path_approved, $path_backstop) {
 	    $load_info{URL} = "$opt{url}{mission_planning}/$path";
 	    ($_, $error) = get_url("$load_info{URL}/output/$occ_web_name",
-				   user => $opt{authorization}{occweb}{user},
-				   passwd => $opt{authorization}{occweb}{passwd},
+				   user => $occweb_user,
+				   passwd => $occweb_passwd,
 				   timeout => $opt{timeout}
 			      );
 	    last if not defined $error;
