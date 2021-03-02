@@ -22,6 +22,7 @@ use subs qw(dbg);
 use Chandra::Time;
 use Safe;
 use Getopt::Long;
+use Net::Netrc;
 
 # ToDo:
 # - Fix Ska::Convert to make time2date having configurable format
@@ -60,9 +61,9 @@ Snap::set_snap_definition($opt{snap_definition});
 umask 002;
 
 # Get authorization for access to OCCweb
-($opt{authorization}{occweb}{user},
- $opt{authorization}{occweb}{passwd}) = Ska::Web::get_user_passwd($opt{authorization}{occweb}{file});
-
+my $netrc = Net::Netrc->lookup('occweb');
+$opt{authorization}{occweb}{user} = $netrc->login;
+$opt{authorization}{occweb}{passwd} = $netrc->password;
 {
     # Substitute any ENV vars in $opt{file}.  Do this in a Safe way.
     interpolate_config_file_options();
