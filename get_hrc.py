@@ -115,7 +115,7 @@ def format_proton_data(dat, descrs):
     # Calculate the hrc shield values using the numpy array and save into the array
     hrc_shield = calc_hrc_shield(arr)
     arr['hrc_shield'] = hrc_shield
-    hrc_bad = (arr['p5'] < 0) | (arr['p7'] < 0) | (arr['p9'] < 0)
+    hrc_bad = (arr['p5'] < 0) | (arr['p6'] < 0) | (arr['p7'] < 0)
     arr['hrc_shield'][hrc_bad] = BAD_VALUE  # flag bad inputs
 
     return arr, hrc_bad
