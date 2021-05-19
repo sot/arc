@@ -62,9 +62,14 @@ def calc_hrc_shield(dat):
     # For GOES earlier than 16 use columns p5, p6, p7
     # hrc_shield = (6000 * dat['p5'] + 270000 * dat['p6']
     #               + 100000 * dat['p7']) / 256.
-    # HRC proxy, GOES-16, TBD
-    hrc_shield = (6000 * dat['p5'] + 270000 * dat['p7']
-                  + 100000 * dat['p9']) / 256.
+    # HRC proxy, GOES-16, used until April 2021
+    # hrc_shield = (6000 * dat['p5'] + 270000 * dat['p7']
+    #               + 100000 * dat['p9']) / 256.
+    # HRC proxy model based on fitting the 2SHLDART data
+    # with a combination of GOES-16 channels at the time
+    # of the Sep 2017 flare
+    hrc_shield = (143 * dat['p5'] + 64738 * dat['p6']
+                  + 162505 * dat['p7'] + 4127) / 256.
     return hrc_shield
 
 
@@ -110,7 +115,7 @@ def format_proton_data(dat, descrs):
     # Calculate the hrc shield values using the numpy array and save into the array
     hrc_shield = calc_hrc_shield(arr)
     arr['hrc_shield'] = hrc_shield
-    hrc_bad = (arr['p5'] < 0) | (arr['p7'] < 0) | (arr['p9'] < 0)
+    hrc_bad = (arr['p5'] < 0) | (arr['p6'] < 0) | (arr['p7'] < 0)
     arr['hrc_shield'][hrc_bad] = BAD_VALUE  # flag bad inputs
 
     return arr, hrc_bad
