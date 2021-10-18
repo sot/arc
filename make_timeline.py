@@ -404,6 +404,8 @@ def main():
 
     # Plot 10, 50, 90 percentiles of fluence
     try:
+        if len(p3_times) < 4:
+            raise ValueError('not enough P3 values')
         p3_slope = get_p3_slope(p3_times, p3_vals)
         if p3_slope is not None and avg_flux > 0:
             p3_fits, p3_samps, fluences = cfd.get_fluences(
