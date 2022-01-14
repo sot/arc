@@ -277,7 +277,6 @@ sub get_violation_events {
     }
     my @constraints;
     push @constraints, get_constraints($load_name, '');		# PCAD constraints
-    push @constraints, get_constraints($load_name, 'therm_');	# Thermal constraints
 
     my $constraint;
     for $constraint (@constraints) {
