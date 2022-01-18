@@ -171,7 +171,7 @@ sub get_obsid_event {
     my $obsid = shift;
     my $snap  = shift;
     my $event = shift;
-    my $warn_msg = "Unable to include PCAD or thermal violation events";
+    my $warn_msg = "Unable to include PCAD violation events";
 
     my @obsid_evt = grep { defined $_->obsid } @{$event};
     my @index = grep { $obsid_evt[$_]->obsid == $obsid } (0..$#obsid_evt);
@@ -271,7 +271,7 @@ sub get_violation_events {
 	$load_name = $obsid_evt->load_segment->load_name;
     };
     if ($@) {
-	warning("Problem in get_violation_events, no PCAD or thermal violation events");
+	warning("Problem in get_violation_events, no PCAD violation events");
 	print STDERR "ERROR - $@";
 	return;
     }
