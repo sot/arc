@@ -288,7 +288,7 @@ def plot_multi_line(x, y, z, bins, colors, ax):
 
     # Allow specifying bin centers, not edges
     if len(bins) == len(colors):
-        bins = np.array(bins, dtype=np.float)
+        bins = np.array(bins, dtype=float)
         bins = np.concatenate([[z.min() - 1],
                                (bins[1:] + bins[:-1]) / 2.0,
                                [z.max() + 1]])
@@ -390,7 +390,7 @@ def main():
     # Make a z-valued curve where the z value corresponds to the grating state.
     x = cxc2pd(fluence_times)
     y = fluence
-    z = np.zeros(len(fluence_times), dtype=np.int)
+    z = np.zeros(len(fluence_times), dtype=int)
 
     for state in states:
         ok = ((state['tstart'] < fluence_times)
@@ -524,7 +524,7 @@ def main():
     y_si = -0.23
     x = cxc2pd(times)
     y = np.zeros_like(times) + y_si
-    z = np.zeros_like(times, dtype=np.float)  # 0 => ACIS
+    z = np.zeros_like(times, dtype=float)  # 0 => ACIS
     z[state_vals['simpos'] < 0] = 1.0  # HRC
     plot_multi_line(x, y, z, [0, 1], ['c', 'r'], ax)
     dx = (x1 - x0) * 0.01
