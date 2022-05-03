@@ -286,12 +286,12 @@ def plot_multi_line(x, y, z, bins, colors, ax):
     from matplotlib.collections import LineCollection
     from matplotlib.colors import ListedColormap, BoundaryNorm
 
-    # Allow specifying bin centers, not edges
+    # If there are the same number of bins as colors, infer that the
+    # bins are supplied as bin centers, and calculate the edges.
     if len(bins) == len(colors):
         bins = np.array(bins, dtype=float)
-        bins = np.concatenate([[z.min() - 1],
-                               (bins[1:] + bins[:-1]) / 2.0,
-                               [z.max() + 1]])
+        centers = (bins[1:] + bins[:-1]) / 2.0
+        bins = np.concatenate([[centers[0] - 1], centers, [centers[-1] + 1]])
 
     cmap = ListedColormap(colors)
     norm = BoundaryNorm(bins, cmap.N)
