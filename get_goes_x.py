@@ -92,8 +92,6 @@ def process_xray_data(dat, satellite=None):
     shortdat.rename_column('flux', 'short')
     longdat = dat[dat['energy'] == '0.1-0.8nm']['flux', 'satellite', 'time_tag']
     longdat.rename_column('flux', 'long')
-    if len(longdat) != len(shortdat):
-        print('Warning: "short" and "long" table have mismatched lengths')
 
     # Join them on time and satellite (seems to be OK for these data)
     joindat = join(shortdat, longdat)
