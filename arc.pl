@@ -33,7 +33,7 @@ use Net::Netrc;
 our $Task     = 'arc3';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
 our $TaskShare = "$ENV{SKA_SHARE}/$Task";
-our $VERSION = '4.7.2';
+our $VERSION = '4.8.0';
 
 require "$ENV{SKA_SHARE}/$Task/Event.pm";
 require "$ENV{SKA_SHARE}/$Task/Snap.pm";
