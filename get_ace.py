@@ -39,7 +39,7 @@ colnames = ('year month dom  hhmm  mjd secs '
 data_colnames = ('destat de1 de4 pstat p1 p3 p5 p6 p7').split()
 
 try:
-    dat = ascii.read(urldat, guess=False, Reader=ascii.NoHeader,
+    dat = ascii.read(urldat, guess=False, format="no_header",
                           data_start=3, names=colnames)
 except Exception as err:
     print(('Warning: malformed ACE data so table read failed: {}'
