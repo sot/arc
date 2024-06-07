@@ -12,6 +12,7 @@ use Ska::Convert qw(time2date date2time);
 use Ska::Web;
 use Clone qw(clone);
 use Carp;
+use POSIX qw(strftime);
 
 our $Task     = 'arc3';
 our $TaskData = "$ENV{SKA_DATA}/$Task";
@@ -76,6 +77,18 @@ while (my ($web_name, $web) = each %web_data) {
         my $img_file = $image->{file};
         $image->{outfile} = "$TaskData/$img_file";
         my $got_image = 0;
+
+        if (exists $web->{add_date}) { # Ugh, custom code for magnetogram
+            my $src = $image->{filter}{src};
+            my $year = strftime "%Y", gmtime;
+            my $mon = strftime "%b", gmtime;
+            my $day = strftime "%e", gmtime;
+            $mon = lc($mon);
+            $day =~ s/^\s+//;
+            my $str = "$year/$mon$day\_$year\_mag";
+            $image->{filter}{src} = $src ~=  s/mag/$str/r;
+        }
+
       TRY: for my $try (1 .. $tries) {
             try {
                 my ($html_content, $error, @image) = Ska::Web::get_html_content(
