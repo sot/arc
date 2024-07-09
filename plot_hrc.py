@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 import argparse
+
 import matplotlib
 
 matplotlib.use("agg")
 import matplotlib.pyplot as plt
 import tables
-
 from Ska.Matplotlib import plot_cxctime
 
 parser = argparse.ArgumentParser(description="Plot HRC")

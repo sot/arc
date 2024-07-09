@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 """
-Generate a timeline plot and associated JSON data for the animated version on Replan
-Central.
+Generate a timeline plot and associated JSON data for animated version.
 
 This plot features the predicted ACIS attenuated fluence based on current ACIS orbital
 fluence, 2hr average, and grating status.  It also shows DSN comms, radiation zone
@@ -10,29 +9,29 @@ passages, instrument configuration.
 """
 
 import argparse
-
 import json
-import re
 import os
-
-import numpy as np
-import yaml
-import tables
+import re
 
 import matplotlib
+import numpy as np
+import tables
+import yaml
 
 matplotlib.use("Agg")
 
 
-from kadi import events
+import warnings
+
 import kadi.commands.states as kadi_states
+import matplotlib.cbook
 import Ska.Numpy
 from Chandra.Time import DateTime
-import calc_fluence_dist as cfd
-from Ska.Matplotlib import lineid_plot, cxctime2plotdate as cxc2pd
+from kadi import events
+from Ska.Matplotlib import cxctime2plotdate as cxc2pd
+from Ska.Matplotlib import lineid_plot
 
-import warnings
-import matplotlib.cbook
+import calc_fluence_dist as cfd
 
 warnings.filterwarnings("ignore", category=matplotlib.MatplotlibDeprecationWarning)
 
@@ -82,6 +81,7 @@ HRC_H5_FILE = os.path.join(args.data_dir, "hrc_shield.h5")
 def get_fluence(filename):
     """
     Get the current ACIS attenuated fluence (parse stuff below)
+
     TABLE 2: ACIS FLUX AND FLUENCE BASED ON ACE DATA
 
     Latest valid ACIS flux and fluence data...                                   111...
@@ -146,8 +146,10 @@ def get_comms():
 
 def zero_fluence_at_radzone(times, fluence, radzones):
     """
-    For the given ``fluence`` estimate which is sampled at ``times``,
-    reset the fluence to zero at the start of each of the ``radzones``.
+    Zero the fluence estimate at the start of each radzone.
+
+    For the given ``fluence`` estimate which is sampled at ``times``, reset the fluence
+    to zero at the start of each of the ``radzones``.
 
     This works on ``fluence`` in place.
     """
@@ -161,9 +163,10 @@ def zero_fluence_at_radzone(times, fluence, radzones):
 
 def calc_fluence(times, fluence0, rates, states):
     """
-    For the given starting ``fluence0`` (taken from the current ACIS ops
-    estimate) and predicted P3 ``rates`` and grating ``states``, return
-    the integrated fluence.
+    Calculate the fluence based on the current fluence, rates, and grating states.
+
+    For the given starting ``fluence0`` (taken from the current ACIS ops estimate) and
+    predicted P3 ``rates`` and grating ``states``, return the integrated fluence.
     """
     for state in states:
         ok = (state["tstart"] < times) & (times < state["tstop"])
@@ -280,12 +283,13 @@ def get_hrc(tstart, tstop):
 def plot_multi_line(x, y, z, bins, colors, ax):
     """
     Plot a multi-color line.
-    See: http://matplotlib.sourceforge.net/examples/
-               pylab_examples/multicolored_line.html
+
+    See:
+    http://matplotlib.sourceforge.net/examples/pylab_examples/multicolored_line.html
     """
 
     from matplotlib.collections import LineCollection
-    from matplotlib.colors import ListedColormap, BoundaryNorm
+    from matplotlib.colors import BoundaryNorm, ListedColormap
 
     # If there are the same number of bins as colors, infer that the
     # bins are supplied as bin centers, and calculate the edges.
@@ -424,8 +428,10 @@ def main():
                 args.max_slope_samples,
             )
             fluence_hours = (fluence_times - fluence_times[0]) / 3600.0
-            for fl_y, linecolor in zip((fl10, fl50, fl90), ("-g", "-b", "-r")):
-                fl_y = Ska.Numpy.interpolate(fl_y, hrs, fluence_hours)
+            for fl_y, linecolor in zip(
+                (fl10, fl50, fl90), ("-g", "-b", "-r"), strict=False
+            ):
+                fl_y = Ska.Numpy.interpolate(fl_y, hrs, fluence_hours)  # noqa: PLW2901
                 rates = np.diff(fl_y)
                 fl_y_atten = calc_fluence(fluence_times[:-1], fluence0, rates, states)
                 zero_fluence_at_radzone(fluence_times[:-1], fl_y_atten, radzones)
@@ -496,7 +502,7 @@ def main():
     # Add labels for obsids
     id_xs.extend(cxc2pd([start.secs]))
     id_labels.append(str(states[0]["obsid"]))
-    for s0, s1 in zip(states[:-1], states[1:]):
+    for s0, s1 in zip(states[:-1], states[1:], strict=False):
         if s0["obsid"] != s1["obsid"]:
             id_xs.append(cxc2pd([s1["tstart"]])[0])
             id_labels.append(str(s1["obsid"]))
@@ -625,6 +631,8 @@ def write_states_json(
     hrc_times,
 ):
     """
+    Write JSON states.
+
     Generate JSON data file that contains all the annotation values used in the
     javascript-driven annotated plot on Replan Central.  This creates a data structure
     with state values for each 10-minute time step along the X-axis of the plot.  All of
@@ -690,8 +698,8 @@ def write_states_json(
     # Iterate through each time step and create corresponding data structure
     # with pre-formatted values for display in the output table.
     NOT_AVAIL = "N/A"
-    for time, pd, state_val, fluence, p3, hrc in zip(
-        times, pds, state_vals, fluences, p3s, hrcs
+    for time, pd, state_val, fluence, p3, hrc in zip(  # noqa: B007
+        times, pds, state_vals, fluences, p3s, hrcs, strict=False
     ):
         out = {}
         out["date"] = date_zulu(time)
@@ -745,8 +753,7 @@ def date_zulu(date):
 
 def get_fmt_dt(t1, t0):
     """
-    Format the delta time between ``t1`` and ``t0`` in a specific way for the
-    output table.
+    Format delta time between ``t1`` and ``t0`` for the output table.
     """
     t1 = DateTime(t1).secs
     t0 = DateTime(t0).secs

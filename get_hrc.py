@@ -1,17 +1,17 @@
 #!/usr/bin/env python
 
-import sys
-import requests
 import argparse
-import tables
+import collections
+import sys
 import time
 from pathlib import Path
-import collections
 
 import numpy as np
+import requests
+import tables
 from astropy.table import Table
-from Chandra.Time import DateTime
 from astropy.time import Time
+from Chandra.Time import DateTime
 
 # URLs for 6 hour and 7 day JSON files
 URL_NOAA = "https://services.swpc.noaa.gov/json/goes/primary/"
@@ -75,8 +75,9 @@ def calc_hrc_shield(dat):
 
 def format_proton_data(dat, descrs):
     """
-    Manipulate the data and return them in a desired format
-    including columns that the old h5 file format wanted.
+    Manipulate the data and return them in a desired format.
+
+    Including columns that the old h5 file format wanted.
     """
 
     # Create a dictionary to capture the channel data for each time
@@ -177,7 +178,7 @@ def main():
     #     ('p2', 'p5'), (3.3, 12.0), ('p4gm.dat', 'p41gm.dat')):
     # GOES-16, ``scale`` TBD
     for colname, scale, filename in zip(
-        ("p4", "p7"), (3.3, 12.0), ("p4gm.dat", "p41gm.dat")
+        ("p4", "p7"), (3.3, 12.0), ("p4gm.dat", "p41gm.dat"), strict=False
     ):
         proxy = newdat[colname][-3:] * scale
         ok = proxy > 0

@@ -8,11 +8,12 @@ N_SAMP = 6
 
 def get_fluences(filename="ACE_hourly_avg.npy"):
     """
-    Get P3 cumulative fluence values at 1 hour intervals for all data in the
-    ACE mission since 1997, using 1-hr average P3 values.  Compute a fluence
-    prediction starting each 12 hours extending for 48 hours.  Store each
-    48-point fluence prediction along with the index into the global ``BINS``
-    array corresponding to the starting P3 value.
+    Get P3 cumulative fluence values at 1 hour intervals.
+
+    This returns fluences for all data in the ACE mission since 1997, using 1-hr average
+    P3 values.  Compute a fluence prediction starting each 12 hours extending for 48
+    hours.  Store each 48-point fluence prediction along with the index into the global
+    ``BINS`` array corresponding to the starting P3 value.
     """
     dat = np.load(filename)
 

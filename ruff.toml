@@ -23,3 +23,9 @@ lint.extend-ignore = [
   # "G010", # warn is deprecated in favor of warning
   # "PYI056", # Calling `.append()` on `__all__` may not be supported by all type checkers
 ]
+
+[lint.extend-per-file-ignores]
+"make_timeline.py" = [
+    "PLR0912", # Too many branches
+    "PLR0915", # Too many lines
+]

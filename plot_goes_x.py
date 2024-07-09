@@ -5,12 +5,12 @@ Plot GOES X-ray data for use in Replan Central
 """
 
 import argparse
+
 import matplotlib
 
 matplotlib.use("agg")
 import matplotlib.pyplot as plt
 import tables
-
 from Chandra.Time import DateTime
 from Ska.Matplotlib import plot_cxctime
 
@@ -27,7 +27,7 @@ with tables.open_file(args.h5, mode="r") as h5:
 
 plt.figure(1, figsize=(6, 4))
 for col, wavelength, color in zip(
-    ["long", "short"], ["0.1-0.8nm", "0.05-0.4nm"], ["red", "blue"]
+    ["long", "short"], ["0.1-0.8nm", "0.05-0.4nm"], ["red", "blue"], strict=False
 ):
     vals = table[col]
     vals = vals.clip(min=1e-10)

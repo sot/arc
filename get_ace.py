@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 
-import sys
-import urllib.request, urllib.error, urllib.parse
 import argparse
-import tables
+import sys
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 
 import numpy as np
+import tables
 from astropy.io import ascii
 from Chandra.Time import DateTime
 

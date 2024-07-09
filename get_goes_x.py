@@ -10,16 +10,16 @@ https://gist.github.com/jeanconn/2a34a5219129ed090f8bfaee5582788d
 
 """
 
+import argparse
+import json
 import sys
-import urllib.request
+import time
 import urllib.error
 import urllib.parse
-import argparse
-import tables
-import time
-import json
+import urllib.request
 
 import numpy as np
+import tables
 from astropy.table import Table, join
 from astropy.time import Time
 
@@ -61,10 +61,8 @@ def get_json_data(url):
         dat = Table(json.loads(urldat))
     except Exception as err:
         print(
-            (
-                "Malformed GOES_X data from SWPC; Table(json.loads(urldat)) did not succeed: {}".format(
-                    err
-                )
+            "Malformed GOES_X data from SWPC; Table(json.loads(urldat)) did not succeed: {}".format(
+                err
             )
         )
         sys.exit(0)
@@ -73,12 +71,13 @@ def get_json_data(url):
 
 def process_xray_data(dat, satellite=None):
     """
-    Take the astropy table of 'dat' and rearrange to give a single
-    row for each sample time, include the historical time
-    columns, and add a column to describe the satellite.
+    Take the astropy table of 'dat' and rearrange.
 
-    If optional satellite arg is supplied, filter the source data to include
-    only records that match that satellite.
+    This gives a single row for each sample time, include the historical time columns,
+    and add a column to describe the satellite.
+
+    If optional satellite arg is supplied, filter the source data to include only
+    records that match that satellite.
     """
 
     if len(dat) == 0:
