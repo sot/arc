@@ -30,12 +30,12 @@ URL_7D = 'https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json'
 
 def get_options():
     parser = argparse.ArgumentParser(description='Get GOES_X data')
-    parser.add_argument('--h5',
-                        default='GOES_X.h5',
-                        help='HDF5 file name')
-    parser.add_argument('--satellite',
-                        type=int,
-                        help='Select which satelite from the json file by int id')
+    parser.add_argument('--h5', default='GOES_X.h5', help='HDF5 file name')
+    parser.add_argument(
+        '--satellite',
+        type=int,
+        help='Select which satelite from the json file by int id',
+    )
     args = parser.parse_args()
     return args
 
@@ -60,8 +60,13 @@ def get_json_data(url):
     try:
         dat = Table(json.loads(urldat))
     except Exception as err:
-        print(('Malformed GOES_X data from SWPC; Table(json.loads(urldat)) did not succeed: {}'
-               .format(err)))
+        print(
+            (
+                'Malformed GOES_X data from SWPC; Table(json.loads(urldat)) did not succeed: {}'.format(
+                    err
+                )
+            )
+        )
         sys.exit(0)
     return dat
 
@@ -103,30 +108,43 @@ def process_xray_data(dat, satellite=None):
 
     # Add the other columns the old file format wanted
     joindat['mjd'] = times.mjd.astype(int)
-    joindat['secs'] = np.array(np.round((times.mjd - joindat['mjd']) * 86400,
-                                        decimals=0)).astype(int)
+    joindat['secs'] = np.array(
+        np.round((times.mjd - joindat['mjd']) * 86400, decimals=0)
+    ).astype(int)
     joindat['year'] = [t.year for t in times.datetime]
     joindat['month'] = [t.month for t in times.datetime]
     joindat['dom'] = [t.day for t in times.datetime]
-    joindat['hhmm'] = np.array([
-        f"{t.hour}{t.minute:02}" for t in times.datetime]).astype(int)
+    joindat['hhmm'] = np.array(
+        [f"{t.hour}{t.minute:02}" for t in times.datetime]
+    ).astype(int)
 
     joindat['ratio'] = -100000.0
     ok = (joindat['long'] != 0) & (joindat['long'] != -100000.0)
     joindat['ratio'][ok] = joindat['short'][ok] / joindat['long'][ok]
 
-    return joindat['year', 'month', 'dom', 'hhmm', 'mjd', 'secs',
-                   'short', 'long', 'ratio', 'time', 'satellite'].as_array()
+    return joindat[
+        'year',
+        'month',
+        'dom',
+        'hhmm',
+        'mjd',
+        'secs',
+        'short',
+        'long',
+        'ratio',
+        'time',
+        'satellite',
+    ].as_array()
 
 
 def main():
-
     args = get_options()
 
     # Read the data file just to get the last record
     try:
-        with tables.open_file(args.h5, mode='r',
-                              filters=tables.Filters(complevel=5, complib='zlib')) as h5:
+        with tables.open_file(
+            args.h5, mode='r', filters=tables.Filters(complevel=5, complib='zlib')
+        ) as h5:
             table = h5.root.data
             lasttime = table.col('time')[-1]
     except (OSError, IOError, tables.NoSuchNodeError):
@@ -145,12 +163,12 @@ def main():
 
     # Print a warning if there is still a gap
     if lasttime < newdat['time'][0]:
-        print(
-            f"Warning: Gap from {lasttime} to X-ray 7-day start {newdat['time'][0]}")
+        print(f"Warning: Gap from {lasttime} to X-ray 7-day start {newdat['time'][0]}")
 
     # Update the data table with the new records
-    with tables.open_file(args.h5, mode='a',
-                          filters=tables.Filters(complevel=5, complib='zlib')) as h5:
+    with tables.open_file(
+        args.h5, mode='a', filters=tables.Filters(complevel=5, complib='zlib')
+    ) as h5:
         try:
             table = h5.root.data
             lasttime = table.col('time')[-1]
@@ -158,11 +176,11 @@ def main():
             newdat = newdat[ok]
             h5.root.data.append(newdat)
         except tables.NoSuchNodeError:
-            table = h5.create_table(h5.root, 'data', newdat,
-                                    "GOES_X rates", expectedrows=2e7)
+            table = h5.create_table(
+                h5.root, 'data', newdat, "GOES_X rates", expectedrows=2e7
+            )
         h5.root.data.flush()
 
 
 if __name__ == '__main__':
     main()
-

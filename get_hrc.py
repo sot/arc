@@ -23,14 +23,13 @@ BAD_VALUE = -1.0e5
 
 
 def get_options():
-    parser = argparse.ArgumentParser(description='Archive GOES data and '
-                                     'HRC shield rate proxy')
-    parser.add_argument('--data-dir', type=str,
-                        default='.',
-                        help='Directory for output data files')
-    parser.add_argument('--h5',
-                        default='hrc_shield.h5',
-                        help='HDF5 file name')
+    parser = argparse.ArgumentParser(
+        description='Archive GOES data and HRC shield rate proxy'
+    )
+    parser.add_argument(
+        '--data-dir', type=str, default='.', help='Directory for output data files'
+    )
+    parser.add_argument('--h5', default='hrc_shield.h5', help='HDF5 file name')
     args = parser.parse_args()
     return args
 
@@ -68,8 +67,9 @@ def calc_hrc_shield(dat):
     # HRC proxy model based on fitting the 2SHLDART data
     # with a combination of GOES-16 channels at the time
     # of the Sep 2017 flare
-    hrc_shield = (143 * dat['p5'] + 64738 * dat['p6']
-                  + 162505 * dat['p7'] + 4127) / 256.
+    hrc_shield = (
+        143 * dat['p5'] + 64738 * dat['p6'] + 162505 * dat['p7'] + 4127
+    ) / 256.0
     return hrc_shield
 
 
@@ -95,17 +95,19 @@ def format_proton_data(dat, descrs):
     times = Time(newdat['time_tag'])
     newdat['time'] = times.cxcsec
     newdat['mjd'] = times.mjd.astype(int)
-    newdat['secs'] = np.array(np.round((times.mjd - newdat['mjd']) * 86400,
-                                        decimals=0)).astype(int)
+    newdat['secs'] = np.array(
+        np.round((times.mjd - newdat['mjd']) * 86400, decimals=0)
+    ).astype(int)
     newdat['year'] = [t.year for t in times.datetime]
     newdat['month'] = [t.month for t in times.datetime]
     newdat['dom'] = [t.day for t in times.datetime]
-    newdat['hhmm'] = np.array([f"{t.hour}{t.minute:02}" for t in times.datetime]).astype(int)
+    newdat['hhmm'] = np.array(
+        [f"{t.hour}{t.minute:02}" for t in times.datetime]
+    ).astype(int)
 
     # Take the Table and make it into an ndarray with the supplied type
     arr = np.ndarray(len(newdat), dtype=descrs)
     for col in arr.dtype.names:
-
         # This gets any channels that were just missing altogether.  Looks like p2 and p11 now
         if col not in newdat.colnames:
             arr[col] = BAD_VALUE
@@ -125,8 +127,9 @@ def main():
     args = get_options()
 
     try:
-        with tables.open_file(args.h5, mode='r',
-                              filters=tables.Filters(complevel=5, complib='zlib')) as h5:
+        with tables.open_file(
+            args.h5, mode='r', filters=tables.Filters(complevel=5, complib='zlib')
+        ) as h5:
             table = h5.root.data
             descrs = table.dtype
             lasttime = table.col('time')[-1]
@@ -140,19 +143,23 @@ def main():
 
     # Use the 7-day file if there is a gap
     if lasttime < newdat['time'][0]:
-        print("Warning: Data gap or error in GOES proton data.  Fetching 7-day JSON file")
+        print(
+            "Warning: Data gap or error in GOES proton data.  Fetching 7-day JSON file"
+        )
         dat = get_json_data(URL_7D)
         newdat, hrc_bad = format_proton_data(dat, descrs=descrs)
 
-    with tables.open_file(args.h5, mode='a',
-                          filters=tables.Filters(complevel=5, complib='zlib')) as h5:
+    with tables.open_file(
+        args.h5, mode='a', filters=tables.Filters(complevel=5, complib='zlib')
+    ) as h5:
         try:
             table = h5.root.data
             ok = newdat['time'] > lasttime
             h5.root.data.append(newdat[ok])
         except tables.NoSuchNodeError:
-            table = h5.create_table(h5.root, 'data', newdat,
-                                "HRC Antico shield + GOES", expectedrows=2e7)
+            table = h5.create_table(
+                h5.root, 'data', newdat, "HRC Antico shield + GOES", expectedrows=2e7
+            )
         h5.root.data.flush()
 
     # Also write the mean of the last three values (15 minutes) to
@@ -170,7 +177,8 @@ def main():
     #     ('p2', 'p5'), (3.3, 12.0), ('p4gm.dat', 'p41gm.dat')):
     # GOES-16, ``scale`` TBD
     for colname, scale, filename in zip(
-        ('p4', 'p7'), (3.3, 12.0), ('p4gm.dat', 'p41gm.dat')):
+        ('p4', 'p7'), (3.3, 12.0), ('p4gm.dat', 'p41gm.dat')
+    ):
         proxy = newdat[colname][-3:] * scale
         ok = proxy > 0
         if len(proxy[ok]) > 0:

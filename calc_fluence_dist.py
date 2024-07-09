@@ -25,7 +25,7 @@ def get_fluences(filename='ACE_hourly_avg.npy'):
     hrs = (dat['fp_year'] - 1997.0) * 24 * 365.25
 
     i0s = np.arange(0, len(p3s) - N_T, N_SAMP)
-    p3_samps = np.vstack([p3s[i:i + N_T] for i in i0s])
+    p3_samps = np.vstack([p3s[i : i + N_T] for i in i0s])
     d_hrs = np.array([hrs[i + N_T] - hrs[i] - N_T for i in i0s])
     ok = np.abs(d_hrs) < 0.15
     p3_samps = p3_samps[ok]
@@ -36,8 +36,15 @@ def get_fluences(filename='ACE_hourly_avg.npy'):
     return p_fits.T, p3_samps, fluences
 
 
-def get_fluence_percentiles(p3_avg_now, p3_slope_now, p3_fits, p3_samps, fluences,
-                            min_flux_samples, max_slope_samples):
+def get_fluence_percentiles(
+    p3_avg_now,
+    p3_slope_now,
+    p3_fits,
+    p3_samps,
+    fluences,
+    min_flux_samples,
+    max_slope_samples,
+):
     """
     Compute the 10%, 50%, and 90% fluence time histories within each P3 bin.
     """
@@ -71,4 +78,5 @@ if __name__ == '__main__':
     print('p3_slope_now', end=' ')
     p3_slope_now = float(input())
     hrs, fl10, fl50, fl90 = get_fluence_percentiles(
-        p3_avg_now, p3_slope_now, p3_fits, p3_samps, fluences)
+        p3_avg_now, p3_slope_now, p3_fits, p3_samps, fluences
+    )

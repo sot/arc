@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import argparse
 import matplotlib
+
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import tables
@@ -8,12 +9,8 @@ import tables
 from Ska.Matplotlib import plot_cxctime
 
 parser = argparse.ArgumentParser(description='Plot HRC')
-parser.add_argument('--out', type=str,
-                    default='hrc_shield.png',
-                    help='Plot file name')
-parser.add_argument('--h5',
-                    default='hrc_shield.h5',
-                    help='HDF5 file name')
+parser.add_argument('--out', type=str, default='hrc_shield.png', help='Plot file name')
+parser.add_argument('--h5', default='hrc_shield.h5', help='HDF5 file name')
 args = parser.parse_args()
 
 h5 = tables.open_file(args.h5, mode='r')
@@ -29,10 +26,9 @@ secs = secs[~bad]
 plt.figure(1, figsize=(6, 4))
 ticks, fig, ax = plot_cxctime(secs, hrc_shield)
 xlims = ax.get_xlim()
-dx = (xlims[1] - xlims[0]) / 20.
+dx = (xlims[1] - xlims[0]) / 20.0
 ax.set_xlim(xlims[0] - dx, xlims[1] + dx)
-ax.set_ylim(min(hrc_shield.min() * 0.5, 10.0),
-            max(hrc_shield.max() * 2, 300.))
+ax.set_ylim(min(hrc_shield.min() * 0.5, 10.0), max(hrc_shield.max() * 2, 300.0))
 plt.plot([xlims[0] - dx, xlims[1] + dx], [235, 235], '--r')
 ax.set_yscale('log')
 plt.grid()

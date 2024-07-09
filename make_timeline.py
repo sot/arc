@@ -8,6 +8,7 @@ This plot features the predicted ACIS attenuated fluence based on current ACIS o
 fluence, 2hr average, and grating status.  It also shows DSN comms, radiation zone
 passages, instrument configuration.
 """
+
 import argparse
 
 import json
@@ -19,6 +20,7 @@ import yaml
 import tables
 
 import matplotlib
+
 matplotlib.use('Agg')
 
 
@@ -31,37 +33,33 @@ from Ska.Matplotlib import lineid_plot, cxctime2plotdate as cxc2pd
 
 import warnings
 import matplotlib.cbook
-warnings.filterwarnings(
-    'ignore',
-    category=matplotlib.MatplotlibDeprecationWarning)
 
+warnings.filterwarnings('ignore', category=matplotlib.MatplotlibDeprecationWarning)
 
 
 parser = argparse.ArgumentParser(description='Get ACE data')
-parser.add_argument('--data-dir',
-                    default='t_pred_fluence',
-                    help='Data directory')
-parser.add_argument('--hours',
-                    default=72.0,
-                    type=float,
-                    help='Hours to predict (default=72)')
-parser.add_argument('--dt',
-                    default=300.0,
-                    type=float,
-                    help='Prediction time step (secs, default=300)')
-parser.add_argument('--max-slope-samples',
-                    type=int,
-                    help='Max number of samples when filtering by slope (default=None')
-parser.add_argument('--min-flux-samples',
-                    default=100,
-                    type=int,
-                    help='Minimum number of samples when filtering by flux (default=100)')
-parser.add_argument('--test',
-                    action='store_true',
-                    help='Use test data')
-parser.add_argument('--test-scenario',
-                    type=int,
-                    help='Name of a scenario for testing missing P3 data')
+parser.add_argument('--data-dir', default='t_pred_fluence', help='Data directory')
+parser.add_argument(
+    '--hours', default=72.0, type=float, help='Hours to predict (default=72)'
+)
+parser.add_argument(
+    '--dt', default=300.0, type=float, help='Prediction time step (secs, default=300)'
+)
+parser.add_argument(
+    '--max-slope-samples',
+    type=int,
+    help='Max number of samples when filtering by slope (default=None',
+)
+parser.add_argument(
+    '--min-flux-samples',
+    default=100,
+    type=int,
+    help='Minimum number of samples when filtering by flux (default=100)',
+)
+parser.add_argument('--test', action='store_true', help='Use test data')
+parser.add_argument(
+    '--test-scenario', type=int, help='Name of a scenario for testing missing P3 data'
+)
 args = parser.parse_args()
 
 P3_BAD = -100000
@@ -116,11 +114,14 @@ def get_avg_flux(filename):
     FLUENCE          2.0251e+08  1.0640e+06  2.3150e+08  7.3525e+07  1.1866..
     """
 
-    lines = [line for line in open(filename, 'r')
-             if line.startswith('AVERAGE   ')]
+    lines = [line for line in open(filename, 'r') if line.startswith('AVERAGE   ')]
     if len(lines) != 1:
-        print(('WARNING: {} file contains {} lines that start with '
-              'AVERAGE (expect one)'.format(ACE_RATES_FILE, len(lines))))
+        print(
+            (
+                'WARNING: {} file contains {} lines that start with '
+                'AVERAGE (expect one)'.format(ACE_RATES_FILE, len(lines))
+            )
+        )
         p3_avg_flux = P3_BAD
     else:
         p3_avg_flux = float(lines[0].split()[4])
@@ -309,7 +310,9 @@ def get_p3_slope(p3_times, p3_vals):
     """
     Compute the slope (log10(p3) per hour) of the last 6 hours of ACE P3 values.
     """
-    ok = (p3_times[-1] - p3_times) < 6 * 3600  # Points within 6 hrs of last available data
+    ok = (
+        p3_times[-1] - p3_times
+    ) < 6 * 3600  # Points within 6 hrs of last available data
     ok = ok & (p3_vals > 0)  # Good P3 values
     slope = None
     if np.sum(ok) > 4:
@@ -354,7 +357,8 @@ def main():
     # For testing: inject predefined values for different scenarios
     if args.test_scenario:
         p3_vals, avg_flux, fluence0 = get_test_vals(
-            args.test_scenario, p3_times, p3_vals, avg_flux, fluence0)
+            args.test_scenario, p3_times, p3_vals, avg_flux, fluence0
+        )
 
     # Compute the predicted fluence based on the current 2hr average flux.
     fluence_times = np.arange(fluence_date.secs, stop.secs, args.dt)
@@ -393,8 +397,7 @@ def main():
     z = np.zeros(len(fluence_times), dtype=int)
 
     for state in states:
-        ok = ((state['tstart'] < fluence_times)
-              & (fluence_times <= state['tstop']))
+        ok = (state['tstart'] < fluence_times) & (fluence_times <= state['tstop'])
         if state['hetg'] == 'INSR':
             z[ok] = 1
         elif state['letg'] == 'INSR':
@@ -409,13 +412,19 @@ def main():
         p3_slope = get_p3_slope(p3_times, p3_vals)
         if p3_slope is not None and avg_flux > 0:
             p3_fits, p3_samps, fluences = cfd.get_fluences(
-                os.path.join(args.data_dir, 'ACE_hourly_avg.npy'))
+                os.path.join(args.data_dir, 'ACE_hourly_avg.npy')
+            )
             hrs, fl10, fl50, fl90 = cfd.get_fluence_percentiles(
-                avg_flux, p3_slope, p3_fits, p3_samps, fluences,
-                args.min_flux_samples, args.max_slope_samples)
+                avg_flux,
+                p3_slope,
+                p3_fits,
+                p3_samps,
+                fluences,
+                args.min_flux_samples,
+                args.max_slope_samples,
+            )
             fluence_hours = (fluence_times - fluence_times[0]) / 3600.0
-            for fl_y, linecolor in zip((fl10, fl50, fl90),
-                                       ('-g', '-b', '-r')):
+            for fl_y, linecolor in zip((fl10, fl50, fl90), ('-g', '-b', '-r')):
                 fl_y = Ska.Numpy.interpolate(fl_y, hrs, fluence_hours)
                 rates = np.diff(fl_y)
                 fl_y_atten = calc_fluence(fluence_times[:-1], fluence0, rates, states)
@@ -423,7 +432,6 @@ def main():
                 plt.plot(x0 + fluence_hours[:-1] / 24.0, fl_y_atten, linecolor)
     except Exception as e:
         print(('WARNING: p3 fluence not plotted, error : {}'.format(e)))
-
 
     # Set x and y axis limits
     x0, x1 = cxc2pd([start.secs, stop.secs])
@@ -442,17 +450,22 @@ def main():
         t1 = DateTime(comm['eot_date']['value']).secs
         pd0, pd1 = cxc2pd([t0, t1])
         if pd1 >= x0 and pd0 <= x1:
-            p = matplotlib.patches.Rectangle((pd0, y0),
-                                             pd1 - pd0,
-                                             y1 - y0,
-                                             alpha=0.2,
-                                             facecolor='r',
-                                             edgecolor='none')
+            p = matplotlib.patches.Rectangle(
+                (pd0, y0),
+                pd1 - pd0,
+                y1 - y0,
+                alpha=0.2,
+                facecolor='r',
+                edgecolor='none',
+            )
             ax.add_patch(p)
         id_xs.append((pd0 + pd1) / 2)
-        id_labels.append('{}:{}'.format(comm['station']['value'][4:6],
-                                        comm['track_local']['value'][:9]))
-        if (next_comm is None and DateTime(comm['bot_date']['value']).secs > now.secs):
+        id_labels.append(
+            '{}:{}'.format(
+                comm['station']['value'][4:6], comm['track_local']['value'][:9]
+            )
+        )
+        if next_comm is None and DateTime(comm['bot_date']['value']).secs > now.secs:
             next_comm = comm
 
     # Draw radiation zones
@@ -465,12 +478,14 @@ def main():
             if t1 > stop.secs:
                 t1 = stop.secs
             pd0, pd1 = cxc2pd([t0, t1])
-            p = matplotlib.patches.Rectangle((pd0, y0),
-                                             pd1 - pd0,
-                                             y1 - y0,
-                                             alpha=0.2,
-                                             facecolor='b',
-                                             edgecolor='none')
+            p = matplotlib.patches.Rectangle(
+                (pd0, y0),
+                pd1 - pd0,
+                y1 - y0,
+                alpha=0.2,
+                facecolor='b',
+                edgecolor='none',
+            )
             ax.add_patch(p)
 
     # Draw now line
@@ -489,11 +504,15 @@ def main():
     plt.grid()
     plt.ylabel('Attenuated fluence / 1e9')
     plt.legend(loc='upper center', labelspacing=0.15)
-    lineid_plot.plot_line_ids(cxc2pd([start.secs, stop.secs]),
-                              [y1, y1],
-                              id_xs, id_labels, ax=ax,
-                              box_axes_space=0.14,
-                              label1_size=10)
+    lineid_plot.plot_line_ids(
+        cxc2pd([start.secs, stop.secs]),
+        [y1, y1],
+        id_xs,
+        id_labels,
+        ax=ax,
+        box_axes_space=0.14,
+        label1_size=10,
+    )
 
     # Plot observed GOES X-ray rates and limits
     pd = cxc2pd(goes_x_times)
@@ -505,9 +524,9 @@ def main():
     lp3 = log_scale(p3_vals)
     pd = cxc2pd(p3_times)
     ox = cxc2pd([start.secs, now.secs])
-    oy1 = log_scale(12000.)
+    oy1 = log_scale(12000.0)
     plt.plot(ox, [oy1, oy1], '--b', lw=2)
-    oy1 = log_scale(55000.)
+    oy1 = log_scale(55000.0)
     plt.plot(ox, [oy1, oy1], '--r', lw=2)
     plt.plot(pd, lp3, '-k', alpha=0.3, lw=3)
     plt.plot(pd, lp3, '.k', mec='k', ms=3)
@@ -528,12 +547,10 @@ def main():
     z[state_vals['simpos'] < 0] = 1.0  # HRC
     plot_multi_line(x, y, z, [0, 1], ['c', 'r'], ax)
     dx = (x1 - x0) * 0.01
-    plt.text(x1 + dx, y_si, 'HRC/ACIS',
-             ha='left', va='center', size='small')
+    plt.text(x1 + dx, y_si, 'HRC/ACIS', ha='left', va='center', size='small')
 
     # Draw log scale y-axis on left
-    ax2 = fig.add_axes(AXES_LOC, facecolor='w',
-                       frameon=False)
+    ax2 = fig.add_axes(AXES_LOC, facecolor='w', frameon=False)
     ax2.set_autoscale_on(False)
     ax2.xaxis.set_visible(False)
     ax2.set_xlim(0, 1)
@@ -554,48 +571,72 @@ def main():
     plt.draw()
     plt.savefig(os.path.join(args.data_dir, 'timeline.png'))
 
-    write_states_json(os.path.join(args.data_dir, 'timeline_states.js'),
-                      fig, ax, states, start, stop, now,
-                      next_comm,
-                      fluence, fluence_times,
-                      p3_vals, p3_times, avg_flux,
-                      hrc_vals, hrc_times)
+    write_states_json(
+        os.path.join(args.data_dir, 'timeline_states.js'),
+        fig,
+        ax,
+        states,
+        start,
+        stop,
+        now,
+        next_comm,
+        fluence,
+        fluence_times,
+        p3_vals,
+        p3_times,
+        avg_flux,
+        hrc_vals,
+        hrc_times,
+    )
 
 
 def get_si(simpos):
     """
     Get SI corresponding to the given SIM position.
     """
-    if ((simpos >= 82109) and (simpos <= 104839)):
+    if (simpos >= 82109) and (simpos <= 104839):
         si = 'ACIS-I'
-    elif ((simpos >= 70736) and (simpos <= 82108)):
+    elif (simpos >= 70736) and (simpos <= 82108):
         si = 'ACIS-S'
-    elif ((simpos >= -86147) and (simpos <= -20000)):
+    elif (simpos >= -86147) and (simpos <= -20000):
         si = ' HRC-I'
-    elif ((simpos >= -104362) and (simpos <= -86148)):
+    elif (simpos >= -104362) and (simpos <= -86148):
         si = ' HRC-S'
     else:
         si = '  NONE'
     return si
 
 
-def write_states_json(fn, fig, ax, states, start, stop, now,
-                      next_comm,
-                      fluences, fluence_times,
-                      p3s, p3_times, p3_avg,
-                      hrcs, hrc_times):
+def write_states_json(
+    fn,
+    fig,
+    ax,
+    states,
+    start,
+    stop,
+    now,
+    next_comm,
+    fluences,
+    fluence_times,
+    p3s,
+    p3_times,
+    p3_avg,
+    hrcs,
+    hrc_times,
+):
     """
     Generate JSON data file that contains all the annotation values used in the
     javascript-driven annotated plot on Replan Central.  This creates a data structure
     with state values for each 10-minute time step along the X-axis of the plot.  All of
     the hard work (formatting etc) is done here so the javascript is very simple.
     """
-    formats = {'ra': '{:10.4f}',
-               'dec': '{:10.4f}',
-               'roll': '{:10.4f}',
-               'pitch': '{:8.2f}',
-               'obsid': '{:5d}',
-               }
+    formats = {
+        'ra': '{:10.4f}',
+        'dec': '{:10.4f}',
+        'roll': '{:10.4f}',
+        'pitch': '{:8.2f}',
+        'obsid': '{:5d}',
+    }
     start = start - 1
     tstop = (stop + 1).secs
     tstart = DateTime(start.date[:8] + ':00:00:00').secs
@@ -610,14 +651,24 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
 
     disp_xy = ax_to_disp([(0, 0), (1, 1)])
     fig_xy = disp_to_fig(disp_xy)
-    data = {'ax_x': fig_xy[:, 0].tolist(),
-            'ax_y': fig_xy[:, 1].tolist()}
+    data = {'ax_x': fig_xy[:, 0].tolist(), 'ax_y': fig_xy[:, 1].tolist()}
 
     outs = []
     now_idx = 0
     now_secs = now.secs
-    state_names = ('obsid', 'simpos', 'pitch', 'ra', 'dec', 'roll',
-                   'pcad_mode', 'si_mode', 'power_cmd', 'letg', 'hetg')
+    state_names = (
+        'obsid',
+        'simpos',
+        'pitch',
+        'ra',
+        'dec',
+        'roll',
+        'pcad_mode',
+        'si_mode',
+        'power_cmd',
+        'letg',
+        'hetg',
+    )
 
     # Get all the state values that occur within the range of the plot
     disp_xy = data_to_disp([(pd, 0.0) for pd in pds])
@@ -639,18 +690,19 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
     # Iterate through each time step and create corresponding data structure
     # with pre-formatted values for display in the output table.
     NOT_AVAIL = 'N/A'
-    for time, pd, state_val, fluence, p3, hrc in zip(times, pds, state_vals,
-                                                      fluences, p3s, hrcs):
+    for time, pd, state_val, fluence, p3, hrc in zip(
+        times, pds, state_vals, fluences, p3s, hrcs
+    ):
         out = {}
         out['date'] = date_zulu(time)
         for name in state_names:
             val = state_val[name].tolist()
             fval = formats.get(name, '{}').format(val)
             out[name] = re.sub(' ', '&nbsp;', fval)
-        out['ccd_fep'] = '{}, {}'.format(state_val['ccd_count'],
-                                         state_val['fep_count'])
-        out['vid_clock'] = '{}, {}'.format(state_val['vid_board'],
-                                           state_val['clocking'])
+        out['ccd_fep'] = '{}, {}'.format(state_val['ccd_count'], state_val['fep_count'])
+        out['vid_clock'] = '{}, {}'.format(
+            state_val['vid_board'], state_val['clocking']
+        )
         out['si'] = get_si(state_val['simpos'])
         out['now_dt'] = get_fmt_dt(time, now_secs)
         if time < now_secs:
@@ -671,11 +723,11 @@ def write_states_json(fn, fig, ax, states, start, stop, now,
     data['hrc_now'] = '{:.0f}'.format(hrc_now)
 
     track = next_comm['track_local']['value']
-    data['track_time'] = ('&nbsp;&nbsp;' + track[15:19] + track[:4]
-                          + ' ' + track[10:13])
+    data['track_time'] = '&nbsp;&nbsp;' + track[15:19] + track[:4] + ' ' + track[10:13]
     data['track_dt'] = get_fmt_dt(next_comm['bot_date']['value'], now_secs)
-    data['track_station'] = '{}-{}'.format(next_comm['site']['value'],
-                                           next_comm['station']['value'][4:6])
+    data['track_station'] = '{}-{}'.format(
+        next_comm['site']['value'], next_comm['station']['value'][4:6]
+    )
     data['track_activity'] = next_comm['activity']['value'][:14]
 
     # Finally write this all out as a simple javascript program that defines a single
@@ -714,6 +766,7 @@ def log_scale(y):
         y = y.copy()
         y[bad] = 1e-10
     return (np.log10(y) - 1.0) / 2.0
+
 
 if __name__ == '__main__':
     main()
