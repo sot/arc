@@ -21,7 +21,7 @@ import tables
 
 import matplotlib
 
-matplotlib.use('Agg')
+matplotlib.use("Agg")
 
 
 from kadi import events
@@ -34,31 +34,31 @@ from Ska.Matplotlib import lineid_plot, cxctime2plotdate as cxc2pd
 import warnings
 import matplotlib.cbook
 
-warnings.filterwarnings('ignore', category=matplotlib.MatplotlibDeprecationWarning)
+warnings.filterwarnings("ignore", category=matplotlib.MatplotlibDeprecationWarning)
 
 
-parser = argparse.ArgumentParser(description='Get ACE data')
-parser.add_argument('--data-dir', default='t_pred_fluence', help='Data directory')
+parser = argparse.ArgumentParser(description="Get ACE data")
+parser.add_argument("--data-dir", default="t_pred_fluence", help="Data directory")
 parser.add_argument(
-    '--hours', default=72.0, type=float, help='Hours to predict (default=72)'
+    "--hours", default=72.0, type=float, help="Hours to predict (default=72)"
 )
 parser.add_argument(
-    '--dt', default=300.0, type=float, help='Prediction time step (secs, default=300)'
+    "--dt", default=300.0, type=float, help="Prediction time step (secs, default=300)"
 )
 parser.add_argument(
-    '--max-slope-samples',
+    "--max-slope-samples",
     type=int,
-    help='Max number of samples when filtering by slope (default=None',
+    help="Max number of samples when filtering by slope (default=None",
 )
 parser.add_argument(
-    '--min-flux-samples',
+    "--min-flux-samples",
     default=100,
     type=int,
-    help='Minimum number of samples when filtering by flux (default=100)',
+    help="Minimum number of samples when filtering by flux (default=100)",
 )
-parser.add_argument('--test', action='store_true', help='Use test data')
+parser.add_argument("--test", action="store_true", help="Use test data")
 parser.add_argument(
-    '--test-scenario', type=int, help='Name of a scenario for testing missing P3 data'
+    "--test-scenario", type=int, help="Name of a scenario for testing missing P3 data"
 )
 args = parser.parse_args()
 
@@ -66,17 +66,17 @@ P3_BAD = -100000
 AXES_LOC = [0.08, 0.15, 0.83, 0.6]
 
 if args.test:
-    ACIS_FLUENCE_FILE = os.path.join(args.data_dir, 'current.dat')
-    ACE_RATES_FILE = os.path.join(args.data_dir, 'ace.html')
-    DSN_COMMS_FILE = os.path.join(args.data_dir, 'dsn_summary.yaml')
+    ACIS_FLUENCE_FILE = os.path.join(args.data_dir, "current.dat")
+    ACE_RATES_FILE = os.path.join(args.data_dir, "ace.html")
+    DSN_COMMS_FILE = os.path.join(args.data_dir, "dsn_summary.yaml")
 else:
-    ACIS_FLUENCE_FILE = '/proj/web-cxc/htdocs/acis/Fluence/current.dat'
-    ACE_RATES_FILE = '/data/mta4/www/ace.html'
-    DSN_COMMS_FILE = '/proj/sot/ska/data/dsn_summary/dsn_summary.yaml'
+    ACIS_FLUENCE_FILE = "/proj/web-cxc/htdocs/acis/Fluence/current.dat"
+    ACE_RATES_FILE = "/data/mta4/www/ace.html"
+    DSN_COMMS_FILE = "/proj/sot/ska/data/dsn_summary/dsn_summary.yaml"
 
-GOES_X_H5_FILE = os.path.join(args.data_dir, 'GOES_X.h5')
-ACE_H5_FILE = os.path.join(args.data_dir, 'ACE.h5')
-HRC_H5_FILE = os.path.join(args.data_dir, 'hrc_shield.h5')
+GOES_X_H5_FILE = os.path.join(args.data_dir, "GOES_X.h5")
+ACE_H5_FILE = os.path.join(args.data_dir, "ACE.h5")
+HRC_H5_FILE = os.path.join(args.data_dir, "hrc_shield.h5")
 
 
 def get_fluence(filename):
@@ -93,10 +93,10 @@ def get_fluence(filename):
     2012  9  4  1923    248   38580     1.73e+08  9.15e+05   1.39e+08   4.94e+07  1...
     """
 
-    lines = open(filename, 'r').readlines()
+    lines = open(filename, "r").readlines()
     vals = lines[-3].split()
     mjd = float(vals[4]) + float(vals[5]) / 86400.0
-    start = DateTime(mjd, format='mjd')
+    start = DateTime(mjd, format="mjd")
     vals = lines[-1].split()
     p3_fluence = float(vals[9])
     return start, p3_fluence
@@ -114,12 +114,12 @@ def get_avg_flux(filename):
     FLUENCE          2.0251e+08  1.0640e+06  2.3150e+08  7.3525e+07  1.1866..
     """
 
-    lines = [line for line in open(filename, 'r') if line.startswith('AVERAGE   ')]
+    lines = [line for line in open(filename, "r") if line.startswith("AVERAGE   ")]
     if len(lines) != 1:
         print(
             (
-                'WARNING: {} file contains {} lines that start with '
-                'AVERAGE (expect one)'.format(ACE_RATES_FILE, len(lines))
+                "WARNING: {} file contains {} lines that start with "
+                "AVERAGE (expect one)".format(ACE_RATES_FILE, len(lines))
             )
         )
         p3_avg_flux = P3_BAD
@@ -140,7 +140,7 @@ def get_comms():
     """
     Get the list of comm passes from the DSN summary file.
     """
-    dat = yaml.safe_load(open(DSN_COMMS_FILE, 'r'))
+    dat = yaml.safe_load(open(DSN_COMMS_FILE, "r"))
     return dat
 
 
@@ -166,12 +166,12 @@ def calc_fluence(times, fluence0, rates, states):
     the integrated fluence.
     """
     for state in states:
-        ok = (state['tstart'] < times) & (times < state['tstop'])
-        if state['simpos'] < 40000:
+        ok = (state["tstart"] < times) & (times < state["tstop"])
+        if state["simpos"] < 40000:
             rates[ok] = 0.0
-        if state['hetg'] == 'INSR':
+        if state["hetg"] == "INSR":
             rates[ok] = rates[ok] / 5.0
-        if state['letg'] == 'INSR':
+        if state["letg"] == "INSR":
             rates[ok] = rates[ok] / 2.0
 
     fluence = (fluence0 + np.cumsum(rates)) / 1e9
@@ -183,8 +183,8 @@ def get_ace_p3(tstart, tstop):
     Get the historical ACE P3 rates and filter out bad values.
     """
     h5 = tables.open_file(ACE_H5_FILE)
-    times = h5.root.data.col('time')
-    p3 = h5.root.data.col('p3')
+    times = h5.root.data.col("time")
+    p3 = h5.root.data.col("p3")
     ok = (tstart < times) & (times < tstop)
     h5.close()
     return times[ok], p3[ok]
@@ -195,8 +195,8 @@ def get_goes_x(tstart, tstop):
     Get recent GOES 1-8 angstrom X-ray rates
     """
     h5 = tables.open_file(GOES_X_H5_FILE)
-    times = h5.root.data.col('time')
-    xray_long = h5.root.data.col('long')
+    times = h5.root.data.col("time")
+    xray_long = h5.root.data.col("long")
     ok = (tstart < times) & (times < tstop)
     h5.close()
     if np.count_nonzero(ok) < 2:
@@ -208,7 +208,7 @@ def get_goes_x(tstart, tstop):
 def get_test_vals(scenario, p3_times, p3s, p3_avg, p3_fluence):
     if scenario == 1:
         # ACE unavailable for the last 8 hours.  No P3 avg from MTA.
-        print('Running test scenario 1')
+        print("Running test scenario 1")
         p3s[:] = 100.0
         bad = p3_times[-1] - p3_times < 3600 * 8
         p3s[bad] = P3_BAD
@@ -218,7 +218,7 @@ def get_test_vals(scenario, p3_times, p3s, p3_avg, p3_fluence):
         # ACE data flow resumes but MTA does not report an average
         # value.  Expect ACE fluence to show as red because no P3 avg
         # is available for fluence calculation.
-        print('Running test scenario 2')
+        print("Running test scenario 2")
         p3s[:] = 5000
         dt = (p3_times[-1] - p3_times) / 3600.0
         bad = (dt < 8) & (dt > 2.5)
@@ -228,7 +228,7 @@ def get_test_vals(scenario, p3_times, p3s, p3_avg, p3_fluence):
     elif scenario == 3:
         # ACE data flow resumes and MTA reports an average value
         # and there is now enough data for a slope and fluence quantiles
-        print('Running test scenario 3')
+        print("Running test scenario 3")
         p3s[:] = 5000
         dt = (p3_times[-1] - p3_times) / 3600.0
         bad = (dt < 8) & (dt > 2.5)
@@ -238,7 +238,7 @@ def get_test_vals(scenario, p3_times, p3s, p3_avg, p3_fluence):
     elif scenario == 4:
         # ACE data flow resumes and MTA reports an average value,
         # but not enough data for a slope and fluence quantiles
-        print('Running test scenario 4')
+        print("Running test scenario 4")
         p3s[:] = 5000
         dt = (p3_times[-1] - p3_times) / 3600.0
         bad = (dt < 8) & (dt > 0.5)
@@ -247,13 +247,13 @@ def get_test_vals(scenario, p3_times, p3s, p3_avg, p3_fluence):
         p3_fluence = 0.0e9
     elif scenario == 5:
         # ACE completely unavailable during period.  No P3 avg from MTA.
-        print('Running test scenario 5')
+        print("Running test scenario 5")
         p3s[:] = P3_BAD
         p3_avg = P3_BAD
         p3_fluence = 0.3e9
     elif scenario == 6:
         # Random ACE outages
-        print('Running test scenario 6')
+        print("Running test scenario 6")
         bad = np.random.uniform(size=len(p3s)) < 0.05
         p3s[:] = 1000.0
         p3s[bad] = P3_BAD
@@ -267,8 +267,8 @@ def get_hrc(tstart, tstop):
     Get the historical HRC proxy rates and filter out bad values.
     """
     h5 = tables.open_file(HRC_H5_FILE)
-    times = h5.root.data.col('time')
-    hrc = h5.root.data.col('hrc_shield') * 256.0
+    times = h5.root.data.col("time")
+    hrc = h5.root.data.col("hrc_shield") * 256.0
     ok = (tstart < times) & (times < tstop) & (hrc > 0)
     h5.close()
     if np.count_nonzero(ok) < 2:
@@ -335,8 +335,8 @@ def main():
     # TODO: refactor this into smaller functions where possible.
 
     # Basic setup.  Set times and get input states, radzones and comms.
-    now = DateTime('2012:249:00:35:00' if args.test else None)
-    now = DateTime(now.date[:14] + ':00')  # truncate to 0 secs
+    now = DateTime("2012:249:00:35:00" if args.test else None)
+    now = DateTime(now.date[:14] + ":00")  # truncate to 0 secs
     start = now - 1.0
     stop = start + args.hours / 24.0
     states = kadi_states.get_states(start=start, stop=stop)
@@ -367,29 +367,29 @@ def main():
     zero_fluence_at_radzone(fluence_times, fluence, radzones)
 
     # Initialize the main plot figure
-    plt.rc('legend', fontsize=10)
+    plt.rc("legend", fontsize=10)
     fig = plt.figure(1, figsize=(9, 5))
     fig.clf()
     fig.patch.set_alpha(0.0)
-    ax = fig.add_axes(AXES_LOC, facecolor='w')
+    ax = fig.add_axes(AXES_LOC, facecolor="w")
     ax.yaxis.tick_right()
-    ax.yaxis.set_label_position('right')
-    ax.yaxis.set_offset_position('right')
+    ax.yaxis.set_label_position("right")
+    ax.yaxis.set_offset_position("right")
     ax.patch.set_alpha(1.0)
 
     # Plot lines at 1.0 and 2.0 (10^9) corresponding to fluence yellow
     # and red limits.  Also plot the fluence=0 line in black.
     x0, x1 = cxc2pd([fluence_times[0], fluence_times[-1]])
-    plt.plot([x0, x1], [0.0, 0.0], '-k')
-    plt.plot([x0, x1], [1.0, 1.0], '--b', lw=2.0)
-    plt.plot([x0, x1], [2.0, 2.0], '--r', lw=2.0)
+    plt.plot([x0, x1], [0.0, 0.0], "-k")
+    plt.plot([x0, x1], [1.0, 1.0], "--b", lw=2.0)
+    plt.plot([x0, x1], [2.0, 2.0], "--r", lw=2.0)
 
     # Draw dummy lines off the plot for the legend
     lx = [fluence_times[0], fluence_times[-1]]
     ly = [-1, -1]
-    plot_cxctime(lx, ly, '-k', lw=3, label='None', fig=fig, ax=ax)
-    plot_cxctime(lx, ly, '-r', lw=3, label='HETG', fig=fig, ax=ax)
-    plot_cxctime(lx, ly, '-c', lw=3, label='LETG', fig=fig, ax=ax)
+    plot_cxctime(lx, ly, "-k", lw=3, label="None", fig=fig, ax=ax)
+    plot_cxctime(lx, ly, "-r", lw=3, label="HETG", fig=fig, ax=ax)
+    plot_cxctime(lx, ly, "-c", lw=3, label="LETG", fig=fig, ax=ax)
 
     # Make a z-valued curve where the z value corresponds to the grating state.
     x = cxc2pd(fluence_times)
@@ -397,22 +397,22 @@ def main():
     z = np.zeros(len(fluence_times), dtype=int)
 
     for state in states:
-        ok = (state['tstart'] < fluence_times) & (fluence_times <= state['tstop'])
-        if state['hetg'] == 'INSR':
+        ok = (state["tstart"] < fluence_times) & (fluence_times <= state["tstop"])
+        if state["hetg"] == "INSR":
             z[ok] = 1
-        elif state['letg'] == 'INSR':
+        elif state["letg"] == "INSR":
             z[ok] = 2
 
-    plot_multi_line(x, y, z, [0, 1, 2], ['k', 'r', 'c'], ax)
+    plot_multi_line(x, y, z, [0, 1, 2], ["k", "r", "c"], ax)
 
     # Plot 10, 50, 90 percentiles of fluence
     try:
         if len(p3_times) < 4:
-            raise ValueError('not enough P3 values')
+            raise ValueError("not enough P3 values")
         p3_slope = get_p3_slope(p3_times, p3_vals)
         if p3_slope is not None and avg_flux > 0:
             p3_fits, p3_samps, fluences = cfd.get_fluences(
-                os.path.join(args.data_dir, 'ACE_hourly_avg.npy')
+                os.path.join(args.data_dir, "ACE_hourly_avg.npy")
             )
             hrs, fl10, fl50, fl90 = cfd.get_fluence_percentiles(
                 avg_flux,
@@ -424,14 +424,14 @@ def main():
                 args.max_slope_samples,
             )
             fluence_hours = (fluence_times - fluence_times[0]) / 3600.0
-            for fl_y, linecolor in zip((fl10, fl50, fl90), ('-g', '-b', '-r')):
+            for fl_y, linecolor in zip((fl10, fl50, fl90), ("-g", "-b", "-r")):
                 fl_y = Ska.Numpy.interpolate(fl_y, hrs, fluence_hours)
                 rates = np.diff(fl_y)
                 fl_y_atten = calc_fluence(fluence_times[:-1], fluence0, rates, states)
                 zero_fluence_at_radzone(fluence_times[:-1], fl_y_atten, radzones)
                 plt.plot(x0 + fluence_hours[:-1] / 24.0, fl_y_atten, linecolor)
     except Exception as e:
-        print(('WARNING: p3 fluence not plotted, error : {}'.format(e)))
+        print(("WARNING: p3 fluence not plotted, error : {}".format(e)))
 
     # Set x and y axis limits
     x0, x1 = cxc2pd([start.secs, stop.secs])
@@ -446,8 +446,8 @@ def main():
     # Draw comm passes
     next_comm = None
     for comm in comms:
-        t0 = DateTime(comm['bot_date']['value']).secs
-        t1 = DateTime(comm['eot_date']['value']).secs
+        t0 = DateTime(comm["bot_date"]["value"]).secs
+        t1 = DateTime(comm["eot_date"]["value"]).secs
         pd0, pd1 = cxc2pd([t0, t1])
         if pd1 >= x0 and pd0 <= x1:
             p = matplotlib.patches.Rectangle(
@@ -455,17 +455,17 @@ def main():
                 pd1 - pd0,
                 y1 - y0,
                 alpha=0.2,
-                facecolor='r',
-                edgecolor='none',
+                facecolor="r",
+                edgecolor="none",
             )
             ax.add_patch(p)
         id_xs.append((pd0 + pd1) / 2)
         id_labels.append(
-            '{}:{}'.format(
-                comm['station']['value'][4:6], comm['track_local']['value'][:9]
+            "{}:{}".format(
+                comm["station"]["value"][4:6], comm["track_local"]["value"][:9]
             )
         )
-        if next_comm is None and DateTime(comm['bot_date']['value']).secs > now.secs:
+        if next_comm is None and DateTime(comm["bot_date"]["value"]).secs > now.secs:
             next_comm = comm
 
     # Draw radiation zones
@@ -483,27 +483,27 @@ def main():
                 pd1 - pd0,
                 y1 - y0,
                 alpha=0.2,
-                facecolor='b',
-                edgecolor='none',
+                facecolor="b",
+                edgecolor="none",
             )
             ax.add_patch(p)
 
     # Draw now line
-    plt.plot(cxc2pd([now.secs, now.secs]), [y0, y1], '-g', lw=4)
+    plt.plot(cxc2pd([now.secs, now.secs]), [y0, y1], "-g", lw=4)
     id_xs.extend(cxc2pd([now.secs]))
-    id_labels.append('NOW')
+    id_labels.append("NOW")
 
     # Add labels for obsids
     id_xs.extend(cxc2pd([start.secs]))
-    id_labels.append(str(states[0]['obsid']))
+    id_labels.append(str(states[0]["obsid"]))
     for s0, s1 in zip(states[:-1], states[1:]):
-        if s0['obsid'] != s1['obsid']:
-            id_xs.append(cxc2pd([s1['tstart']])[0])
-            id_labels.append(str(s1['obsid']))
+        if s0["obsid"] != s1["obsid"]:
+            id_xs.append(cxc2pd([s1["tstart"]])[0])
+            id_labels.append(str(s1["obsid"]))
 
     plt.grid()
-    plt.ylabel('Attenuated fluence / 1e9')
-    plt.legend(loc='upper center', labelspacing=0.15)
+    plt.ylabel("Attenuated fluence / 1e9")
+    plt.legend(loc="upper center", labelspacing=0.15)
     lineid_plot.plot_line_ids(
         cxc2pd([start.secs, stop.secs]),
         [y1, y1],
@@ -517,25 +517,25 @@ def main():
     # Plot observed GOES X-ray rates and limits
     pd = cxc2pd(goes_x_times)
     lgoesx = log_scale(goes_x_vals * 1e8)
-    plt.plot(pd, lgoesx, '-m', alpha=0.3, lw=1.5)
-    plt.plot(pd, lgoesx, '.m', mec='m', ms=3)
+    plt.plot(pd, lgoesx, "-m", alpha=0.3, lw=1.5)
+    plt.plot(pd, lgoesx, ".m", mec="m", ms=3)
 
     # Plot observed ACE P3 rates and limits
     lp3 = log_scale(p3_vals)
     pd = cxc2pd(p3_times)
     ox = cxc2pd([start.secs, now.secs])
     oy1 = log_scale(12000.0)
-    plt.plot(ox, [oy1, oy1], '--b', lw=2)
+    plt.plot(ox, [oy1, oy1], "--b", lw=2)
     oy1 = log_scale(55000.0)
-    plt.plot(ox, [oy1, oy1], '--r', lw=2)
-    plt.plot(pd, lp3, '-k', alpha=0.3, lw=3)
-    plt.plot(pd, lp3, '.k', mec='k', ms=3)
+    plt.plot(ox, [oy1, oy1], "--r", lw=2)
+    plt.plot(pd, lp3, "-k", alpha=0.3, lw=3)
+    plt.plot(pd, lp3, ".k", mec="k", ms=3)
 
     # Plot observed HRC shield proxy rates and limits
     pd = cxc2pd(hrc_times)
     lhrc = log_scale(hrc_vals)
-    plt.plot(pd, lhrc, '-c', alpha=0.3, lw=3)
-    plt.plot(pd, lhrc, '.c', mec='c', ms=3)
+    plt.plot(pd, lhrc, "-c", alpha=0.3, lw=3)
+    plt.plot(pd, lhrc, ".c", mec="c", ms=3)
 
     # Draw SI state
     times = np.arange(start.secs, stop.secs, 300)
@@ -544,35 +544,35 @@ def main():
     x = cxc2pd(times)
     y = np.zeros_like(times) + y_si
     z = np.zeros_like(times, dtype=float)  # 0 => ACIS
-    z[state_vals['simpos'] < 0] = 1.0  # HRC
-    plot_multi_line(x, y, z, [0, 1], ['c', 'r'], ax)
+    z[state_vals["simpos"] < 0] = 1.0  # HRC
+    plot_multi_line(x, y, z, [0, 1], ["c", "r"], ax)
     dx = (x1 - x0) * 0.01
-    plt.text(x1 + dx, y_si, 'HRC/ACIS', ha='left', va='center', size='small')
+    plt.text(x1 + dx, y_si, "HRC/ACIS", ha="left", va="center", size="small")
 
     # Draw log scale y-axis on left
-    ax2 = fig.add_axes(AXES_LOC, facecolor='w', frameon=False)
+    ax2 = fig.add_axes(AXES_LOC, facecolor="w", frameon=False)
     ax2.set_autoscale_on(False)
     ax2.xaxis.set_visible(False)
     ax2.set_xlim(0, 1)
-    ax2.set_yscale('log')
+    ax2.set_yscale("log")
     ax2.set_ylim(np.power(10.0, np.array([y0, y1]) * 2 + 1))
-    ax2.set_ylabel('ACE flux / HRC proxy / GOES X-ray')
-    ax2.text(-0.015, 2.5e3, 'M', ha='right', color='m', weight='demibold')
-    ax2.text(-0.015, 2.5e4, 'X', ha='right', color='m', weight='semibold')
+    ax2.set_ylabel("ACE flux / HRC proxy / GOES X-ray")
+    ax2.text(-0.015, 2.5e3, "M", ha="right", color="m", weight="demibold")
+    ax2.text(-0.015, 2.5e4, "X", ha="right", color="m", weight="semibold")
 
     # Draw dummy lines off the plot for the legend
     lx = [0, 1]
     ly = [1, 1]
-    ax2.plot(lx, ly, '-k', lw=3, label='ACE')
-    ax2.plot(lx, ly, '-c', lw=3, label='HRC')
-    ax2.plot(lx, ly, '-m', lw=3, label='GOES-X')
-    ax2.legend(loc='upper left', labelspacing=0.15)
+    ax2.plot(lx, ly, "-k", lw=3, label="ACE")
+    ax2.plot(lx, ly, "-c", lw=3, label="HRC")
+    ax2.plot(lx, ly, "-m", lw=3, label="GOES-X")
+    ax2.legend(loc="upper left", labelspacing=0.15)
 
     plt.draw()
-    plt.savefig(os.path.join(args.data_dir, 'timeline.png'))
+    plt.savefig(os.path.join(args.data_dir, "timeline.png"))
 
     write_states_json(
-        os.path.join(args.data_dir, 'timeline_states.js'),
+        os.path.join(args.data_dir, "timeline_states.js"),
         fig,
         ax,
         states,
@@ -595,15 +595,15 @@ def get_si(simpos):
     Get SI corresponding to the given SIM position.
     """
     if (simpos >= 82109) and (simpos <= 104839):
-        si = 'ACIS-I'
+        si = "ACIS-I"
     elif (simpos >= 70736) and (simpos <= 82108):
-        si = 'ACIS-S'
+        si = "ACIS-S"
     elif (simpos >= -86147) and (simpos <= -20000):
-        si = ' HRC-I'
+        si = " HRC-I"
     elif (simpos >= -104362) and (simpos <= -86148):
-        si = ' HRC-S'
+        si = " HRC-S"
     else:
-        si = '  NONE'
+        si = "  NONE"
     return si
 
 
@@ -631,15 +631,15 @@ def write_states_json(
     the hard work (formatting etc) is done here so the javascript is very simple.
     """
     formats = {
-        'ra': '{:10.4f}',
-        'dec': '{:10.4f}',
-        'roll': '{:10.4f}',
-        'pitch': '{:8.2f}',
-        'obsid': '{:5d}',
+        "ra": "{:10.4f}",
+        "dec": "{:10.4f}",
+        "roll": "{:10.4f}",
+        "pitch": "{:8.2f}",
+        "obsid": "{:5d}",
     }
     start = start - 1
     tstop = (stop + 1).secs
-    tstart = DateTime(start.date[:8] + ':00:00:00').secs
+    tstart = DateTime(start.date[:8] + ":00:00:00").secs
     times = np.arange(tstart, tstop, 600)
     pds = cxc2pd(times)  # Convert from CXC time to plotdate times
 
@@ -651,23 +651,23 @@ def write_states_json(
 
     disp_xy = ax_to_disp([(0, 0), (1, 1)])
     fig_xy = disp_to_fig(disp_xy)
-    data = {'ax_x': fig_xy[:, 0].tolist(), 'ax_y': fig_xy[:, 1].tolist()}
+    data = {"ax_x": fig_xy[:, 0].tolist(), "ax_y": fig_xy[:, 1].tolist()}
 
     outs = []
     now_idx = 0
     now_secs = now.secs
     state_names = (
-        'obsid',
-        'simpos',
-        'pitch',
-        'ra',
-        'dec',
-        'roll',
-        'pcad_mode',
-        'si_mode',
-        'power_cmd',
-        'letg',
-        'hetg',
+        "obsid",
+        "simpos",
+        "pitch",
+        "ra",
+        "dec",
+        "roll",
+        "pcad_mode",
+        "si_mode",
+        "power_cmd",
+        "letg",
+        "hetg",
     )
 
     # Get all the state values that occur within the range of the plot
@@ -689,57 +689,57 @@ def write_states_json(
 
     # Iterate through each time step and create corresponding data structure
     # with pre-formatted values for display in the output table.
-    NOT_AVAIL = 'N/A'
+    NOT_AVAIL = "N/A"
     for time, pd, state_val, fluence, p3, hrc in zip(
         times, pds, state_vals, fluences, p3s, hrcs
     ):
         out = {}
-        out['date'] = date_zulu(time)
+        out["date"] = date_zulu(time)
         for name in state_names:
             val = state_val[name].tolist()
-            fval = formats.get(name, '{}').format(val)
-            out[name] = re.sub(' ', '&nbsp;', fval)
-        out['ccd_fep'] = '{}, {}'.format(state_val['ccd_count'], state_val['fep_count'])
-        out['vid_clock'] = '{}, {}'.format(
-            state_val['vid_board'], state_val['clocking']
+            fval = formats.get(name, "{}").format(val)
+            out[name] = re.sub(" ", "&nbsp;", fval)
+        out["ccd_fep"] = "{}, {}".format(state_val["ccd_count"], state_val["fep_count"])
+        out["vid_clock"] = "{}, {}".format(
+            state_val["vid_board"], state_val["clocking"]
         )
-        out['si'] = get_si(state_val['simpos'])
-        out['now_dt'] = get_fmt_dt(time, now_secs)
+        out["si"] = get_si(state_val["simpos"])
+        out["now_dt"] = get_fmt_dt(time, now_secs)
         if time < now_secs:
             now_idx += 1
-            out['fluence'] = '{:.2f}e9'.format(fluence_now)
-            out['p3'] = '{:.0f}'.format(p3) if p3 > 0 else NOT_AVAIL
-            out['hrc'] = '{:.0f}'.format(hrc)
+            out["fluence"] = "{:.2f}e9".format(fluence_now)
+            out["p3"] = "{:.0f}".format(p3) if p3 > 0 else NOT_AVAIL
+            out["hrc"] = "{:.0f}".format(hrc)
         else:
-            out['fluence'] = '{:.2f}e9'.format(fluence)
-            out['p3'] = '{:.0f}'.format(p3_now) if p3_now > 0 else NOT_AVAIL
-            out['hrc'] = '{:.0f}'.format(hrc_now)
+            out["fluence"] = "{:.2f}e9".format(fluence)
+            out["p3"] = "{:.0f}".format(p3_now) if p3_now > 0 else NOT_AVAIL
+            out["hrc"] = "{:.0f}".format(hrc_now)
         outs.append(out)
-    data['states'] = outs
-    data['now_idx'] = now_idx
-    data['now_date'] = date_zulu(now)
-    data['p3_avg_now'] = '{:.0f}'.format(p3_avg) if p3_avg > 0 else NOT_AVAIL
-    data['p3_now'] = '{:.0f}'.format(p3_now) if p3_now > 0 else NOT_AVAIL
-    data['hrc_now'] = '{:.0f}'.format(hrc_now)
+    data["states"] = outs
+    data["now_idx"] = now_idx
+    data["now_date"] = date_zulu(now)
+    data["p3_avg_now"] = "{:.0f}".format(p3_avg) if p3_avg > 0 else NOT_AVAIL
+    data["p3_now"] = "{:.0f}".format(p3_now) if p3_now > 0 else NOT_AVAIL
+    data["hrc_now"] = "{:.0f}".format(hrc_now)
 
-    track = next_comm['track_local']['value']
-    data['track_time'] = '&nbsp;&nbsp;' + track[15:19] + track[:4] + ' ' + track[10:13]
-    data['track_dt'] = get_fmt_dt(next_comm['bot_date']['value'], now_secs)
-    data['track_station'] = '{}-{}'.format(
-        next_comm['site']['value'], next_comm['station']['value'][4:6]
+    track = next_comm["track_local"]["value"]
+    data["track_time"] = "&nbsp;&nbsp;" + track[15:19] + track[:4] + " " + track[10:13]
+    data["track_dt"] = get_fmt_dt(next_comm["bot_date"]["value"], now_secs)
+    data["track_station"] = "{}-{}".format(
+        next_comm["site"]["value"], next_comm["station"]["value"][4:6]
     )
-    data['track_activity'] = next_comm['activity']['value'][:14]
+    data["track_activity"] = next_comm["activity"]["value"][:14]
 
     # Finally write this all out as a simple javascript program that defines a single
     # variable ``data``.
-    with open(fn, 'w') as f:
-        f.write('var data = {}'.format(json.dumps(data)))
+    with open(fn, "w") as f:
+        f.write("var data = {}".format(json.dumps(data)))
 
 
 def date_zulu(date):
     """Format the current time in like 186/2234Z"""
     date = DateTime(date).date
-    zulu = '{}/{}{}z'.format(date[5:8], date[9:11], date[12:14])
+    zulu = "{}/{}{}z".format(date[5:8], date[9:11], date[12:14])
     return zulu
 
 
@@ -755,9 +755,9 @@ def get_fmt_dt(t1, t0):
     days = adt // 86400
     hours = (adt - days * 86400) // 3600
     mins = int(round((adt - days * 86400 - hours * 3600) / 60))
-    sign = '+' if dt >= 0 else '-'
-    days = str(days) + 'd ' if days > 0 else ''
-    return 'NOW {} {}{}:{:02d}'.format(sign, days, hours, mins)
+    sign = "+" if dt >= 0 else "-"
+    days = str(days) + "d " if days > 0 else ""
+    return "NOW {} {}{}:{:02d}".format(sign, days, hours, mins)
 
 
 def log_scale(y):
@@ -768,5 +768,5 @@ def log_scale(y):
     return (np.log10(y) - 1.0) / 2.0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

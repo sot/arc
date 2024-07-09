@@ -6,7 +6,7 @@ N_T = N_FUTURE + N_PAST
 N_SAMP = 6
 
 
-def get_fluences(filename='ACE_hourly_avg.npy'):
+def get_fluences(filename="ACE_hourly_avg.npy"):
     """
     Get P3 cumulative fluence values at 1 hour intervals for all data in the
     ACE mission since 1997, using 1-hr average P3 values.  Compute a fluence
@@ -17,12 +17,12 @@ def get_fluences(filename='ACE_hourly_avg.npy'):
     dat = np.load(filename)
 
     # Remove bad data points
-    ok = dat['p3'] > 1
+    ok = dat["p3"] > 1
     dat = dat[ok]
-    p3s = dat['p3']
+    p3s = dat["p3"]
 
     # Compute data times in hours
-    hrs = (dat['fp_year'] - 1997.0) * 24 * 365.25
+    hrs = (dat["fp_year"] - 1997.0) * 24 * 365.25
 
     i0s = np.arange(0, len(p3s) - N_T, N_SAMP)
     p3_samps = np.vstack([p3s[i : i + N_T] for i in i0s])
@@ -71,11 +71,11 @@ def get_fluence_percentiles(
     return hrs, fl10, fl50, fl90
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     p3_fits, p3_samps, fluences = get_fluences()
-    print('p3_avg_now', end=' ')
+    print("p3_avg_now", end=" ")
     p3_avg_now = float(input())
-    print('p3_slope_now', end=' ')
+    print("p3_slope_now", end=" ")
     p3_slope_now = float(input())
     hrs, fl10, fl50, fl90 = get_fluence_percentiles(
         p3_avg_now, p3_slope_now, p3_fits, p3_samps, fluences
