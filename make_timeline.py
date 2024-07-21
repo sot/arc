@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import re
+from pathlib import Path
 
 import matplotlib
 import numpy as np
@@ -59,6 +60,11 @@ parser.add_argument("--test", action="store_true", help="Use test data")
 parser.add_argument(
     "--test-scenario", type=int, help="Name of a scenario for testing missing P3 data"
 )
+parser.add_argument(
+    "--test-get-web",
+    action="store_true",
+    help="Grab ACIS fluence, ACE rates and DSN comms from web",
+)
 args = parser.parse_args()
 
 P3_BAD = -100000
@@ -78,19 +84,27 @@ ACE_H5_FILE = os.path.join(args.data_dir, "ACE.h5")
 HRC_H5_FILE = os.path.join(args.data_dir, "hrc_shield.h5")
 
 
+def get_web_data():
+    """Get ACIS fluence, ACE rates, and DSN comms from web pages
+
+    Output files are placed in args.data_dir.
+    """
+    "https://cxc.harvard.edu/acis/Fluence/current.dat"
+    "https://cxc.harvard.edu/mta/ace.html"
+
+
 def get_fluence(filename):
     """
-    Get the current ACIS attenuated fluence (parse stuff below)
+    Get the current ACIS attenuated fluence (parse stuff below)::
 
-    TABLE 2: ACIS FLUX AND FLUENCE BASED ON ACE DATA
-
-    Latest valid ACIS flux and fluence data...                                   111...
-    # UT Date   Time  Julian  of the  --- Electron keV ---   -------------------- Pr...
-    # YR MO DA  HHMM    Day    Secs        38-53   175-315      56-78    112-187   3...
-    #-------------------------------------------------------------------------------...
-    2012  9  4  1915  56174   69300     5.54e+03  2.90e+01   5.92e+03   1.88e+03  4....
-    ACIS Fluence data...Start DOY,SOD
-    2012  9  4  1923    248   38580     1.73e+08  9.15e+05   1.39e+08   4.94e+07  1...
+      TABLE 2: ACIS FLUX AND FLUENCE BASED ON ACE DATA
+      Latest valid ACIS flux and fluence data...                                   111...
+      # UT Date   Time  Julian  of the  --- Electron keV ---   -------------------- Pr...
+      # YR MO DA  HHMM    Day    Secs        38-53   175-315      56-78    112-187   3...
+      #-------------------------------------------------------------------------------...
+      2012  9  4  1915  56174   69300     5.54e+03  2.90e+01   5.92e+03   1.88e+03  4....
+      ACIS Fluence data...Start DOY,SOD
+      2012  9  4  1923    248   38580     1.73e+08  9.15e+05   1.39e+08   4.94e+07  1...
     """
 
     lines = open(filename, "r").readlines()
@@ -185,25 +199,45 @@ def get_ace_p3(tstart, tstop):
     """
     Get the historical ACE P3 rates and filter out bad values.
     """
-    h5 = tables.open_file(ACE_H5_FILE)
-    times = h5.root.data.col("time")
-    p3 = h5.root.data.col("p3")
-    ok = (tstart < times) & (times < tstop)
-    h5.close()
-    return times[ok], p3[ok]
+    out_default = np.array([tstart, tstop]), np.array([1000, 1000])
+
+    if args.test and not Path.exists(ACE_H5_FILE):
+        return out_default
+
+    with tables.open_file(ACE_H5_FILE) as h5:
+        times = h5.root.data.col("time")
+        p3 = h5.root.data.col("p3")
+        ok = (tstart < times) & (times < tstop)
+
+    if np.count_nonzero(ok) < 2:
+        return out_default
+    else:
+        return times[ok], p3[ok]
 
 
-def get_goes_x(tstart, tstop):
+def get_goes_x(tstart: float, tstop: float) -> tuple[np.ndarray, np.ndarray]:
     """
     Get recent GOES 1-8 angstrom X-ray rates
+
+    Returns
+    -------
+    times : np.ndarray
+        Times of X-ray data
+    xray_long : np.ndarray
+        X-ray flux
     """
-    h5 = tables.open_file(GOES_X_H5_FILE)
-    times = h5.root.data.col("time")
-    xray_long = h5.root.data.col("long")
-    ok = (tstart < times) & (times < tstop)
-    h5.close()
+    out_default = np.array([tstart, tstop]), np.array([1e-10, 1e-10])
+
+    if args.test and not Path.exists(GOES_X_H5_FILE):
+        return out_default
+
+    with tables.open_file(GOES_X_H5_FILE) as h5:
+        times = h5.root.data.col("time")
+        xray_long = h5.root.data.col("long")
+        ok = (tstart < times) & (times < tstop)
+
     if np.count_nonzero(ok) < 2:
-        return np.array([tstart, tstop]), np.array([1e-10, 1e-10])
+        return out_default
     else:
         return times[ok], xray_long[ok]
 
@@ -269,11 +303,16 @@ def get_hrc(tstart, tstop):
     """
     Get the historical HRC proxy rates and filter out bad values.
     """
-    h5 = tables.open_file(HRC_H5_FILE)
-    times = h5.root.data.col("time")
-    hrc = h5.root.data.col("hrc_shield") * 256.0
-    ok = (tstart < times) & (times < tstop) & (hrc > 0)
-    h5.close()
+    out_default = np.array([tstart, tstop]), np.array([1, 1])
+
+    if args.test and not Path.exists(HRC_H5_FILE):
+        return out_default
+
+    with tables.open_file(HRC_H5_FILE) as h5:
+        times = h5.root.data.col("time")
+        hrc = h5.root.data.col("hrc_shield") * 256.0
+        ok = (tstart < times) & (times < tstop) & (hrc > 0)
+
     if np.count_nonzero(ok) < 2:
         return np.array([tstart, tstop]), np.array([1, 1])
     else:
@@ -346,6 +385,9 @@ def main():
     states = kadi_states.get_states(start=start, stop=stop)
     radzones = get_radzones()
     comms = get_comms()
+
+    if args.test_get_web:
+        get_web_data()
 
     # Get the ACIS ops fluence estimate and current 2hr avg flux
     fluence_date, fluence0 = get_fluence(ACIS_FLUENCE_FILE)
