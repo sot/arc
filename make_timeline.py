@@ -32,21 +32,20 @@ import re
 import warnings
 from pathlib import Path
 
-import matplotlib
-import numpy as np
-import tables
-import yaml
-
-matplotlib.use("Agg")
-
+os.environ["MPLBACKEND"] = "Agg"
 
 import astropy.units as u
 import kadi.commands.states as kadi_states
 import matplotlib.cbook
+import matplotlib.patches
+import matplotlib.pyplot as plt
+import numpy as np
 import ska_numpy
+import tables
+import yaml
 from cxotime import CxoTime, CxoTimeLike
 from kadi import events
-from ska_matplotlib import lineid_plot
+from ska_matplotlib import lineid_plot, plot_cxctime
 
 import calc_fluence_dist as cfd
 
@@ -462,14 +461,8 @@ def main(args_sys=None):
     """
     Generate the Replan Central timeline plot.
     """
-    import matplotlib.patches
-    import matplotlib.pyplot as plt
-    from ska_matplotlib import plot_cxctime
-
     parser = get_parser()
     args = parser.parse_args(args_sys)
-
-    # TODO: refactor this into smaller functions where possible.
 
     # Basic setup.  Set times and get input states, radzones and comms.
     now = CxoTime.now()
@@ -487,8 +480,7 @@ def main(args_sys=None):
     fluence_date, fluence0 = get_fluence(
         acis_fluence_file(args.data_dir, test=args.test)
     )
-    if fluence_date.secs < now.secs:
-        fluence_date = now
+    fluence_date = max(fluence_date, now)
     avg_flux = get_avg_flux(ace_rates_file(args.data_dir, test=args.test))
 
     # Get the realtime ACE P3 and HRC proxy values over the time range
@@ -509,9 +501,7 @@ def main(args_sys=None):
     zero_fluence_at_radzone(fluence_times, fluence, radzones)
 
     # Initialize the main plot figure
-    plt.rc("legend", fontsize=10)
     fig = plt.figure(1, figsize=(9, 5))
-    fig.clf()
     fig.patch.set_alpha(0.0)
     ax = fig.add_axes(AXES_LOC, facecolor="w")
     ax.yaxis.tick_right()
@@ -519,71 +509,157 @@ def main(args_sys=None):
     ax.yaxis.set_offset_position("right")
     ax.patch.set_alpha(1.0)
 
-    # Plot lines at 1.0 and 2.0 (10^9) corresponding to fluence yellow
-    # and red limits.  Also plot the fluence=0 line in black.
-    x0, x1 = cxc2pd([fluence_times[0], fluence_times[-1]])
-    plt.plot([x0, x1], [0.0, 0.0], "-k")
-    plt.plot([x0, x1], [1.0, 1.0], "--b", lw=2.0)
-    plt.plot([x0, x1], [2.0, 2.0], "--r", lw=2.0)
+    draw_ace_yellow_red_limits(fluence_times, ax)
+    draw_dummy_lines_letg_hetg_legend(fluence_times, fig, ax)
+    draw_fluence_and_grating_state_line(states, fluence_times, fluence, ax)
+    draw_fluence_percentiles(
+        args, states, radzones, fluence0, avg_flux, p3_times, p3_vals, fluence_times, ax
+    )
+    x0, x1, y0, y1 = set_plot_x_y_axis_limits(start, stop, ax)
+
+    id_xs, id_labels, next_comm = draw_communication_passes(
+        now, comms, ax, x0, x1, y0, y1
+    )
+    draw_radiation_zones(start, stop, radzones, ax, y0, y1)
+    draw_now_line(now, y0, y1, id_xs, id_labels, ax)
+    add_labels_for_obsids(start, states, id_xs, id_labels)
+
+    ax.grid()
+    ax.set_ylabel("Attenuated fluence / 1e9")
+    ax.legend(loc="upper center", labelspacing=0.15, fontsize=10)
+    lineid_plot.plot_line_ids(
+        cxc2pd([start.secs, stop.secs]),
+        [y1, y1],
+        id_xs,
+        id_labels,
+        ax=ax,
+        box_axes_space=0.14,
+        label1_size=10,
+    )
+
+    draw_goes_x_data(goes_x_times, goes_x_vals, ax)
+    draw_ace_p3_and_limits(now, start, p3_times, p3_vals, ax)
+    draw_hrc_proxy(hrc_times, hrc_vals, ax)
+    draw_hrc_acis_states(start, stop, states, ax, x0, x1)
+
+    # Draw log scale y-axis on left
+    draw_log_scale_axes(fig, y0, y1)
+
+    fig.savefig(os.path.join(args.data_dir, "timeline.png"))
+
+    write_states_json(
+        os.path.join(args.data_dir, "timeline_states.js"),
+        fig,
+        ax,
+        states,
+        start,
+        stop,
+        now,
+        next_comm,
+        fluence,
+        fluence_times,
+        p3_vals,
+        p3_times,
+        avg_flux,
+        hrc_vals,
+        hrc_times,
+    )
+
+
+def draw_log_scale_axes(fig, y0, y1):
+    ax2 = fig.add_axes(AXES_LOC, facecolor="w", frameon=False)
+    ax2.set_autoscale_on(False)
+    ax2.xaxis.set_visible(False)
+    ax2.set_xlim(0, 1)
+    ax2.set_yscale("log")
+    ax2.set_ylim(np.power(10.0, np.array([y0, y1]) * 2 + 1))
+    ax2.set_ylabel("ACE flux / HRC proxy / GOES X-ray")
+    ax2.text(-0.015, 2.5e3, "M", ha="right", color="m", weight="demibold")
+    ax2.text(-0.015, 2.5e4, "X", ha="right", color="m", weight="semibold")
 
     # Draw dummy lines off the plot for the legend
-    lx = [fluence_times[0], fluence_times[-1]]
-    ly = [-1, -1]
-    plot_cxctime(lx, ly, "-k", lw=3, label="None", fig=fig, ax=ax)
-    plot_cxctime(lx, ly, "-r", lw=3, label="HETG", fig=fig, ax=ax)
-    plot_cxctime(lx, ly, "-c", lw=3, label="LETG", fig=fig, ax=ax)
+    lx = [0, 1]
+    ly = [1, 1]
+    ax2.plot(lx, ly, "-k", lw=3, label="ACE")
+    ax2.plot(lx, ly, "-c", lw=3, label="HRC")
+    ax2.plot(lx, ly, "-m", lw=3, label="GOES-X")
+    ax2.legend(loc="upper left", labelspacing=0.15, fontsize=10)
 
-    # Make a z-valued curve where the z value corresponds to the grating state.
-    x = cxc2pd(fluence_times)
-    y = fluence
-    z = np.zeros(len(fluence_times), dtype=int)
 
-    for state in states:
-        ok = (state["tstart"] < fluence_times) & (fluence_times <= state["tstop"])
-        if state["hetg"] == "INSR":
-            z[ok] = 1
-        elif state["letg"] == "INSR":
-            z[ok] = 2
+def draw_hrc_acis_states(start, stop, states, ax, x0, x1):
+    times = np.arange(start.secs, stop.secs, 300)
+    state_vals = kadi_states.interpolate_states(states, times)
+    y_si = -0.23
+    x = cxc2pd(times)
+    y = np.zeros_like(times) + y_si
+    z = np.zeros_like(times, dtype=float)  # 0 => ACIS
+    z[state_vals["simpos"] < 0] = 1.0  # HRC
+    plot_multi_line(x, y, z, [0, 1], ["c", "r"], ax)
+    dx = (x1 - x0) * 0.01
+    ax.text(x1 + dx, y_si, "HRC/ACIS", ha="left", va="center", size="small")
 
-    plot_multi_line(x, y, z, [0, 1, 2], ["k", "r", "c"], ax)
 
-    # Plot 10, 50, 90 percentiles of fluence
-    try:
-        if len(p3_times) < 4:
-            raise ValueError("not enough P3 values")
-        p3_slope = get_p3_slope(p3_times, p3_vals)
-        if p3_slope is not None and avg_flux > 0:
-            p3_fits, p3_samps, fluences = cfd.get_fluences(
-                os.path.join(args.data_dir, "ACE_hourly_avg.npy")
+def draw_hrc_proxy(hrc_times, hrc_vals, ax):
+    pd = cxc2pd(hrc_times)
+    lhrc = log_scale(hrc_vals)
+    ax.plot(pd, lhrc, "-c", alpha=0.3, lw=3)
+    ax.plot(pd, lhrc, ".c", mec="c", ms=3)
+
+
+def draw_ace_p3_and_limits(now, start, p3_times, p3_vals, ax):
+    lp3 = log_scale(p3_vals)
+    pd = cxc2pd(p3_times)
+    ox = cxc2pd([start.secs, now.secs])
+    oy1 = log_scale(12000.0)
+    ax.plot(ox, [oy1, oy1], "--b", lw=2)
+    oy1 = log_scale(55000.0)
+    ax.plot(ox, [oy1, oy1], "--r", lw=2)
+    ax.plot(pd, lp3, "-k", alpha=0.3, lw=3)
+    ax.plot(pd, lp3, ".k", mec="k", ms=3)
+
+
+def draw_goes_x_data(goes_x_times, goes_x_vals, ax):
+    pd = cxc2pd(goes_x_times)
+    lgoesx = log_scale(goes_x_vals * 1e8)
+    ax.plot(pd, lgoesx, "-m", alpha=0.3, lw=1.5)
+    ax.plot(pd, lgoesx, ".m", mec="m", ms=3)
+
+
+def add_labels_for_obsids(start, states, id_xs, id_labels):
+    id_xs.extend(cxc2pd([start.secs]))
+    id_labels.append(str(states[0]["obsid"]))
+    for s0, s1 in zip(states[:-1], states[1:], strict=False):
+        if s0["obsid"] != s1["obsid"]:
+            id_xs.append(cxc2pd([s1["tstart"]])[0])
+            id_labels.append(str(s1["obsid"]))
+
+
+def draw_now_line(now, y0, y1, id_xs, id_labels, ax):
+    ax.plot([now.plot_date, now.plot_date], [y0, y1], "-g", lw=4)
+    id_xs.extend(cxc2pd([now.secs]))
+    id_labels.append("NOW")
+
+
+def draw_radiation_zones(start, stop, radzones, ax, y0, y1):
+    for rad0, rad1 in radzones:
+        t0 = CxoTime(rad0)
+        t1 = CxoTime(rad1)
+        if t0 < stop and t1 > start:
+            t0 = max(t0, start)
+            t1 = min(t1, stop)
+            pd0, pd1 = t0.plot_date, t1.plot_date
+            p = matplotlib.patches.Rectangle(
+                (pd0, y0),
+                pd1 - pd0,
+                y1 - y0,
+                alpha=0.2,
+                facecolor="b",
+                edgecolor="none",
             )
-            hrs, fl10, fl50, fl90 = cfd.get_fluence_percentiles(
-                avg_flux,
-                p3_slope,
-                p3_fits,
-                p3_samps,
-                fluences,
-                args.min_flux_samples,
-                args.max_slope_samples,
-            )
-            fluence_hours = (fluence_times - fluence_times[0]) / 3600.0
-            for fl_y, linecolor in zip(
-                (fl10, fl50, fl90), ("-g", "-b", "-r"), strict=False
-            ):
-                fl_y = ska_numpy.interpolate(fl_y, hrs, fluence_hours)  # noqa: PLW2901
-                rates = np.diff(fl_y)
-                fl_y_atten = calc_fluence(fluence_times[:-1], fluence0, rates, states)
-                zero_fluence_at_radzone(fluence_times[:-1], fl_y_atten, radzones)
-                plt.plot(x0 + fluence_hours[:-1] / 24.0, fl_y_atten, linecolor)
-    except Exception as e:
-        print(("WARNING: p3 fluence not plotted, error : {}".format(e)))
+            ax.add_patch(p)
 
-    # Set x and y axis limits
-    x0, x1 = cxc2pd([start.secs, stop.secs])
-    plt.xlim(x0, x1)
-    y0 = -0.45
-    y1 = 2.55
-    plt.ylim(y0, y1)
 
+def draw_communication_passes(now, comms, ax, x0, x1, y0, y1):
     id_xs = []
     id_labels = []
 
@@ -609,125 +685,88 @@ def main(args_sys=None):
         )
         if next_comm is None and CxoTime(comm["bot_date"]["value"]) > now:
             next_comm = comm
+    return id_xs, id_labels, next_comm
 
-    # Draw radiation zones
-    for rad0, rad1 in radzones:
-        t0 = CxoTime(rad0)
-        t1 = CxoTime(rad1)
-        if t0 < stop and t1 > start:
-            t0 = max(t0, start)
-            t1 = min(t1, stop)
-            pd0, pd1 = t0.plot_date, t1.plot_date
-            p = matplotlib.patches.Rectangle(
-                (pd0, y0),
-                pd1 - pd0,
-                y1 - y0,
-                alpha=0.2,
-                facecolor="b",
-                edgecolor="none",
+
+def draw_fluence_percentiles(
+    args, states, radzones, fluence0, avg_flux, p3_times, p3_vals, fluence_times, ax
+):
+    """Plot 10, 50, 90 percentiles of fluence"""
+    try:
+        if len(p3_times) < 4:
+            raise ValueError("not enough P3 values")
+        p3_slope = get_p3_slope(p3_times, p3_vals)
+        if p3_slope is not None and avg_flux > 0:
+            p3_fits, p3_samps, fluences = cfd.get_fluences(
+                os.path.join(args.data_dir, "ACE_hourly_avg.npy")
             )
-            ax.add_patch(p)
+            hrs, fl10, fl50, fl90 = cfd.get_fluence_percentiles(
+                avg_flux,
+                p3_slope,
+                p3_fits,
+                p3_samps,
+                fluences,
+                args.min_flux_samples,
+                args.max_slope_samples,
+            )
+            fluence_hours = (fluence_times - fluence_times[0]) / 3600.0
+            for fl_y, linecolor in zip(
+                (fl10, fl50, fl90), ("-g", "-b", "-r"), strict=False
+            ):
+                fl_y = ska_numpy.interpolate(fl_y, hrs, fluence_hours)  # noqa: PLW2901
+                rates = np.diff(fl_y)
+                fl_y_atten = calc_fluence(fluence_times[:-1], fluence0, rates, states)
+                zero_fluence_at_radzone(fluence_times[:-1], fl_y_atten, radzones)
+                ax.plot(
+                    cxc2pd(fluence_times[0]) + fluence_hours[:-1] / 24.0,
+                    fl_y_atten,
+                    linecolor,
+                )
+    except Exception as e:
+        print(("WARNING: p3 fluence not plotted, error : {}".format(e)))
 
-    # Draw now line
-    plt.plot([now.plot_date, now.plot_date], [y0, y1], "-g", lw=4)
-    id_xs.extend(cxc2pd([now.secs]))
-    id_labels.append("NOW")
 
-    # Add labels for obsids
-    id_xs.extend(cxc2pd([start.secs]))
-    id_labels.append(str(states[0]["obsid"]))
-    for s0, s1 in zip(states[:-1], states[1:], strict=False):
-        if s0["obsid"] != s1["obsid"]:
-            id_xs.append(cxc2pd([s1["tstart"]])[0])
-            id_labels.append(str(s1["obsid"]))
+def set_plot_x_y_axis_limits(start, stop, ax):
+    x0, x1 = start.plot_date, stop.plot_date
+    ax.set_xlim(x0, x1)
+    y0 = -0.45
+    y1 = 2.55
+    ax.set_ylim(y0, y1)
+    return x0, x1, y0, y1
 
-    plt.grid()
-    plt.ylabel("Attenuated fluence / 1e9")
-    plt.legend(loc="upper center", labelspacing=0.15)
-    lineid_plot.plot_line_ids(
-        cxc2pd([start.secs, stop.secs]),
-        [y1, y1],
-        id_xs,
-        id_labels,
-        ax=ax,
-        box_axes_space=0.14,
-        label1_size=10,
-    )
 
-    # Plot observed GOES X-ray rates and limits
-    pd = cxc2pd(goes_x_times)
-    lgoesx = log_scale(goes_x_vals * 1e8)
-    plt.plot(pd, lgoesx, "-m", alpha=0.3, lw=1.5)
-    plt.plot(pd, lgoesx, ".m", mec="m", ms=3)
+def draw_fluence_and_grating_state_line(states, fluence_times, fluence, ax):
+    """Make a z-valued curve where the z value corresponds to the grating state."""
 
-    # Plot observed ACE P3 rates and limits
-    lp3 = log_scale(p3_vals)
-    pd = cxc2pd(p3_times)
-    ox = cxc2pd([start.secs, now.secs])
-    oy1 = log_scale(12000.0)
-    plt.plot(ox, [oy1, oy1], "--b", lw=2)
-    oy1 = log_scale(55000.0)
-    plt.plot(ox, [oy1, oy1], "--r", lw=2)
-    plt.plot(pd, lp3, "-k", alpha=0.3, lw=3)
-    plt.plot(pd, lp3, ".k", mec="k", ms=3)
+    x = cxc2pd(fluence_times)
+    y = fluence
+    z = np.zeros(len(fluence_times), dtype=int)
 
-    # Plot observed HRC shield proxy rates and limits
-    pd = cxc2pd(hrc_times)
-    lhrc = log_scale(hrc_vals)
-    plt.plot(pd, lhrc, "-c", alpha=0.3, lw=3)
-    plt.plot(pd, lhrc, ".c", mec="c", ms=3)
+    for state in states:
+        ok = (state["tstart"] < fluence_times) & (fluence_times <= state["tstop"])
+        if state["hetg"] == "INSR":
+            z[ok] = 1
+        elif state["letg"] == "INSR":
+            z[ok] = 2
 
-    # Draw SI state
-    times = np.arange(start.secs, stop.secs, 300)
-    state_vals = kadi_states.interpolate_states(states, times)
-    y_si = -0.23
-    x = cxc2pd(times)
-    y = np.zeros_like(times) + y_si
-    z = np.zeros_like(times, dtype=float)  # 0 => ACIS
-    z[state_vals["simpos"] < 0] = 1.0  # HRC
-    plot_multi_line(x, y, z, [0, 1], ["c", "r"], ax)
-    dx = (x1 - x0) * 0.01
-    plt.text(x1 + dx, y_si, "HRC/ACIS", ha="left", va="center", size="small")
+    plot_multi_line(x, y, z, [0, 1, 2], ["k", "r", "c"], ax)
 
-    # Draw log scale y-axis on left
-    ax2 = fig.add_axes(AXES_LOC, facecolor="w", frameon=False)
-    ax2.set_autoscale_on(False)
-    ax2.xaxis.set_visible(False)
-    ax2.set_xlim(0, 1)
-    ax2.set_yscale("log")
-    ax2.set_ylim(np.power(10.0, np.array([y0, y1]) * 2 + 1))
-    ax2.set_ylabel("ACE flux / HRC proxy / GOES X-ray")
-    ax2.text(-0.015, 2.5e3, "M", ha="right", color="m", weight="demibold")
-    ax2.text(-0.015, 2.5e4, "X", ha="right", color="m", weight="semibold")
 
-    # Draw dummy lines off the plot for the legend
-    lx = [0, 1]
-    ly = [1, 1]
-    ax2.plot(lx, ly, "-k", lw=3, label="ACE")
-    ax2.plot(lx, ly, "-c", lw=3, label="HRC")
-    ax2.plot(lx, ly, "-m", lw=3, label="GOES-X")
-    ax2.legend(loc="upper left", labelspacing=0.15)
+def draw_dummy_lines_letg_hetg_legend(fluence_times, fig, ax):
+    lx = [fluence_times[0], fluence_times[-1]]
+    ly = [-1, -1]
+    plot_cxctime(lx, ly, "-k", lw=3, label="None", fig=fig, ax=ax)
+    plot_cxctime(lx, ly, "-r", lw=3, label="HETG", fig=fig, ax=ax)
+    plot_cxctime(lx, ly, "-c", lw=3, label="LETG", fig=fig, ax=ax)
 
-    plt.draw()
-    plt.savefig(os.path.join(args.data_dir, "timeline.png"))
 
-    write_states_json(
-        os.path.join(args.data_dir, "timeline_states.js"),
-        fig,
-        ax,
-        states,
-        start,
-        stop,
-        now,
-        next_comm,
-        fluence,
-        fluence_times,
-        p3_vals,
-        p3_times,
-        avg_flux,
-        hrc_vals,
-        hrc_times,
-    )
+def draw_ace_yellow_red_limits(fluence_times, ax):
+    # Plot lines at 1.0 and 2.0 (10^9) corresponding to fluence yellow
+    # and red limits.  Also plot the fluence=0 line in black.
+    x0, x1 = cxc2pd([fluence_times[0], fluence_times[-1]])
+    ax.plot([x0, x1], [0.0, 0.0], "-k")  # ?? I don't see this line
+    ax.plot([x0, x1], [1.0, 1.0], "--b", lw=2.0)
+    ax.plot([x0, x1], [2.0, 2.0], "--r", lw=2.0)
 
 
 def get_si(simpos):
