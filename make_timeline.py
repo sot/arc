@@ -6,9 +6,26 @@ Generate a timeline plot and associated JSON data for animated version.
 This plot features the predicted ACIS attenuated fluence based on current ACIS orbital
 fluence, 2hr average, and grating status.  It also shows DSN comms, radiation zone
 passages, instrument configuration.
+
+Testing
+-------
+
+For testing, the most straightforward option is syncing from HEAD::
+
+  rsync -av kady:/proj/sot/ska/www/ASPECT/arc3/ t_now/
+  rsync -av kady:/proj/sot/ska/data/arc3/hrc_shield.h5 $SKA/data/arc3/
+  rsync -av kady:/proj/sot/ska/data/arc3/ACE.h5 $SKA/data/arc3/
+  rsync -av kady:/proj/sot/ska/data/arc3/GOES_X.h5 $SKA/data/arc3/
+  rsync -av kady:/proj/sot/ska/data/arc3/ACE_hourly_avg.npy $SKA/data/arc3/
+
+Then::
+
+    python -m timeline --test --test-get-web
+    open t_now/index.html
 """
 
 import argparse
+import functools
 import json
 import os
 import re
@@ -26,71 +43,123 @@ import warnings
 
 import kadi.commands.states as kadi_states
 import matplotlib.cbook
-import Ska.Numpy
+import ska_numpy
 from Chandra.Time import DateTime
+from cxotime import CxoTime
 from kadi import events
-from Ska.Matplotlib import cxctime2plotdate as cxc2pd
-from Ska.Matplotlib import lineid_plot
+from ska_matplotlib import cxctime2plotdate as cxc2pd
+from ska_matplotlib import lineid_plot
 
 import calc_fluence_dist as cfd
 
 warnings.filterwarnings("ignore", category=matplotlib.MatplotlibDeprecationWarning)
 
-
-parser = argparse.ArgumentParser(description="Get ACE data")
-parser.add_argument("--data-dir", default="t_pred_fluence", help="Data directory")
-parser.add_argument(
-    "--hours", default=72.0, type=float, help="Hours to predict (default=72)"
-)
-parser.add_argument(
-    "--dt", default=300.0, type=float, help="Prediction time step (secs, default=300)"
-)
-parser.add_argument(
-    "--max-slope-samples",
-    type=int,
-    help="Max number of samples when filtering by slope (default=None",
-)
-parser.add_argument(
-    "--min-flux-samples",
-    default=100,
-    type=int,
-    help="Minimum number of samples when filtering by flux (default=100)",
-)
-parser.add_argument("--test", action="store_true", help="Use test data")
-parser.add_argument(
-    "--test-scenario", type=int, help="Name of a scenario for testing missing P3 data"
-)
-parser.add_argument(
-    "--test-get-web",
-    action="store_true",
-    help="Grab ACIS fluence, ACE rates and DSN comms from web",
-)
-args = parser.parse_args()
-
 P3_BAD = -100000
 AXES_LOC = [0.08, 0.15, 0.83, 0.6]
-
-if args.test:
-    ACIS_FLUENCE_FILE = os.path.join(args.data_dir, "current.dat")
-    ACE_RATES_FILE = os.path.join(args.data_dir, "ace.html")
-    DSN_COMMS_FILE = os.path.join(args.data_dir, "dsn_summary.yaml")
-else:
-    ACIS_FLUENCE_FILE = "/proj/web-cxc/htdocs/acis/Fluence/current.dat"
-    ACE_RATES_FILE = "/data/mta4/www/ace.html"
-    DSN_COMMS_FILE = "/proj/sot/ska/data/dsn_summary/dsn_summary.yaml"
-
-GOES_X_H5_FILE = os.path.join(args.data_dir, "GOES_X.h5")
-ACE_H5_FILE = os.path.join(args.data_dir, "ACE.h5")
-HRC_H5_FILE = os.path.join(args.data_dir, "hrc_shield.h5")
+SKA = Path(os.environ["SKA"])
+DATA_ARC3 = SKA / "data" / "arc3"
 
 
-def get_web_data():
-    """Get ACIS fluence, ACE rates, and DSN comms from web pages
+def get_parser():
+    parser = argparse.ArgumentParser(
+        description="Make a timeline plot and associate table javascript"
+    )
+    parser.add_argument(
+        "--data-dir",
+        default="t_now",
+        help="Data directory (default=t_now)",
+    )
+    parser.add_argument(
+        "--hours",
+        default=72.0,
+        type=float,
+        help="Hours to predict (default=72)",
+    )
+    parser.add_argument(
+        "--dt",
+        default=300.0,
+        type=float,
+        help="Prediction time step (secs, default=300)",
+    )
+    parser.add_argument(
+        "--max-slope-samples",
+        type=int,
+        help="Max number of samples when filtering by slope (default=None",
+    )
+    parser.add_argument(
+        "--min-flux-samples",
+        default=100,
+        type=int,
+        help="Minimum number of samples when filtering by flux (default=100)",
+    )
+    parser.add_argument(
+        "--test",
+        action="store_true",
+        help=(
+            "Use test data in data_dir (default=False). This option adjusts times in "
+            "ACE, GOES, and HRC data to pretend it is up to date (if needed)."
+        ),
+    )
+    parser.add_argument(
+        "--test-scenario",
+        type=int,
+        help="Name of a scenario for testing missing P3 data",
+    )
+    parser.add_argument(
+        "--test-get-web",
+        action="store_true",
+        help=(
+            "Grab ACIS fluence, ACE rates and DSN comms from web and store in "
+            "data_dir. This requires --test and internet access."
+        ),
+    )
+    return parser
 
-    Output files are placed in args.data_dir.
+
+def arc_data_file(
+    data_dir_flight: str | Path,
+    filename: str,
+    data_dir_test: str | Path | None = None,
+    test: bool = False,
+) -> Path:
+    """Get a data file path from flight data directory or test directory.
+
+    This is intended to be used as a functools.partial function, see below.
     """
-    "https://cxc.harvard.edu/acis/Fluence/current.dat"
-    "https://cxc.harvard.edu/mta/ace.html"
+    file_dir = Path(data_dir_test) if test else Path(data_dir_flight)
+    return file_dir / filename
+
+
+# Define file path functions for this module
+acis_fluence_file = functools.partial(
+    arc_data_file, "/proj/web-cxc/htdocs/acis/Fluence", "current.dat"
+)
+ace_rates_file = functools.partial(arc_data_file, "/data/mta4/www", "ace.html")
+dsn_comms_file = functools.partial(
+    arc_data_file, SKA / "data" / "dsn_summary", "dsn_summary.yaml"
+)
+goes_x_h5_file = functools.partial(arc_data_file, DATA_ARC3, "GOES_X.h5")
+ace_h5_file = functools.partial(arc_data_file, DATA_ARC3, "ACE.h5")
+hrc_h5_file = functools.partial(arc_data_file, DATA_ARC3, "hrc_shield.h5")
+
+
+def get_web_data(data_dir):
+    """Get ACIS fluence, ACE rates, and DSN comms from CXC web pages
+
+    Output files are placed in ``data_dir``.
+    """
+    import urllib.request
+
+    urls_file_funcs = [
+        ("/acis/Fluence/current.dat", acis_fluence_file),
+        ("/mta/ace.html", ace_rates_file),
+        ("/mta/ASPECT/dsn_summary/dsn_summary.yaml", dsn_comms_file),
+    ]
+
+    for url, file_path_func in urls_file_funcs:
+        urllib.request.urlretrieve(
+            "https://cxc.cfa.harvard.edu" + url, file_path_func(data_dir, test=True)
+        )
 
 
 def get_fluence(filename):
@@ -116,7 +185,11 @@ def get_fluence(filename):
     return start, p3_fluence
 
 
-def get_avg_flux(filename):
+def get_avg_flux(
+    filename,
+    data_dir: str | Path | None = None,
+    test: bool = False,
+) -> float:
     """
     # Get the ACE 2 hour average flux (parse stuff below)
 
@@ -133,7 +206,9 @@ def get_avg_flux(filename):
         print(
             (
                 "WARNING: {} file contains {} lines that start with "
-                "AVERAGE (expect one)".format(ACE_RATES_FILE, len(lines))
+                "AVERAGE (expect one)".format(
+                    ace_rates_file(data_dir, test), len(lines)
+                )
             )
         )
         p3_avg_flux = P3_BAD
@@ -150,11 +225,14 @@ def get_radzones():
     return [(x.start, x.stop) for x in radzones]
 
 
-def get_comms():
+def get_comms(
+    data_dir: str | Path | None = None,
+    test: bool = False,
+) -> list:
     """
     Get the list of comm passes from the DSN summary file.
     """
-    dat = yaml.safe_load(open(DSN_COMMS_FILE, "r"))
+    dat = yaml.safe_load(open(dsn_comms_file(data_dir, test), "r"))
     return dat
 
 
@@ -195,27 +273,47 @@ def calc_fluence(times, fluence0, rates, states):
     return fluence
 
 
-def get_ace_p3(tstart, tstop):
+def get_h5_data(h5_file, col_time, col_values, start, stop, test=False):
+    """
+    Get data from an HDF5 file and return the time and values within the time range.
+    """
+    tstart = CxoTime(start).secs
+    tstop = CxoTime(stop).secs
+
+    with tables.open_file(h5_file) as h5:
+        times = h5.root.data.col(col_time)
+        values = h5.root.data.col(col_values)
+
+    # If testing, it is common to have the test data file not be updated to the current
+    # time. In that case, just hack the times to seem current.
+    if test and (dt := tstop - times[-1]) > 3600:
+        times += dt
+
+    ok = (tstart < times) & (times <= tstop)
+    return times[ok], values[ok]
+
+
+def get_ace_p3(
+    tstart: float,
+    tstop: float,
+    data_dir: str | Path | None = None,
+    test: bool = False,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Get the historical ACE P3 rates and filter out bad values.
     """
-    out_default = np.array([tstart, tstop]), np.array([1000, 1000])
-
-    if args.test and not Path.exists(ACE_H5_FILE):
-        return out_default
-
-    with tables.open_file(ACE_H5_FILE) as h5:
-        times = h5.root.data.col("time")
-        p3 = h5.root.data.col("p3")
-        ok = (tstart < times) & (times < tstop)
-
-    if np.count_nonzero(ok) < 2:
-        return out_default
-    else:
-        return times[ok], p3[ok]
+    times, vals = get_h5_data(
+        ace_h5_file(data_dir, test), "time", "p3", tstart, tstop, test
+    )
+    return times, vals
 
 
-def get_goes_x(tstart: float, tstop: float) -> tuple[np.ndarray, np.ndarray]:
+def get_goes_x(
+    tstart: float,
+    tstop: float,
+    data_dir: str | Path | None = None,
+    test: bool = False,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Get recent GOES 1-8 angstrom X-ray rates
 
@@ -226,23 +324,13 @@ def get_goes_x(tstart: float, tstop: float) -> tuple[np.ndarray, np.ndarray]:
     xray_long : np.ndarray
         X-ray flux
     """
-    out_default = np.array([tstart, tstop]), np.array([1e-10, 1e-10])
-
-    if args.test and not Path.exists(GOES_X_H5_FILE):
-        return out_default
-
-    with tables.open_file(GOES_X_H5_FILE) as h5:
-        times = h5.root.data.col("time")
-        xray_long = h5.root.data.col("long")
-        ok = (tstart < times) & (times < tstop)
-
-    if np.count_nonzero(ok) < 2:
-        return out_default
-    else:
-        return times[ok], xray_long[ok]
+    times, vals = get_h5_data(
+        goes_x_h5_file(data_dir, test), "time", "long", tstart, tstop, test
+    )
+    return times, vals
 
 
-def get_test_vals(scenario, p3_times, p3s, p3_avg, p3_fluence):
+def get_p3_test_vals(scenario, p3_times, p3s, p3_avg, p3_fluence):
     if scenario == 1:
         # ACE unavailable for the last 8 hours.  No P3 avg from MTA.
         print("Running test scenario 1")
@@ -299,24 +387,19 @@ def get_test_vals(scenario, p3_times, p3s, p3_avg, p3_fluence):
     return p3s, p3_avg, p3_fluence
 
 
-def get_hrc(tstart, tstop):
+def get_hrc(
+    tstart,
+    tstop,
+    data_dir: str | Path | None = None,
+    test: bool = False,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Get the historical HRC proxy rates and filter out bad values.
     """
-    out_default = np.array([tstart, tstop]), np.array([1, 1])
-
-    if args.test and not Path.exists(HRC_H5_FILE):
-        return out_default
-
-    with tables.open_file(HRC_H5_FILE) as h5:
-        times = h5.root.data.col("time")
-        hrc = h5.root.data.col("hrc_shield") * 256.0
-        ok = (tstart < times) & (times < tstop) & (hrc > 0)
-
-    if np.count_nonzero(ok) < 2:
-        return np.array([tstart, tstop]), np.array([1, 1])
-    else:
-        return times[ok], hrc[ok]
+    times, vals = get_h5_data(
+        hrc_h5_file(data_dir, test), "time", "hrc_shield", tstart, tstop, test
+    )
+    return times, vals * 256.0
 
 
 def plot_multi_line(x, y, z, bins, colors, ax):
@@ -367,18 +450,21 @@ def get_p3_slope(p3_times, p3_vals):
     return slope
 
 
-def main():
+def main(args_sys=None):
     """
     Generate the Replan Central timeline plot.
     """
     import matplotlib.patches
     import matplotlib.pyplot as plt
-    from Ska.Matplotlib import plot_cxctime
+    from ska_matplotlib import plot_cxctime
+
+    parser = get_parser()
+    args = parser.parse_args(args_sys)
 
     # TODO: refactor this into smaller functions where possible.
 
     # Basic setup.  Set times and get input states, radzones and comms.
-    now = DateTime("2012:249:00:35:00" if args.test else None)
+    now = DateTime(None)
     now = DateTime(now.date[:14] + ":00")  # truncate to 0 secs
     start = now - 1.0
     stop = start + args.hours / 24.0
@@ -387,22 +473,24 @@ def main():
     comms = get_comms()
 
     if args.test_get_web:
-        get_web_data()
+        get_web_data(args.data_dir)
 
     # Get the ACIS ops fluence estimate and current 2hr avg flux
-    fluence_date, fluence0 = get_fluence(ACIS_FLUENCE_FILE)
+    fluence_date, fluence0 = get_fluence(
+        acis_fluence_file(args.data_dir, test=args.test)
+    )
     if fluence_date.secs < now.secs:
         fluence_date = now
-    avg_flux = get_avg_flux(ACE_RATES_FILE)
+    avg_flux = get_avg_flux(ace_rates_file(args.data_dir, test=args.test))
 
     # Get the realtime ACE P3 and HRC proxy values over the time range
-    goes_x_times, goes_x_vals = get_goes_x(start.secs, now.secs)
-    p3_times, p3_vals = get_ace_p3(start.secs, now.secs)
-    hrc_times, hrc_vals = get_hrc(start.secs, now.secs)
+    goes_x_times, goes_x_vals = get_goes_x(start, now, args.data_dir, args.test)
+    p3_times, p3_vals = get_ace_p3(start, now, args.data_dir, args.test)
+    hrc_times, hrc_vals = get_hrc(start, now, args.data_dir, args.test)
 
     # For testing: inject predefined values for different scenarios
     if args.test_scenario:
-        p3_vals, avg_flux, fluence0 = get_test_vals(
+        p3_vals, avg_flux, fluence0 = get_p3_test_vals(
             args.test_scenario, p3_times, p3_vals, avg_flux, fluence0
         )
 
@@ -473,7 +561,7 @@ def main():
             for fl_y, linecolor in zip(
                 (fl10, fl50, fl90), ("-g", "-b", "-r"), strict=False
             ):
-                fl_y = Ska.Numpy.interpolate(fl_y, hrs, fluence_hours)  # noqa: PLW2901
+                fl_y = ska_numpy.interpolate(fl_y, hrs, fluence_hours)  # noqa: PLW2901
                 rates = np.diff(fl_y)
                 fl_y_atten = calc_fluence(fluence_times[:-1], fluence0, rates, states)
                 zero_fluence_at_radzone(fluence_times[:-1], fl_y_atten, radzones)
@@ -521,10 +609,8 @@ def main():
         t0 = DateTime(rad0).secs
         t1 = DateTime(rad1).secs
         if t0 < stop.secs and t1 > start.secs:
-            if t0 < start.secs:
-                t0 = start.secs
-            if t1 > stop.secs:
-                t1 = stop.secs
+            t0 = max(t0, start.secs)
+            t1 = min(t1, stop.secs)
             pd0, pd1 = cxc2pd([t0, t1])
             p = matplotlib.patches.Rectangle(
                 (pd0, y0),
@@ -733,9 +819,9 @@ def write_states_json(
     hrc_now = hrcs[-1]
     fluence_now = fluences[0]
 
-    fluences = Ska.Numpy.interpolate(fluences, fluence_times, times)
-    p3s = Ska.Numpy.interpolate(p3s, p3_times, times)
-    hrcs = Ska.Numpy.interpolate(hrcs, hrc_times, times)
+    fluences = ska_numpy.interpolate(fluences, fluence_times, times)
+    p3s = ska_numpy.interpolate(p3s, p3_times, times)
+    hrcs = ska_numpy.interpolate(hrcs, hrc_times, times)
 
     # Iterate through each time step and create corresponding data structure
     # with pre-formatted values for display in the output table.
