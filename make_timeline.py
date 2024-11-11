@@ -29,6 +29,7 @@ import functools
 import json
 import os
 import re
+import warnings
 from pathlib import Path
 
 import matplotlib
@@ -39,15 +40,12 @@ import yaml
 matplotlib.use("Agg")
 
 
-import warnings
-
+import astropy.units as u
 import kadi.commands.states as kadi_states
 import matplotlib.cbook
 import ska_numpy
-from Chandra.Time import DateTime
-from cxotime import CxoTime
+from cxotime import CxoTime, CxoTimeLike
 from kadi import events
-from ska_matplotlib import cxctime2plotdate as cxc2pd
 from ska_matplotlib import lineid_plot
 
 import calc_fluence_dist as cfd
@@ -58,6 +56,16 @@ P3_BAD = -100000
 AXES_LOC = [0.08, 0.15, 0.83, 0.6]
 SKA = Path(os.environ["SKA"])
 DATA_ARC3 = SKA / "data" / "arc3"
+
+
+def cxc2pd(times: CxoTimeLike) -> float | np.ndarray:
+    """
+    Convert CXC time(s) to matplotlib plot date(s).
+
+    This replaces the old ``ska_matplotlib.cxctime2plotdate`` function with a more
+    general version that accepts any CxoTimeLike object.
+    """
+    return CxoTime(times).plot_date
 
 
 def get_parser():
@@ -179,7 +187,7 @@ def get_fluence(filename):
     lines = open(filename, "r").readlines()
     vals = lines[-3].split()
     mjd = float(vals[4]) + float(vals[5]) / 86400.0
-    start = DateTime(mjd, format="mjd")
+    start = CxoTime(mjd, format="mjd")
     vals = lines[-1].split()
     p3_fluence = float(vals[9])
     return start, p3_fluence
@@ -221,7 +229,7 @@ def get_radzones():
     """
     Constuct a list of complete radiation zones using kadi events
     """
-    radzones = events.rad_zones.filter(start=DateTime() - 5, stop=None)
+    radzones = events.rad_zones.filter(start=CxoTime() - 5 * u.day, stop=None)
     return [(x.start, x.stop) for x in radzones]
 
 
@@ -246,7 +254,7 @@ def zero_fluence_at_radzone(times, fluence, radzones):
     This works on ``fluence`` in place.
     """
     for radzone in radzones:
-        t0, t1 = DateTime(radzone).secs
+        t0, t1 = CxoTime(radzone).secs
         ok = (times > t0) & (times <= t1)
         if np.any(ok):
             idx0 = np.flatnonzero(ok)[0]
@@ -464,10 +472,10 @@ def main(args_sys=None):
     # TODO: refactor this into smaller functions where possible.
 
     # Basic setup.  Set times and get input states, radzones and comms.
-    now = DateTime(None)
-    now = DateTime(now.date[:14] + ":00")  # truncate to 0 secs
-    start = now - 1.0
-    stop = start + args.hours / 24.0
+    now = CxoTime.now()
+    now = CxoTime(now.date[:14] + ":00")  # truncate to 0 secs
+    start = now - 1.0 * u.day
+    stop = start + args.hours * u.hour
     states = kadi_states.get_states(start=start, stop=stop)
     radzones = get_radzones()
     comms = get_comms()
@@ -582,9 +590,7 @@ def main(args_sys=None):
     # Draw comm passes
     next_comm = None
     for comm in comms:
-        t0 = DateTime(comm["bot_date"]["value"]).secs
-        t1 = DateTime(comm["eot_date"]["value"]).secs
-        pd0, pd1 = cxc2pd([t0, t1])
+        pd0, pd1 = cxc2pd([comm["bot_date"]["value"], comm["eot_date"]["value"]])
         if pd1 >= x0 and pd0 <= x1:
             p = matplotlib.patches.Rectangle(
                 (pd0, y0),
@@ -601,17 +607,17 @@ def main(args_sys=None):
                 comm["station"]["value"][4:6], comm["track_local"]["value"][:9]
             )
         )
-        if next_comm is None and DateTime(comm["bot_date"]["value"]).secs > now.secs:
+        if next_comm is None and CxoTime(comm["bot_date"]["value"]) > now:
             next_comm = comm
 
     # Draw radiation zones
     for rad0, rad1 in radzones:
-        t0 = DateTime(rad0).secs
-        t1 = DateTime(rad1).secs
-        if t0 < stop.secs and t1 > start.secs:
-            t0 = max(t0, start.secs)
-            t1 = min(t1, stop.secs)
-            pd0, pd1 = cxc2pd([t0, t1])
+        t0 = CxoTime(rad0)
+        t1 = CxoTime(rad1)
+        if t0 < stop and t1 > start:
+            t0 = max(t0, start)
+            t1 = min(t1, stop)
+            pd0, pd1 = t0.plot_date, t1.plot_date
             p = matplotlib.patches.Rectangle(
                 (pd0, y0),
                 pd1 - pd0,
@@ -623,7 +629,7 @@ def main(args_sys=None):
             ax.add_patch(p)
 
     # Draw now line
-    plt.plot(cxc2pd([now.secs, now.secs]), [y0, y1], "-g", lw=4)
+    plt.plot([now.plot_date, now.plot_date], [y0, y1], "-g", lw=4)
     id_xs.extend(cxc2pd([now.secs]))
     id_labels.append("NOW")
 
@@ -773,9 +779,9 @@ def write_states_json(
         "pitch": "{:8.2f}",
         "obsid": "{:5d}",
     }
-    start = start - 1
-    tstop = (stop + 1).secs
-    tstart = DateTime(start.date[:8] + ":00:00:00").secs
+    start = start - 1 * u.day
+    tstop = (stop + 1 * u.day).secs
+    tstart = CxoTime(start.date[:8] + ":00:00:00").secs
     times = np.arange(tstart, tstop, 600)
     pds = cxc2pd(times)  # Convert from CXC time to plotdate times
 
@@ -874,7 +880,7 @@ def write_states_json(
 
 def date_zulu(date):
     """Format the current time in like 186/2234Z"""
-    date = DateTime(date).date
+    date = CxoTime(date).date
     zulu = "{}/{}{}z".format(date[5:8], date[9:11], date[12:14])
     return zulu
 
@@ -883,8 +889,8 @@ def get_fmt_dt(t1, t0):
     """
     Format delta time between ``t1`` and ``t0`` for the output table.
     """
-    t1 = DateTime(t1).secs
-    t0 = DateTime(t0).secs
+    t1 = CxoTime(t1).secs
+    t0 = CxoTime(t0).secs
     dt = t1 - t0
     adt = abs(int(round(dt)))
     days = adt // 86400
