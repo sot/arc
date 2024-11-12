@@ -10,18 +10,35 @@ passages, instrument configuration.
 Testing
 -------
 
-For testing, the most straightforward option is syncing from HEAD::
+For testing on a local machine, the most straightforward option is syncing from HEAD::
 
-  rsync -av kady:/proj/sot/ska/www/ASPECT/arc3/ t_now/
   rsync -av kady:/proj/sot/ska/data/arc3/hrc_shield.h5 $SKA/data/arc3/
   rsync -av kady:/proj/sot/ska/data/arc3/ACE.h5 $SKA/data/arc3/
   rsync -av kady:/proj/sot/ska/data/arc3/GOES_X.h5 $SKA/data/arc3/
   rsync -av kady:/proj/sot/ska/data/arc3/ACE_hourly_avg.npy $SKA/data/arc3/
 
-Then::
+On the local machine or on a HEAD machine (from within the arc repo)::
 
-    python -m timeline --test --test-get-web
-    open t_now/index.html
+  mkdir -p t_now/flight
+  rsync -av kady:/proj/sot/ska/www/ASPECT/arc3/ t_now/
+  rsync -av kady:/proj/sot/ska/www/ASPECT/arc3/ t_now/flight/
+  ln -s $SKA/data/arc3/ACE_hourly_avg.npy t_now/
+  ln -s $SKA/data/arc3/*.h5 t_now/
+
+Get the flight run date and convert that to a full date-format date (e.g. "317/1211z"
+=> "2024:317:12:11:00")::
+
+  tail -c 400 t_now/flight/timeline_states.js | grep now_date
+
+Finally run the script with the test option::
+
+  python -m make_timeline --test --date-now=<now_date>
+  open t_now/index.html
+
+In order to skip the full data sync, you can use the ``--test-get-web`` option to grab
+the ACIS fluence, ACE rates, and DSN comms from the web. If your H5 data files are not
+up to date then with the ``--test`` option it adjusts the times in the ACE, GOES, and
+HRC data to pretend it is up to date.
 """
 
 import argparse
@@ -119,6 +136,11 @@ def get_parser():
             "Grab ACIS fluence, ACE rates and DSN comms from web and store in "
             "data_dir. This requires --test and internet access."
         ),
+    )
+    parser.add_argument(
+        "--date-now",
+        type=str,
+        help="Override the current time for testing (default=now)",
     )
     return parser
 
@@ -465,7 +487,7 @@ def main(args_sys=None):
     args = parser.parse_args(args_sys)
 
     # Basic setup.  Set times and get input states, radzones and comms.
-    now = CxoTime.now()
+    now = CxoTime(args.date_now)
     now = CxoTime(now.date[:14] + ":00")  # truncate to 0 secs
     start = now - 1.0 * u.day
     stop = start + args.hours * u.hour
@@ -516,7 +538,6 @@ def main(args_sys=None):
         args, states, radzones, fluence0, avg_flux, p3_times, p3_vals, fluence_times, ax
     )
     x0, x1, y0, y1 = set_plot_x_y_axis_limits(start, stop, ax)
-
     id_xs, id_labels, next_comm = draw_communication_passes(
         now, comms, ax, x0, x1, y0, y1
     )
