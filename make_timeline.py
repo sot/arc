@@ -8,37 +8,74 @@ fluence, 2hr average, and grating status.  It also shows DSN comms, radiation zo
 passages, instrument configuration.
 
 Testing
--------
+=======
+First some setup which applies to testing both on HEAD and local::
 
-For testing on a local machine, the most straightforward option is syncing from HEAD::
+  cd ~/git/arc
+  rm -rf t_now
+  COMMIT=`git rev-parse --short HEAD`
+  PR=pr86  # or whatever
+  mkdir -p t_now/$COMMIT
+  mkdir -p t_now/flight
+
+HEAD
+-----
+Testing on HEAD does an apples-to-apples comparison of the branch to the current flight
+code, running both in "flight" mode::
+
+  # Current flight version of make_timeline.py looks for data in the output directory.
+  ln -s /proj/sot/ska/data/arc3/*.h5 t_now/flight/
+  ln -s /proj/sot/ska/data/arc3/ACE_hourly_avg.npy t_now/flight/
+
+  # Run PR branch version in "flight" mode (no --test), being explicit about data
+  # directory. This version looks for data resources in fixed locations, not in
+  # `data-dir`, so starting with an empty directory is fine.
+  python make_timeline.py --data-dir=t_now/$COMMIT
+
+  # Run flight version of make_timeline.py in a directory hidden from the git repo.
+  cd t_now
+  python /proj/sot/ska/share/arc3/make_timeline.py --data-dir=flight
+
+  cd ..
+  rsync -av t_now/ /proj/sot/ska/www/ASPECT_ICXC/test_review_outputs/arc/${PR}/t_now/
+
+Local
+-----
+Testing on a local machine (Mac) requires syncing the data files from kady.  This tests
+that the branch produces the same output as the currently running flight arc cron job.
+
+For testing on a local machine, the most straightforward option is syncing from HEAD. Do
+all this in one copy/paste to reduce the chance that the cron job has run between
+commands. The ``--test-get-web`` option in the last command is to grab the ACIS fluence,
+ACE rates, and DSN comms from the web.
 
   rsync -av kady:/proj/sot/ska/data/arc3/hrc_shield.h5 $SKA/data/arc3/
   rsync -av kady:/proj/sot/ska/data/arc3/ACE.h5 $SKA/data/arc3/
   rsync -av kady:/proj/sot/ska/data/arc3/GOES_X.h5 $SKA/data/arc3/
   rsync -av kady:/proj/sot/ska/data/arc3/ACE_hourly_avg.npy $SKA/data/arc3/
-
-On the local machine or on a HEAD machine (from within the arc repo)::
-
-  mkdir -p t_now/flight
-  rsync -av kady:/proj/sot/ska/www/ASPECT/arc3/ t_now/
+  rsync -av kady:/proj/sot/ska/www/ASPECT/arc3/ t_now/$COMMIT/
   rsync -av kady:/proj/sot/ska/www/ASPECT/arc3/ t_now/flight/
-  ln -s $SKA/data/arc3/ACE_hourly_avg.npy t_now/
-  ln -s $SKA/data/arc3/*.h5 t_now/
+  ln -s $SKA/data/arc3/ACE_hourly_avg.npy t_now/$COMMIT/
+  ln -s $SKA/data/arc3/*.h5 t_now/$COMMIT/
+  python make_timeline.py --data-dir=t_now/$COMMIT --test-get-web
 
 Get the flight run date and convert that to a full date-format date (e.g. "317/1211z"
 => "2024:317:12:11:00")::
 
   tail -c 400 t_now/flight/timeline_states.js | grep now_date
 
-Finally run the script with the test option::
+Run the script with the test option::
 
-  python -m make_timeline --test --date-now=<now_date>
-  open t_now/index.html
+  python make_timeline.py --test --data-dir=t_now/$COMMIT --date-now=<now_date>
 
-In order to skip the full data sync, you can use the ``--test-get-web`` option to grab
-the ACIS fluence, ACE rates, and DSN comms from the web. If your H5 data files are not
-up to date then with the ``--test`` option it adjusts the times in the ACE, GOES, and
-HRC data to pretend it is up to date.
+To view the output, open the directory in a browser::
+
+  open t_now/$COMMIT/index.html
+  open t_now/flight/index.html
+
+Compare the timeline_states.js files::
+
+  diff t_now/{flight,$COMMIT}/timeline_states.js
 """
 
 import argparse
@@ -46,6 +83,7 @@ import functools
 import json
 import os
 import re
+import sys
 import warnings
 from pathlib import Path
 
@@ -134,7 +172,7 @@ def get_parser():
         action="store_true",
         help=(
             "Grab ACIS fluence, ACE rates and DSN comms from web and store in "
-            "data_dir. This requires --test and internet access."
+            "data_dir. This is a one-time operation to get the data for testing."
         ),
     )
     parser.add_argument(
@@ -487,6 +525,10 @@ def main(args_sys=None):
     parser = get_parser()
     args = parser.parse_args(args_sys)
 
+    if args.test_get_web:
+        get_web_data(args.data_dir)
+        sys.exit(0)
+
     # Basic setup.  Set times and get input states, radzones and comms.
     now = CxoTime(args.date_now)
     now = CxoTime(now.date[:14] + ":00")  # truncate to 0 secs
@@ -495,9 +537,6 @@ def main(args_sys=None):
     states = kadi_states.get_states(start=start, stop=stop)
     radzones = get_radzones()
     comms = get_comms()
-
-    if args.test_get_web:
-        get_web_data(args.data_dir)
 
     # Get the ACIS ops fluence estimate and current 2hr avg flux
     fluence_date, fluence0 = get_fluence(
