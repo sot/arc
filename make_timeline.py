@@ -167,6 +167,7 @@ ace_rates_file = functools.partial(arc_data_file, "/data/mta4/www", "ace.html")
 dsn_comms_file = functools.partial(
     arc_data_file, SKA / "data" / "dsn_summary", "dsn_summary.yaml"
 )
+ace_hourly_avg_file = functools.partial(arc_data_file, DATA_ARC3, "ACE_hourly_avg.npy")
 goes_x_h5_file = functools.partial(arc_data_file, DATA_ARC3, "GOES_X.h5")
 ace_h5_file = functools.partial(arc_data_file, DATA_ARC3, "ACE.h5")
 hrc_h5_file = functools.partial(arc_data_file, DATA_ARC3, "hrc_shield.h5")
@@ -719,7 +720,7 @@ def draw_fluence_percentiles(
         p3_slope = get_p3_slope(p3_times, p3_vals)
         if p3_slope is not None and avg_flux > 0:
             p3_fits, p3_samps, fluences = cfd.get_fluences(
-                os.path.join(args.data_dir, "ACE_hourly_avg.npy")
+                ace_hourly_avg_file(args.data_dir, test=args.test),
             )
             hrs, fl10, fl50, fl90 = cfd.get_fluence_percentiles(
                 avg_flux,
