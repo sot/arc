@@ -288,12 +288,6 @@ def get_available_comms(start: CxoTime, stop: CxoTime) -> Table:
     )
     dat = dat[ok]
 
-    # Clip avail comms to be within start / stop
-    dat["avail_bot"] = np.where(
-        dat["avail_bot"] < datestart, datestart, dat["avail_bot"]
-    )
-    dat["avail_eot"] = np.where(dat["avail_eot"] > datestop, datestop, dat["avail_eot"])
-
     return dat["station", "avail_bot", "avail_eot"]
 
 
@@ -648,7 +642,7 @@ def main(args_sys=None):
         label1_size=10,
     )
 
-    draw_comms_avail(comms_avail, ax, x0, x1, y0, y1)
+    draw_comms_avail(comms_avail, ax, x0, x1)
     draw_goes_x_data(goes_x_times, goes_x_vals, ax)
     draw_ace_p3_and_limits(now, start, p3_times, p3_vals, ax)
     draw_hrc_proxy(hrc_times, hrc_vals, ax)
