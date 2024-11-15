@@ -103,8 +103,9 @@ import numpy as np
 import ska_numpy
 import tables
 import yaml
+from astropy.table import Table
 from cxotime import CxoTime, CxoTimeLike
-from kadi import events
+from kadi import events, occweb
 from ska_matplotlib import lineid_plot, plot_cxctime
 
 import calc_fluence_dist as cfd
@@ -115,6 +116,9 @@ P3_BAD = -100000
 AXES_LOC = [0.08, 0.15, 0.83, 0.6]
 SKA = Path(os.environ["SKA"])
 DATA_ARC3 = SKA / "data" / "arc3"
+URL_AVAIL_COMMS = (
+    "https://occweb.cfa.harvard.edu/mission/MissionPlanning/DSN/DSN_Modifications.csv"
+)
 
 
 def cxc2pd(times: CxoTimeLike) -> float | np.ndarray:
@@ -256,6 +260,41 @@ def get_fluence(filename):
     vals = lines[-1].split()
     p3_fluence = float(vals[9])
     return start, p3_fluence
+
+
+def get_available_comms(start: CxoTime, stop: CxoTime) -> Table:
+    """Get the available DSN comms from OCCweb
+
+    Returns
+    -------
+    dat : Table
+        Table of available DSN comms with columns 'station', 'avail_bot', 'avail_eot'
+    """
+
+    try:
+        text = occweb.get_occweb_page(URL_AVAIL_COMMS)
+    except Exception:
+        # Do not disrupt rest of processing for this. Consider logging a warning?
+        return None
+    dat = Table.read(text, format="ascii", fill_values=[("NaN", "0")])
+
+    # Deleted comms are ones that have been superseded by combined comms in this table.
+    datestart = start.date
+    datestop = stop.date
+    ok = (
+        (dat["avail_bot"] < datestop)
+        & (dat["avail_eot"] > datestart)
+        & (dat["type"] != "Deleted")
+    )
+    dat = dat[ok]
+
+    # Clip avail comms to be within start / stop
+    dat["avail_bot"] = np.where(
+        dat["avail_bot"] < datestart, datestart, dat["avail_bot"]
+    )
+    dat["avail_eot"] = np.where(dat["avail_eot"] > datestop, datestop, dat["avail_eot"])
+
+    return dat["station", "avail_bot", "avail_eot"]
 
 
 def get_avg_flux(
@@ -566,6 +605,7 @@ def main(args_sys=None):
     rates = np.ones_like(fluence_times) * max(avg_flux, 0.0) * args.dt
     fluence = calc_fluence(fluence_times, fluence0, rates, states)
     zero_fluence_at_radzone(fluence_times, fluence, radzones)
+    comms_avail = get_available_comms(start, stop)
 
     # Initialize the main plot figure
     fig = plt.figure(1, figsize=(9, 5))
@@ -593,6 +633,11 @@ def main(args_sys=None):
     ax.grid()
     ax.set_ylabel("Attenuated fluence / 1e9")
     ax.legend(loc="upper center", labelspacing=0.15, fontsize=10)
+    # NOTE: this function call must be BEFORE any functions that add ax.text() labels to
+    # the plot. For some reason if there are ax.text() labels you get an exception:
+    #     box.xyann = (wlp[i], box.xyann[1])
+    #                          ^^^^^^^^^
+    # AttributeError: 'Text' object has no attribute 'xyann'
     lineid_plot.plot_line_ids(
         cxc2pd([start.secs, stop.secs]),
         [y1, y1],
@@ -603,6 +648,7 @@ def main(args_sys=None):
         label1_size=10,
     )
 
+    draw_comms_avail(comms_avail, ax, x0, x1, y0, y1)
     draw_goes_x_data(goes_x_times, goes_x_vals, ax)
     draw_ace_p3_and_limits(now, start, p3_times, p3_vals, ax)
     draw_hrc_proxy(hrc_times, hrc_vals, ax)
@@ -663,6 +709,27 @@ def draw_hrc_acis_states(start, stop, states, ax, x0, x1):
     plot_multi_line(x, y, z, [0, 1], ["c", "r"], ax)
     dx = (x1 - x0) * 0.01
     ax.text(x1 + dx, y_si, "HRC/ACIS", ha="left", va="center", size="small")
+
+
+def draw_comms_avail(comms_avail: Table, ax, x0, x1):
+    """Draw available comms as a gray strip below the ACE/HRC multi-line plot"""
+    y_comm0 = -0.38
+    dy_comm = 0.05
+    dx = (x1 - x0) * 0.01
+
+    # Draw comm passes
+    for comm in comms_avail:
+        pd0, pd1 = cxc2pd([comm["avail_bot"], comm["avail_eot"]])
+        patch = matplotlib.patches.Rectangle(
+            (pd0, y_comm0),
+            pd1 - pd0,
+            dy_comm,
+            alpha=0.5,
+            facecolor="k",
+            edgecolor="none",
+        )
+        ax.add_patch(patch)
+    ax.text(x1 + dx, y_comm0, "Avail comms", ha="left", va="center", size="small")
 
 
 def draw_hrc_proxy(hrc_times, hrc_vals, ax):
