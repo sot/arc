@@ -39,6 +39,8 @@ code, running both in "flight" mode::
   cd ..
   rsync -av t_now/ /proj/sot/ska/www/ASPECT_ICXC/test_review_outputs/arc/${PR}/t_now/
 
+  diff t_now/{flight,$COMMIT}/timeline_states.js
+
 Local
 -----
 Testing on a local machine (Mac) requires syncing the data files from kady.  This tests
@@ -62,11 +64,11 @@ ACE rates, and DSN comms from the web.
 Get the flight run date and convert that to a full date-format date (e.g. "317/1211z"
 => "2024:317:12:11:00")::
 
-  tail -c 400 t_now/flight/timeline_states.js | grep now_date
+  DATE_NOW=`python utils/get_date_now.py t_now/flight`
 
 Run the script with the test option::
 
-  python make_timeline.py --test --data-dir=t_now/$COMMIT --date-now=<now_date>
+  python make_timeline.py --test --data-dir=t_now/$COMMIT --date-now=$DATE_NOW
 
 To view the output, open the directory in a browser::
 
@@ -75,7 +77,10 @@ To view the output, open the directory in a browser::
 
 Compare the timeline_states.js files::
 
-  diff t_now/{flight,$COMMIT}/timeline_states.js
+  python utils/convert_states_to_yaml.py t_now/$COMMIT
+  python utils/convert_states_to_yaml.py t_now/flight
+
+  diff t_now/{flight,$COMMIT}/timeline_states.yaml
 """
 
 import argparse
