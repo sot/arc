@@ -85,6 +85,7 @@ Compare the timeline_states.js files::
 
 import argparse
 import functools
+import io
 import json
 import os
 import re
@@ -218,6 +219,7 @@ ace_hourly_avg_file = functools.partial(arc_data_file, DATA_ARC3, "ACE_hourly_av
 goes_x_h5_file = functools.partial(arc_data_file, DATA_ARC3, "GOES_X.h5")
 ace_h5_file = functools.partial(arc_data_file, DATA_ARC3, "ACE.h5")
 hrc_h5_file = functools.partial(arc_data_file, DATA_ARC3, "hrc_shield.h5")
+comms_avail_file = functools.partial(arc_data_file, DATA_ARC3, "comms_avail.html")
 
 
 def get_web_data(data_dir):
@@ -262,8 +264,15 @@ def get_fluence(filename):
     return start, p3_fluence
 
 
-def get_available_comms(start: CxoTime, stop: CxoTime) -> Table:
+def get_comms_avail(start: CxoTime, stop: CxoTime) -> Table:
     """Get the available DSN comms from OCCweb
+
+    Parameters
+    ----------
+    start : CxoTime
+        Start time for the available DSN comms table
+    stop : CxoTime
+        Stop time for the available DSN comms table
 
     Returns
     -------
@@ -599,7 +608,7 @@ def main(args_sys=None):
     rates = np.ones_like(fluence_times) * max(avg_flux, 0.0) * args.dt
     fluence = calc_fluence(fluence_times, fluence0, rates, states)
     zero_fluence_at_radzone(fluence_times, fluence, radzones)
-    comms_avail = get_available_comms(start, stop)
+    comms_avail = get_comms_avail(now, stop)
 
     # Initialize the main plot figure
     fig = plt.figure(1, figsize=(9, 5))
@@ -670,6 +679,7 @@ def main(args_sys=None):
         hrc_vals,
         hrc_times,
     )
+    write_comms_avail(comms_avail, comms_avail_file(args.data_dir, test=args.test))
 
 
 def draw_log_scale_axes(fig, y0, y1):
@@ -911,6 +921,14 @@ def get_si(simpos):
     else:
         si = "  NONE"
     return si
+
+
+def write_comms_avail(comms_avail: Table, filename: str | Path):
+    out = io.StringIO()
+    comms_avail.write(out, format="ascii.html")
+    # Get the text between <table> and </table> and write out.
+    match = re.search("<table>(.*)</table>", out.getvalue(), re.DOTALL)
+    Path(filename).write_text(match.group(0))
 
 
 def write_states_json(
