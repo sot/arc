@@ -277,7 +277,7 @@ def get_comms_avail(start: CxoTime, stop: CxoTime) -> Table:
     Returns
     -------
     dat : Table
-        Table of available DSN comms with columns 'station', 'avail_bot', 'avail_eot'
+        Table of available DSN comms
     """
 
     try:
@@ -297,7 +297,7 @@ def get_comms_avail(start: CxoTime, stop: CxoTime) -> Table:
     )
     dat = dat[ok]
 
-    return dat["station", "avail_bot", "avail_eot"]
+    return dat["station", "avail_bot", "avail_eot", "avail_soa", "avail_eoa"]
 
 
 def get_avg_flux(
@@ -923,7 +923,87 @@ def get_si(simpos):
     return si
 
 
+def date_to_zulu(date):
+    """
+    Convert a date string to a Zulu time string.
+    """
+    return CxoTime(date).date[9:14].replace(":", "")
+
+
 def write_comms_avail(comms_avail: Table, filename: str | Path):
+    """Make a simple HTML table of the available communication passes.
+
+    Support (GMT)   BOT  EOT  Station   Site       Track time (local)
+    --------------- ---- ---- --------- ---------  -------------------------
+    318/1345-1600   1445 1545 DSS-24    GOLDSTONE  0945-1045 EST, Wed 13 Nov
+    318/2115-0000   2215 2345 DSS-26    GOLDSTONE  1715-1845 EST, Wed 13 Nov
+    319/1100-1315   1200 1300 DSS-54    MADRID     0700-0800 EST, Thu 14 Nov
+    """
+    rows = []
+    for comm in comms_avail:
+        soa = CxoTime(comm["avail_soa"])
+        eoa = CxoTime(comm["avail_eoa"])
+        bot = CxoTime(comm["avail_bot"])
+        eot = CxoTime(comm["avail_eot"])
+
+        support_doy = soa.date[5:8]
+        support_startz = date_to_zulu(soa)
+        support_endz = date_to_zulu(eoa)
+        support_gmt = f"{support_doy}/{support_startz}-{support_endz}"
+
+        station = comm["station"]
+        station_num = int(station[-2:])
+        if station_num < 30:
+            site = "GOLDSTONE"
+        elif station_num < 50:
+            site = "CANBERRA"
+        else:
+            site = "MADRID"
+
+        # local time looks like '2024 Sun Nov 17 04:58:09 AM EST'
+        pattern = (
+            r"(?P<year>\d{4}) (?P<day_name>\w{3}) (?P<month>\w{3}) "
+            r"(?P<day>\d{2}) (?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2}) "
+            r"(?P<period>AM|PM) (?P<tz>\w{3})"
+        )
+        match = re.match(pattern, bot.get_conversions()["local"])
+        bot_local = match.groupdict()
+        track_bot = (
+            f"{bot_local['day_name']} {bot_local['month']} {bot_local['day']} "
+            f"{bot_local['hour']}:{bot_local['minute']} "
+            f"{bot_local['period']} {bot_local['tz']}"
+        )
+
+        dur = eot - bot
+        dur_secs = np.round(dur.sec)
+        dur_hr = int(dur_secs // 3600)
+        dur_min = int((dur_secs - dur_hr * 3600) // 60)
+        dur_hr_min = f"{dur_hr}:{dur_min:02d}"
+
+        row = (
+            support_gmt,
+            date_to_zulu(comm["avail_bot"]),
+            date_to_zulu(comm["avail_eot"]),
+            station,
+            site,
+            track_bot,
+            dur_hr_min,
+        )
+        rows.append(row)
+
+    comms_avail = Table(
+        rows=rows,
+        names=(
+            "Support (GMT)",
+            "BOT",
+            "EOT",
+            "Station",
+            "Site",
+            "Track time (local)",
+            "Dur",
+        ),
+    )
+
     out = io.StringIO()
     comms_avail.write(out, format="ascii.html")
     # Get the text between <table> and </table> and write out.
