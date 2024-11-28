@@ -9,6 +9,10 @@ passages, instrument configuration.
 
 Testing
 =======
+This section documents regression testing of the Replan Central timeline plot code. For
+full testing of Replan Central including the ``arc.pl`` Perl script and other Python
+scripts see: https://github.com/sot/arc/wiki/Set-up-test-Replan-Central.
+
 First some setup which applies to testing both on HEAD and local::
 
   cd ~/git/arc
