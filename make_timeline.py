@@ -6,103 +6,263 @@ Generate a timeline plot and associated JSON data for animated version.
 This plot features the predicted ACIS attenuated fluence based on current ACIS orbital
 fluence, 2hr average, and grating status.  It also shows DSN comms, radiation zone
 passages, instrument configuration.
+
+Testing
+=======
+First some setup which applies to testing both on HEAD and local::
+
+  cd ~/git/arc
+  rm -rf t_now
+  COMMIT=`git rev-parse --short HEAD`
+  PR=pr86  # or whatever
+  mkdir -p t_now/$COMMIT
+  mkdir -p t_now/flight
+
+HEAD
+-----
+Testing on HEAD does an apples-to-apples comparison of the branch to the current flight
+code, running both in "flight" mode::
+
+  # Current flight version of make_timeline.py looks for data in the output directory.
+  ln -s /proj/sot/ska/data/arc3/*.h5 t_now/flight/
+  ln -s /proj/sot/ska/data/arc3/ACE_hourly_avg.npy t_now/flight/
+
+  # Run PR branch version in "flight" mode (no --test), being explicit about data
+  # directory. This version looks for data resources in fixed locations, not in
+  # `data-dir`, so starting with an empty directory is fine.
+  python make_timeline.py --data-dir=t_now/$COMMIT
+
+  # Run flight version of make_timeline.py in a directory hidden from the git repo.
+  cd t_now
+  python /proj/sot/ska/share/arc3/make_timeline.py --data-dir=flight
+
+  cd ..
+  rsync -av t_now/ /proj/sot/ska/www/ASPECT_ICXC/test_review_outputs/arc/${PR}/t_now/
+
+  diff t_now/{flight,$COMMIT}/timeline_states.js
+
+Local
+-----
+Testing on a local machine (Mac) requires syncing the data files from kady.  This tests
+that the branch produces the same output as the currently running flight arc cron job.
+
+For testing on a local machine, the most straightforward option is syncing from HEAD. Do
+all this in one copy/paste to reduce the chance that the cron job has run between
+commands. The ``--test-get-web`` option in the last command is to grab the ACIS fluence,
+ACE rates, and DSN comms from the web.
+
+  rsync -av kady:/proj/sot/ska/data/arc3/hrc_shield.h5 $SKA/data/arc3/
+  rsync -av kady:/proj/sot/ska/data/arc3/ACE.h5 $SKA/data/arc3/
+  rsync -av kady:/proj/sot/ska/data/arc3/GOES_X.h5 $SKA/data/arc3/
+  rsync -av kady:/proj/sot/ska/data/arc3/ACE_hourly_avg.npy $SKA/data/arc3/
+  rsync -av kady:/proj/sot/ska/www/ASPECT/arc3/ t_now/$COMMIT/
+  rsync -av kady:/proj/sot/ska/www/ASPECT/arc3/ t_now/flight/
+  ln -s $SKA/data/arc3/ACE_hourly_avg.npy t_now/$COMMIT/
+  ln -s $SKA/data/arc3/*.h5 t_now/$COMMIT/
+  python make_timeline.py --data-dir=t_now/$COMMIT --test-get-web
+
+Get the flight run date and convert that to a full date-format date (e.g. "317/1211z"
+=> "2024:317:12:11:00")::
+
+  DATE_NOW=`python utils/get_date_now.py t_now/flight`
+
+Run the script with the test option::
+
+  python make_timeline.py --test --data-dir=t_now/$COMMIT --date-now=$DATE_NOW
+
+To view the output, open the directory in a browser::
+
+  open t_now/$COMMIT/index.html
+  open t_now/flight/index.html
+
+Compare the timeline_states.js files::
+
+  python utils/convert_states_to_yaml.py t_now/$COMMIT
+  python utils/convert_states_to_yaml.py t_now/flight
+
+  diff t_now/{flight,$COMMIT}/timeline_states.yaml
 """
 
 import argparse
+import functools
 import json
 import os
 import re
-
-import matplotlib
-import numpy as np
-import tables
-import yaml
-
-matplotlib.use("Agg")
-
-
+import sys
 import warnings
+from pathlib import Path
 
+os.environ["MPLBACKEND"] = "Agg"
+
+import astropy.units as u
 import kadi.commands.states as kadi_states
 import matplotlib.cbook
-import Ska.Numpy
-from Chandra.Time import DateTime
+import matplotlib.patches
+import matplotlib.pyplot as plt
+import numpy as np
+import ska_numpy
+import tables
+import yaml
+from cxotime import CxoTime, CxoTimeLike
 from kadi import events
-from Ska.Matplotlib import cxctime2plotdate as cxc2pd
-from Ska.Matplotlib import lineid_plot
+from ska_matplotlib import lineid_plot, plot_cxctime
 
 import calc_fluence_dist as cfd
 
 warnings.filterwarnings("ignore", category=matplotlib.MatplotlibDeprecationWarning)
 
-
-parser = argparse.ArgumentParser(description="Get ACE data")
-parser.add_argument("--data-dir", default="t_pred_fluence", help="Data directory")
-parser.add_argument(
-    "--hours", default=72.0, type=float, help="Hours to predict (default=72)"
-)
-parser.add_argument(
-    "--dt", default=300.0, type=float, help="Prediction time step (secs, default=300)"
-)
-parser.add_argument(
-    "--max-slope-samples",
-    type=int,
-    help="Max number of samples when filtering by slope (default=None",
-)
-parser.add_argument(
-    "--min-flux-samples",
-    default=100,
-    type=int,
-    help="Minimum number of samples when filtering by flux (default=100)",
-)
-parser.add_argument("--test", action="store_true", help="Use test data")
-parser.add_argument(
-    "--test-scenario", type=int, help="Name of a scenario for testing missing P3 data"
-)
-args = parser.parse_args()
-
 P3_BAD = -100000
 AXES_LOC = [0.08, 0.15, 0.83, 0.6]
+SKA = Path(os.environ["SKA"])
+DATA_ARC3 = SKA / "data" / "arc3"
 
-if args.test:
-    ACIS_FLUENCE_FILE = os.path.join(args.data_dir, "current.dat")
-    ACE_RATES_FILE = os.path.join(args.data_dir, "ace.html")
-    DSN_COMMS_FILE = os.path.join(args.data_dir, "dsn_summary.yaml")
-else:
-    ACIS_FLUENCE_FILE = "/proj/web-cxc/htdocs/acis/Fluence/current.dat"
-    ACE_RATES_FILE = "/data/mta4/www/ace.html"
-    DSN_COMMS_FILE = "/proj/sot/ska/data/dsn_summary/dsn_summary.yaml"
 
-GOES_X_H5_FILE = os.path.join(args.data_dir, "GOES_X.h5")
-ACE_H5_FILE = os.path.join(args.data_dir, "ACE.h5")
-HRC_H5_FILE = os.path.join(args.data_dir, "hrc_shield.h5")
+def cxc2pd(times: CxoTimeLike) -> float | np.ndarray:
+    """
+    Convert CXC time(s) to matplotlib plot date(s).
+
+    This replaces the old ``ska_matplotlib.cxctime2plotdate`` function with a more
+    general version that accepts any CxoTimeLike object.
+    """
+    return CxoTime(times).plot_date
+
+
+def get_parser():
+    parser = argparse.ArgumentParser(
+        description="Make a timeline plot and associate table javascript"
+    )
+    parser.add_argument(
+        "--data-dir",
+        default="t_now",
+        help="Data directory (default=t_now)",
+    )
+    parser.add_argument(
+        "--hours",
+        default=72.0,
+        type=float,
+        help="Hours to predict (default=72)",
+    )
+    parser.add_argument(
+        "--dt",
+        default=300.0,
+        type=float,
+        help="Prediction time step (secs, default=300)",
+    )
+    parser.add_argument(
+        "--max-slope-samples",
+        type=int,
+        help="Max number of samples when filtering by slope (default=None",
+    )
+    parser.add_argument(
+        "--min-flux-samples",
+        default=100,
+        type=int,
+        help="Minimum number of samples when filtering by flux (default=100)",
+    )
+    parser.add_argument(
+        "--test",
+        action="store_true",
+        help=(
+            "Use test data in data_dir (default=False). This option adjusts times in "
+            "ACE, GOES, and HRC data to pretend it is up to date (if needed)."
+        ),
+    )
+    parser.add_argument(
+        "--test-scenario",
+        type=int,
+        help="Name of a scenario for testing missing P3 data",
+    )
+    parser.add_argument(
+        "--test-get-web",
+        action="store_true",
+        help=(
+            "Grab ACIS fluence, ACE rates and DSN comms from web and store in "
+            "data_dir. This is a one-time operation to get the data for testing."
+        ),
+    )
+    parser.add_argument(
+        "--date-now",
+        type=str,
+        help="Override the current time for testing (default=now)",
+    )
+    return parser
+
+
+def arc_data_file(
+    data_dir_flight: str | Path,
+    filename: str,
+    data_dir_test: str | Path | None = None,
+    test: bool = False,
+) -> Path:
+    """Get a data file path from flight data directory or test directory.
+
+    This is intended to be used as a functools.partial function, see below.
+    """
+    file_dir = Path(data_dir_test) if test else Path(data_dir_flight)
+    return file_dir / filename
+
+
+# Define file path functions for this module
+acis_fluence_file = functools.partial(
+    arc_data_file, "/proj/web-cxc/htdocs/acis/Fluence", "current.dat"
+)
+ace_rates_file = functools.partial(arc_data_file, "/data/mta4/www", "ace.html")
+dsn_comms_file = functools.partial(
+    arc_data_file, SKA / "data" / "dsn_summary", "dsn_summary.yaml"
+)
+ace_hourly_avg_file = functools.partial(arc_data_file, DATA_ARC3, "ACE_hourly_avg.npy")
+goes_x_h5_file = functools.partial(arc_data_file, DATA_ARC3, "GOES_X.h5")
+ace_h5_file = functools.partial(arc_data_file, DATA_ARC3, "ACE.h5")
+hrc_h5_file = functools.partial(arc_data_file, DATA_ARC3, "hrc_shield.h5")
+
+
+def get_web_data(data_dir):
+    """Get ACIS fluence, ACE rates, and DSN comms from CXC web pages
+
+    Output files are placed in ``data_dir``.
+    """
+    import urllib.request
+
+    urls_file_funcs = [
+        ("/acis/Fluence/current.dat", acis_fluence_file),
+        ("/mta/ace.html", ace_rates_file),
+        ("/mta/ASPECT/dsn_summary/dsn_summary.yaml", dsn_comms_file),
+    ]
+
+    for url, file_path_func in urls_file_funcs:
+        urllib.request.urlretrieve(
+            "https://cxc.cfa.harvard.edu" + url, file_path_func(data_dir, test=True)
+        )
 
 
 def get_fluence(filename):
     """
-    Get the current ACIS attenuated fluence (parse stuff below)
+    Get the current ACIS attenuated fluence (parse stuff below)::
 
-    TABLE 2: ACIS FLUX AND FLUENCE BASED ON ACE DATA
-
-    Latest valid ACIS flux and fluence data...                                   111...
-    # UT Date   Time  Julian  of the  --- Electron keV ---   -------------------- Pr...
-    # YR MO DA  HHMM    Day    Secs        38-53   175-315      56-78    112-187   3...
-    #-------------------------------------------------------------------------------...
-    2012  9  4  1915  56174   69300     5.54e+03  2.90e+01   5.92e+03   1.88e+03  4....
-    ACIS Fluence data...Start DOY,SOD
-    2012  9  4  1923    248   38580     1.73e+08  9.15e+05   1.39e+08   4.94e+07  1...
+      TABLE 2: ACIS FLUX AND FLUENCE BASED ON ACE DATA
+      Latest valid ACIS flux and fluence data...                                   111...
+      # UT Date   Time  Julian  of the  --- Electron keV ---   -------------------- Pr...
+      # YR MO DA  HHMM    Day    Secs        38-53   175-315      56-78    112-187   3...
+      #-------------------------------------------------------------------------------...
+      2012  9  4  1915  56174   69300     5.54e+03  2.90e+01   5.92e+03   1.88e+03  4....
+      ACIS Fluence data...Start DOY,SOD
+      2012  9  4  1923    248   38580     1.73e+08  9.15e+05   1.39e+08   4.94e+07  1...
     """
 
     lines = open(filename, "r").readlines()
     vals = lines[-3].split()
     mjd = float(vals[4]) + float(vals[5]) / 86400.0
-    start = DateTime(mjd, format="mjd")
+    start = CxoTime(mjd, format="mjd")
     vals = lines[-1].split()
     p3_fluence = float(vals[9])
     return start, p3_fluence
 
 
-def get_avg_flux(filename):
+def get_avg_flux(
+    filename,
+    data_dir: str | Path | None = None,
+    test: bool = False,
+) -> float:
     """
     # Get the ACE 2 hour average flux (parse stuff below)
 
@@ -119,7 +279,9 @@ def get_avg_flux(filename):
         print(
             (
                 "WARNING: {} file contains {} lines that start with "
-                "AVERAGE (expect one)".format(ACE_RATES_FILE, len(lines))
+                "AVERAGE (expect one)".format(
+                    ace_rates_file(data_dir, test), len(lines)
+                )
             )
         )
         p3_avg_flux = P3_BAD
@@ -132,15 +294,18 @@ def get_radzones():
     """
     Constuct a list of complete radiation zones using kadi events
     """
-    radzones = events.rad_zones.filter(start=DateTime() - 5, stop=None)
+    radzones = events.rad_zones.filter(start=CxoTime() - 5 * u.day, stop=None)
     return [(x.start, x.stop) for x in radzones]
 
 
-def get_comms():
+def get_comms(
+    data_dir: str | Path | None = None,
+    test: bool = False,
+) -> list:
     """
     Get the list of comm passes from the DSN summary file.
     """
-    dat = yaml.safe_load(open(DSN_COMMS_FILE, "r"))
+    dat = yaml.safe_load(open(dsn_comms_file(data_dir, test), "r"))
     return dat
 
 
@@ -154,7 +319,7 @@ def zero_fluence_at_radzone(times, fluence, radzones):
     This works on ``fluence`` in place.
     """
     for radzone in radzones:
-        t0, t1 = DateTime(radzone).secs
+        t0, t1 = CxoTime(radzone).secs
         ok = (times > t0) & (times <= t1)
         if np.any(ok):
             idx0 = np.flatnonzero(ok)[0]
@@ -181,34 +346,64 @@ def calc_fluence(times, fluence0, rates, states):
     return fluence
 
 
-def get_ace_p3(tstart, tstop):
+def get_h5_data(h5_file, col_time, col_values, start, stop, test=False):
+    """
+    Get data from an HDF5 file and return the time and values within the time range.
+    """
+    tstart = CxoTime(start).secs
+    tstop = CxoTime(stop).secs
+
+    with tables.open_file(h5_file) as h5:
+        times = h5.root.data.col(col_time)
+        values = h5.root.data.col(col_values)
+
+    # If testing, it is common to have the test data file not be updated to the current
+    # time. In that case, just hack the times to seem current.
+    if test and (dt := tstop - times[-1]) > 3600:
+        times += dt
+
+    ok = (tstart < times) & (times <= tstop)
+    return times[ok], values[ok]
+
+
+def get_ace_p3(
+    tstart: float,
+    tstop: float,
+    data_dir: str | Path | None = None,
+    test: bool = False,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Get the historical ACE P3 rates and filter out bad values.
     """
-    h5 = tables.open_file(ACE_H5_FILE)
-    times = h5.root.data.col("time")
-    p3 = h5.root.data.col("p3")
-    ok = (tstart < times) & (times < tstop)
-    h5.close()
-    return times[ok], p3[ok]
+    times, vals = get_h5_data(
+        ace_h5_file(data_dir, test), "time", "p3", tstart, tstop, test
+    )
+    return times, vals
 
 
-def get_goes_x(tstart, tstop):
+def get_goes_x(
+    tstart: float,
+    tstop: float,
+    data_dir: str | Path | None = None,
+    test: bool = False,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Get recent GOES 1-8 angstrom X-ray rates
+
+    Returns
+    -------
+    times : np.ndarray
+        Times of X-ray data
+    xray_long : np.ndarray
+        X-ray flux
     """
-    h5 = tables.open_file(GOES_X_H5_FILE)
-    times = h5.root.data.col("time")
-    xray_long = h5.root.data.col("long")
-    ok = (tstart < times) & (times < tstop)
-    h5.close()
-    if np.count_nonzero(ok) < 2:
-        return np.array([tstart, tstop]), np.array([1e-10, 1e-10])
-    else:
-        return times[ok], xray_long[ok]
+    times, vals = get_h5_data(
+        goes_x_h5_file(data_dir, test), "time", "long", tstart, tstop, test
+    )
+    return times, vals
 
 
-def get_test_vals(scenario, p3_times, p3s, p3_avg, p3_fluence):
+def get_p3_test_vals(scenario, p3_times, p3s, p3_avg, p3_fluence):
     if scenario == 1:
         # ACE unavailable for the last 8 hours.  No P3 avg from MTA.
         print("Running test scenario 1")
@@ -265,19 +460,19 @@ def get_test_vals(scenario, p3_times, p3s, p3_avg, p3_fluence):
     return p3s, p3_avg, p3_fluence
 
 
-def get_hrc(tstart, tstop):
+def get_hrc(
+    tstart,
+    tstop,
+    data_dir: str | Path | None = None,
+    test: bool = False,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Get the historical HRC proxy rates and filter out bad values.
     """
-    h5 = tables.open_file(HRC_H5_FILE)
-    times = h5.root.data.col("time")
-    hrc = h5.root.data.col("hrc_shield") * 256.0
-    ok = (tstart < times) & (times < tstop) & (hrc > 0)
-    h5.close()
-    if np.count_nonzero(ok) < 2:
-        return np.array([tstart, tstop]), np.array([1, 1])
-    else:
-        return times[ok], hrc[ok]
+    times, vals = get_h5_data(
+        hrc_h5_file(data_dir, test), "time", "hrc_shield", tstart, tstop, test
+    )
+    return times, vals * 256.0
 
 
 def plot_multi_line(x, y, z, bins, colors, ax):
@@ -328,39 +523,41 @@ def get_p3_slope(p3_times, p3_vals):
     return slope
 
 
-def main():
+def main(args_sys=None):
     """
     Generate the Replan Central timeline plot.
     """
-    import matplotlib.patches
-    import matplotlib.pyplot as plt
-    from Ska.Matplotlib import plot_cxctime
+    parser = get_parser()
+    args = parser.parse_args(args_sys)
 
-    # TODO: refactor this into smaller functions where possible.
+    if args.test_get_web:
+        get_web_data(args.data_dir)
+        sys.exit(0)
 
     # Basic setup.  Set times and get input states, radzones and comms.
-    now = DateTime("2012:249:00:35:00" if args.test else None)
-    now = DateTime(now.date[:14] + ":00")  # truncate to 0 secs
-    start = now - 1.0
-    stop = start + args.hours / 24.0
+    now = CxoTime(args.date_now)
+    now = CxoTime(now.date[:14] + ":00")  # truncate to 0 secs
+    start = now - 1.0 * u.day
+    stop = start + args.hours * u.hour
     states = kadi_states.get_states(start=start, stop=stop)
     radzones = get_radzones()
     comms = get_comms()
 
     # Get the ACIS ops fluence estimate and current 2hr avg flux
-    fluence_date, fluence0 = get_fluence(ACIS_FLUENCE_FILE)
-    if fluence_date.secs < now.secs:
-        fluence_date = now
-    avg_flux = get_avg_flux(ACE_RATES_FILE)
+    fluence_date, fluence0 = get_fluence(
+        acis_fluence_file(args.data_dir, test=args.test)
+    )
+    fluence_date = max(fluence_date, now)
+    avg_flux = get_avg_flux(ace_rates_file(args.data_dir, test=args.test))
 
     # Get the realtime ACE P3 and HRC proxy values over the time range
-    goes_x_times, goes_x_vals = get_goes_x(start.secs, now.secs)
-    p3_times, p3_vals = get_ace_p3(start.secs, now.secs)
-    hrc_times, hrc_vals = get_hrc(start.secs, now.secs)
+    goes_x_times, goes_x_vals = get_goes_x(start, now, args.data_dir, args.test)
+    p3_times, p3_vals = get_ace_p3(start, now, args.data_dir, args.test)
+    hrc_times, hrc_vals = get_hrc(start, now, args.data_dir, args.test)
 
     # For testing: inject predefined values for different scenarios
     if args.test_scenario:
-        p3_vals, avg_flux, fluence0 = get_test_vals(
+        p3_vals, avg_flux, fluence0 = get_p3_test_vals(
             args.test_scenario, p3_times, p3_vals, avg_flux, fluence0
         )
 
@@ -371,9 +568,7 @@ def main():
     zero_fluence_at_radzone(fluence_times, fluence, radzones)
 
     # Initialize the main plot figure
-    plt.rc("legend", fontsize=10)
     fig = plt.figure(1, figsize=(9, 5))
-    fig.clf()
     fig.patch.set_alpha(0.0)
     ax = fig.add_axes(AXES_LOC, facecolor="w")
     ax.yaxis.tick_right()
@@ -381,135 +576,23 @@ def main():
     ax.yaxis.set_offset_position("right")
     ax.patch.set_alpha(1.0)
 
-    # Plot lines at 1.0 and 2.0 (10^9) corresponding to fluence yellow
-    # and red limits.  Also plot the fluence=0 line in black.
-    x0, x1 = cxc2pd([fluence_times[0], fluence_times[-1]])
-    plt.plot([x0, x1], [0.0, 0.0], "-k")
-    plt.plot([x0, x1], [1.0, 1.0], "--b", lw=2.0)
-    plt.plot([x0, x1], [2.0, 2.0], "--r", lw=2.0)
+    draw_ace_yellow_red_limits(fluence_times, ax)
+    draw_dummy_lines_letg_hetg_legend(fluence_times, fig, ax)
+    draw_fluence_and_grating_state_line(states, fluence_times, fluence, ax)
+    draw_fluence_percentiles(
+        args, states, radzones, fluence0, avg_flux, p3_times, p3_vals, fluence_times, ax
+    )
+    x0, x1, y0, y1 = set_plot_x_y_axis_limits(start, stop, ax)
+    id_xs, id_labels, next_comm = draw_communication_passes(
+        now, comms, ax, x0, x1, y0, y1
+    )
+    draw_radiation_zones(start, stop, radzones, ax, y0, y1)
+    draw_now_line(now, y0, y1, id_xs, id_labels, ax)
+    add_labels_for_obsids(start, states, id_xs, id_labels)
 
-    # Draw dummy lines off the plot for the legend
-    lx = [fluence_times[0], fluence_times[-1]]
-    ly = [-1, -1]
-    plot_cxctime(lx, ly, "-k", lw=3, label="None", fig=fig, ax=ax)
-    plot_cxctime(lx, ly, "-r", lw=3, label="HETG", fig=fig, ax=ax)
-    plot_cxctime(lx, ly, "-c", lw=3, label="LETG", fig=fig, ax=ax)
-
-    # Make a z-valued curve where the z value corresponds to the grating state.
-    x = cxc2pd(fluence_times)
-    y = fluence
-    z = np.zeros(len(fluence_times), dtype=int)
-
-    for state in states:
-        ok = (state["tstart"] < fluence_times) & (fluence_times <= state["tstop"])
-        if state["hetg"] == "INSR":
-            z[ok] = 1
-        elif state["letg"] == "INSR":
-            z[ok] = 2
-
-    plot_multi_line(x, y, z, [0, 1, 2], ["k", "r", "c"], ax)
-
-    # Plot 10, 50, 90 percentiles of fluence
-    try:
-        if len(p3_times) < 4:
-            raise ValueError("not enough P3 values")
-        p3_slope = get_p3_slope(p3_times, p3_vals)
-        if p3_slope is not None and avg_flux > 0:
-            p3_fits, p3_samps, fluences = cfd.get_fluences(
-                os.path.join(args.data_dir, "ACE_hourly_avg.npy")
-            )
-            hrs, fl10, fl50, fl90 = cfd.get_fluence_percentiles(
-                avg_flux,
-                p3_slope,
-                p3_fits,
-                p3_samps,
-                fluences,
-                args.min_flux_samples,
-                args.max_slope_samples,
-            )
-            fluence_hours = (fluence_times - fluence_times[0]) / 3600.0
-            for fl_y, linecolor in zip(
-                (fl10, fl50, fl90), ("-g", "-b", "-r"), strict=False
-            ):
-                fl_y = Ska.Numpy.interpolate(fl_y, hrs, fluence_hours)  # noqa: PLW2901
-                rates = np.diff(fl_y)
-                fl_y_atten = calc_fluence(fluence_times[:-1], fluence0, rates, states)
-                zero_fluence_at_radzone(fluence_times[:-1], fl_y_atten, radzones)
-                plt.plot(x0 + fluence_hours[:-1] / 24.0, fl_y_atten, linecolor)
-    except Exception as e:
-        print(("WARNING: p3 fluence not plotted, error : {}".format(e)))
-
-    # Set x and y axis limits
-    x0, x1 = cxc2pd([start.secs, stop.secs])
-    plt.xlim(x0, x1)
-    y0 = -0.45
-    y1 = 2.55
-    plt.ylim(y0, y1)
-
-    id_xs = []
-    id_labels = []
-
-    # Draw comm passes
-    next_comm = None
-    for comm in comms:
-        t0 = DateTime(comm["bot_date"]["value"]).secs
-        t1 = DateTime(comm["eot_date"]["value"]).secs
-        pd0, pd1 = cxc2pd([t0, t1])
-        if pd1 >= x0 and pd0 <= x1:
-            p = matplotlib.patches.Rectangle(
-                (pd0, y0),
-                pd1 - pd0,
-                y1 - y0,
-                alpha=0.2,
-                facecolor="r",
-                edgecolor="none",
-            )
-            ax.add_patch(p)
-        id_xs.append((pd0 + pd1) / 2)
-        id_labels.append(
-            "{}:{}".format(
-                comm["station"]["value"][4:6], comm["track_local"]["value"][:9]
-            )
-        )
-        if next_comm is None and DateTime(comm["bot_date"]["value"]).secs > now.secs:
-            next_comm = comm
-
-    # Draw radiation zones
-    for rad0, rad1 in radzones:
-        t0 = DateTime(rad0).secs
-        t1 = DateTime(rad1).secs
-        if t0 < stop.secs and t1 > start.secs:
-            if t0 < start.secs:
-                t0 = start.secs
-            if t1 > stop.secs:
-                t1 = stop.secs
-            pd0, pd1 = cxc2pd([t0, t1])
-            p = matplotlib.patches.Rectangle(
-                (pd0, y0),
-                pd1 - pd0,
-                y1 - y0,
-                alpha=0.2,
-                facecolor="b",
-                edgecolor="none",
-            )
-            ax.add_patch(p)
-
-    # Draw now line
-    plt.plot(cxc2pd([now.secs, now.secs]), [y0, y1], "-g", lw=4)
-    id_xs.extend(cxc2pd([now.secs]))
-    id_labels.append("NOW")
-
-    # Add labels for obsids
-    id_xs.extend(cxc2pd([start.secs]))
-    id_labels.append(str(states[0]["obsid"]))
-    for s0, s1 in zip(states[:-1], states[1:], strict=False):
-        if s0["obsid"] != s1["obsid"]:
-            id_xs.append(cxc2pd([s1["tstart"]])[0])
-            id_labels.append(str(s1["obsid"]))
-
-    plt.grid()
-    plt.ylabel("Attenuated fluence / 1e9")
-    plt.legend(loc="upper center", labelspacing=0.15)
+    ax.grid()
+    ax.set_ylabel("Attenuated fluence / 1e9")
+    ax.legend(loc="upper center", labelspacing=0.15, fontsize=10)
     lineid_plot.plot_line_ids(
         cxc2pd([start.secs, stop.secs]),
         [y1, y1],
@@ -520,62 +603,15 @@ def main():
         label1_size=10,
     )
 
-    # Plot observed GOES X-ray rates and limits
-    pd = cxc2pd(goes_x_times)
-    lgoesx = log_scale(goes_x_vals * 1e8)
-    plt.plot(pd, lgoesx, "-m", alpha=0.3, lw=1.5)
-    plt.plot(pd, lgoesx, ".m", mec="m", ms=3)
-
-    # Plot observed ACE P3 rates and limits
-    lp3 = log_scale(p3_vals)
-    pd = cxc2pd(p3_times)
-    ox = cxc2pd([start.secs, now.secs])
-    oy1 = log_scale(12000.0)
-    plt.plot(ox, [oy1, oy1], "--b", lw=2)
-    oy1 = log_scale(55000.0)
-    plt.plot(ox, [oy1, oy1], "--r", lw=2)
-    plt.plot(pd, lp3, "-k", alpha=0.3, lw=3)
-    plt.plot(pd, lp3, ".k", mec="k", ms=3)
-
-    # Plot observed HRC shield proxy rates and limits
-    pd = cxc2pd(hrc_times)
-    lhrc = log_scale(hrc_vals)
-    plt.plot(pd, lhrc, "-c", alpha=0.3, lw=3)
-    plt.plot(pd, lhrc, ".c", mec="c", ms=3)
-
-    # Draw SI state
-    times = np.arange(start.secs, stop.secs, 300)
-    state_vals = kadi_states.interpolate_states(states, times)
-    y_si = -0.23
-    x = cxc2pd(times)
-    y = np.zeros_like(times) + y_si
-    z = np.zeros_like(times, dtype=float)  # 0 => ACIS
-    z[state_vals["simpos"] < 0] = 1.0  # HRC
-    plot_multi_line(x, y, z, [0, 1], ["c", "r"], ax)
-    dx = (x1 - x0) * 0.01
-    plt.text(x1 + dx, y_si, "HRC/ACIS", ha="left", va="center", size="small")
+    draw_goes_x_data(goes_x_times, goes_x_vals, ax)
+    draw_ace_p3_and_limits(now, start, p3_times, p3_vals, ax)
+    draw_hrc_proxy(hrc_times, hrc_vals, ax)
+    draw_hrc_acis_states(start, stop, states, ax, x0, x1)
 
     # Draw log scale y-axis on left
-    ax2 = fig.add_axes(AXES_LOC, facecolor="w", frameon=False)
-    ax2.set_autoscale_on(False)
-    ax2.xaxis.set_visible(False)
-    ax2.set_xlim(0, 1)
-    ax2.set_yscale("log")
-    ax2.set_ylim(np.power(10.0, np.array([y0, y1]) * 2 + 1))
-    ax2.set_ylabel("ACE flux / HRC proxy / GOES X-ray")
-    ax2.text(-0.015, 2.5e3, "M", ha="right", color="m", weight="demibold")
-    ax2.text(-0.015, 2.5e4, "X", ha="right", color="m", weight="semibold")
+    draw_log_scale_axes(fig, y0, y1)
 
-    # Draw dummy lines off the plot for the legend
-    lx = [0, 1]
-    ly = [1, 1]
-    ax2.plot(lx, ly, "-k", lw=3, label="ACE")
-    ax2.plot(lx, ly, "-c", lw=3, label="HRC")
-    ax2.plot(lx, ly, "-m", lw=3, label="GOES-X")
-    ax2.legend(loc="upper left", labelspacing=0.15)
-
-    plt.draw()
-    plt.savefig(os.path.join(args.data_dir, "timeline.png"))
+    fig.savefig(os.path.join(args.data_dir, "timeline.png"))
 
     write_states_json(
         os.path.join(args.data_dir, "timeline_states.js"),
@@ -594,6 +630,209 @@ def main():
         hrc_vals,
         hrc_times,
     )
+
+
+def draw_log_scale_axes(fig, y0, y1):
+    ax2 = fig.add_axes(AXES_LOC, facecolor="w", frameon=False)
+    ax2.set_autoscale_on(False)
+    ax2.xaxis.set_visible(False)
+    ax2.set_xlim(0, 1)
+    ax2.set_yscale("log")
+    ax2.set_ylim(np.power(10.0, np.array([y0, y1]) * 2 + 1))
+    ax2.set_ylabel("ACE flux / HRC proxy / GOES X-ray")
+    ax2.text(-0.015, 2.5e3, "M", ha="right", color="m", weight="demibold")
+    ax2.text(-0.015, 2.5e4, "X", ha="right", color="m", weight="semibold")
+
+    # Draw dummy lines off the plot for the legend
+    lx = [0, 1]
+    ly = [1, 1]
+    ax2.plot(lx, ly, "-k", lw=3, label="ACE")
+    ax2.plot(lx, ly, "-c", lw=3, label="HRC")
+    ax2.plot(lx, ly, "-m", lw=3, label="GOES-X")
+    ax2.legend(loc="upper left", labelspacing=0.15, fontsize=10)
+
+
+def draw_hrc_acis_states(start, stop, states, ax, x0, x1):
+    times = np.arange(start.secs, stop.secs, 300)
+    state_vals = kadi_states.interpolate_states(states, times)
+    y_si = -0.23
+    x = cxc2pd(times)
+    y = np.zeros_like(times) + y_si
+    z = np.zeros_like(times, dtype=float)  # 0 => ACIS
+    z[state_vals["simpos"] < 0] = 1.0  # HRC
+    plot_multi_line(x, y, z, [0, 1], ["c", "r"], ax)
+    dx = (x1 - x0) * 0.01
+    ax.text(x1 + dx, y_si, "HRC/ACIS", ha="left", va="center", size="small")
+
+
+def draw_hrc_proxy(hrc_times, hrc_vals, ax):
+    pd = cxc2pd(hrc_times)
+    lhrc = log_scale(hrc_vals)
+    ax.plot(pd, lhrc, "-c", alpha=0.3, lw=3)
+    ax.plot(pd, lhrc, ".c", mec="c", ms=3)
+
+
+def draw_ace_p3_and_limits(now, start, p3_times, p3_vals, ax):
+    lp3 = log_scale(p3_vals)
+    pd = cxc2pd(p3_times)
+    ox = cxc2pd([start.secs, now.secs])
+    oy1 = log_scale(12000.0)
+    ax.plot(ox, [oy1, oy1], "--b", lw=2)
+    oy1 = log_scale(55000.0)
+    ax.plot(ox, [oy1, oy1], "--r", lw=2)
+    ax.plot(pd, lp3, "-k", alpha=0.3, lw=3)
+    ax.plot(pd, lp3, ".k", mec="k", ms=3)
+
+
+def draw_goes_x_data(goes_x_times, goes_x_vals, ax):
+    pd = cxc2pd(goes_x_times)
+    lgoesx = log_scale(goes_x_vals * 1e8)
+    ax.plot(pd, lgoesx, "-m", alpha=0.3, lw=1.5)
+    ax.plot(pd, lgoesx, ".m", mec="m", ms=3)
+
+
+def add_labels_for_obsids(start, states, id_xs, id_labels):
+    id_xs.extend(cxc2pd([start.secs]))
+    id_labels.append(str(states[0]["obsid"]))
+    for s0, s1 in zip(states[:-1], states[1:], strict=False):
+        if s0["obsid"] != s1["obsid"]:
+            id_xs.append(cxc2pd([s1["tstart"]])[0])
+            id_labels.append(str(s1["obsid"]))
+
+
+def draw_now_line(now, y0, y1, id_xs, id_labels, ax):
+    ax.plot([now.plot_date, now.plot_date], [y0, y1], "-g", lw=4)
+    id_xs.extend(cxc2pd([now.secs]))
+    id_labels.append("NOW")
+
+
+def draw_radiation_zones(start, stop, radzones, ax, y0, y1):
+    for rad0, rad1 in radzones:
+        t0 = CxoTime(rad0)
+        t1 = CxoTime(rad1)
+        if t0 < stop and t1 > start:
+            t0 = max(t0, start)
+            t1 = min(t1, stop)
+            pd0, pd1 = t0.plot_date, t1.plot_date
+            p = matplotlib.patches.Rectangle(
+                (pd0, y0),
+                pd1 - pd0,
+                y1 - y0,
+                alpha=0.2,
+                facecolor="b",
+                edgecolor="none",
+            )
+            ax.add_patch(p)
+
+
+def draw_communication_passes(now, comms, ax, x0, x1, y0, y1):
+    id_xs = []
+    id_labels = []
+
+    # Draw comm passes
+    next_comm = None
+    for comm in comms:
+        pd0, pd1 = cxc2pd([comm["bot_date"]["value"], comm["eot_date"]["value"]])
+        if pd1 >= x0 and pd0 <= x1:
+            p = matplotlib.patches.Rectangle(
+                (pd0, y0),
+                pd1 - pd0,
+                y1 - y0,
+                alpha=0.2,
+                facecolor="r",
+                edgecolor="none",
+            )
+            ax.add_patch(p)
+        id_xs.append((pd0 + pd1) / 2)
+        id_labels.append(
+            "{}:{}".format(
+                comm["station"]["value"][4:6], comm["track_local"]["value"][:9]
+            )
+        )
+        if next_comm is None and CxoTime(comm["bot_date"]["value"]) > now:
+            next_comm = comm
+    return id_xs, id_labels, next_comm
+
+
+def draw_fluence_percentiles(
+    args, states, radzones, fluence0, avg_flux, p3_times, p3_vals, fluence_times, ax
+):
+    """Plot 10, 50, 90 percentiles of fluence"""
+    try:
+        if len(p3_times) < 4:
+            raise ValueError("not enough P3 values")
+        p3_slope = get_p3_slope(p3_times, p3_vals)
+        if p3_slope is not None and avg_flux > 0:
+            p3_fits, p3_samps, fluences = cfd.get_fluences(
+                ace_hourly_avg_file(args.data_dir, test=args.test),
+            )
+            hrs, fl10, fl50, fl90 = cfd.get_fluence_percentiles(
+                avg_flux,
+                p3_slope,
+                p3_fits,
+                p3_samps,
+                fluences,
+                args.min_flux_samples,
+                args.max_slope_samples,
+            )
+            fluence_hours = (fluence_times - fluence_times[0]) / 3600.0
+            for fl_y, linecolor in zip(
+                (fl10, fl50, fl90), ("-g", "-b", "-r"), strict=False
+            ):
+                fl_y = ska_numpy.interpolate(fl_y, hrs, fluence_hours)  # noqa: PLW2901
+                rates = np.diff(fl_y)
+                fl_y_atten = calc_fluence(fluence_times[:-1], fluence0, rates, states)
+                zero_fluence_at_radzone(fluence_times[:-1], fl_y_atten, radzones)
+                ax.plot(
+                    cxc2pd(fluence_times[0]) + fluence_hours[:-1] / 24.0,
+                    fl_y_atten,
+                    linecolor,
+                )
+    except Exception as e:
+        print(("WARNING: p3 fluence not plotted, error : {}".format(e)))
+
+
+def set_plot_x_y_axis_limits(start, stop, ax):
+    x0, x1 = start.plot_date, stop.plot_date
+    ax.set_xlim(x0, x1)
+    y0 = -0.45
+    y1 = 2.55
+    ax.set_ylim(y0, y1)
+    return x0, x1, y0, y1
+
+
+def draw_fluence_and_grating_state_line(states, fluence_times, fluence, ax):
+    """Make a z-valued curve where the z value corresponds to the grating state."""
+
+    x = cxc2pd(fluence_times)
+    y = fluence
+    z = np.zeros(len(fluence_times), dtype=int)
+
+    for state in states:
+        ok = (state["tstart"] < fluence_times) & (fluence_times <= state["tstop"])
+        if state["hetg"] == "INSR":
+            z[ok] = 1
+        elif state["letg"] == "INSR":
+            z[ok] = 2
+
+    plot_multi_line(x, y, z, [0, 1, 2], ["k", "r", "c"], ax)
+
+
+def draw_dummy_lines_letg_hetg_legend(fluence_times, fig, ax):
+    lx = [fluence_times[0], fluence_times[-1]]
+    ly = [-1, -1]
+    plot_cxctime(lx, ly, "-k", lw=3, label="None", fig=fig, ax=ax)
+    plot_cxctime(lx, ly, "-r", lw=3, label="HETG", fig=fig, ax=ax)
+    plot_cxctime(lx, ly, "-c", lw=3, label="LETG", fig=fig, ax=ax)
+
+
+def draw_ace_yellow_red_limits(fluence_times, ax):
+    # Plot lines at 1.0 and 2.0 (10^9) corresponding to fluence yellow
+    # and red limits.  Also plot the fluence=0 line in black.
+    x0, x1 = cxc2pd([fluence_times[0], fluence_times[-1]])
+    ax.plot([x0, x1], [0.0, 0.0], "-k")  # ?? I don't see this line
+    ax.plot([x0, x1], [1.0, 1.0], "--b", lw=2.0)
+    ax.plot([x0, x1], [2.0, 2.0], "--r", lw=2.0)
 
 
 def get_si(simpos):
@@ -645,9 +884,9 @@ def write_states_json(
         "pitch": "{:8.2f}",
         "obsid": "{:5d}",
     }
-    start = start - 1
-    tstop = (stop + 1).secs
-    tstart = DateTime(start.date[:8] + ":00:00:00").secs
+    start = start - 1 * u.day
+    tstop = (stop + 1 * u.day).secs
+    tstart = CxoTime(start.date[:8] + ":00:00:00").secs
     times = np.arange(tstart, tstop, 600)
     pds = cxc2pd(times)  # Convert from CXC time to plotdate times
 
@@ -691,9 +930,9 @@ def write_states_json(
     hrc_now = hrcs[-1]
     fluence_now = fluences[0]
 
-    fluences = Ska.Numpy.interpolate(fluences, fluence_times, times)
-    p3s = Ska.Numpy.interpolate(p3s, p3_times, times)
-    hrcs = Ska.Numpy.interpolate(hrcs, hrc_times, times)
+    fluences = ska_numpy.interpolate(fluences, fluence_times, times)
+    p3s = ska_numpy.interpolate(p3s, p3_times, times)
+    hrcs = ska_numpy.interpolate(hrcs, hrc_times, times)
 
     # Iterate through each time step and create corresponding data structure
     # with pre-formatted values for display in the output table.
@@ -746,7 +985,7 @@ def write_states_json(
 
 def date_zulu(date):
     """Format the current time in like 186/2234Z"""
-    date = DateTime(date).date
+    date = CxoTime(date).date
     zulu = "{}/{}{}z".format(date[5:8], date[9:11], date[12:14])
     return zulu
 
@@ -755,8 +994,8 @@ def get_fmt_dt(t1, t0):
     """
     Format delta time between ``t1`` and ``t0`` for the output table.
     """
-    t1 = DateTime(t1).secs
-    t0 = DateTime(t0).secs
+    t1 = CxoTime(t1).secs
+    t0 = CxoTime(t0).secs
     dt = t1 - t0
     adt = abs(int(round(dt)))
     days = adt // 86400
