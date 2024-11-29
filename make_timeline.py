@@ -125,6 +125,36 @@ URL_AVAIL_COMMS = (
     "https://occweb.cfa.harvard.edu/mission/MissionPlanning/DSN/DSN_Modifications.csv"
 )
 
+# Define HTML to support showing available comms as a table that is hidden by default.
+# The table content is inserted between the two. In a nicer world this would be in a
+# Jinja template, but let's keep the footprint small.
+COMMS_AVAIL_HTML_HEADER = """
+<script>
+    function toggleCommsAvail() {
+        var x = document.getElementById("timeline-comms-available");
+        var button = document.querySelector("button");
+        if (x.style.display === "none") {
+            x.style.display = "block";
+            button.textContent = "Hide available comms";
+        } else {
+            x.style.display = "none";
+            button.textContent = "Show available comms";
+        }
+    };
+</script>
+<div style="text-align: center;">
+    <button onclick="toggleCommsAvail()">Show available comms</button>
+</div>
+<div id="timeline-comms-available" style="display: none; font-family: monospace;">
+    <br>
+    <div style="display: flex; justify-content: center;">
+"""
+COMMS_AVAIL_HTML_FOOTER = """
+    </div>
+</div>
+<br>
+"""
+
 
 def cxc2pd(times: CxoTimeLike) -> float | np.ndarray:
     """
@@ -1012,11 +1042,13 @@ def write_comms_avail(comms_avail: Table, filename: str | Path):
     comms_avail.write(out, format="ascii.html")
     # Get the text between <table> and </table> and write out.
     match = re.search("<table>(.*)</table>", out.getvalue(), re.DOTALL)
-    Path(filename).write_text(match.group(0))
+    Path(filename).write_text(
+        COMMS_AVAIL_HTML_HEADER + match.group(0) + COMMS_AVAIL_HTML_FOOTER
+    )
 
 
 def write_states_json(
-    fn,
+    filename,
     fig,
     ax,
     states,
@@ -1142,7 +1174,7 @@ def write_states_json(
 
     # Finally write this all out as a simple javascript program that defines a single
     # variable ``data``.
-    with open(fn, "w") as f:
+    with open(filename, "w") as f:
         f.write("var data = {}".format(json.dumps(data)))
 
 
