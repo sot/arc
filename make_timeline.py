@@ -142,6 +142,7 @@ COMMS_AVAIL_HTML_HEADER = """
         }
     };
 </script>
+<br>
 <div style="text-align: center;">
     <button onclick="toggleCommsAvail()">Show available comms</button>
 </div>
@@ -152,7 +153,6 @@ COMMS_AVAIL_HTML_HEADER = """
 COMMS_AVAIL_HTML_FOOTER = """
     </div>
 </div>
-<br>
 """
 
 
