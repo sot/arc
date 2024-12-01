@@ -615,6 +615,14 @@ def main(args_sys=None):
     now = CxoTime(now.date[:14] + ":00")  # truncate to 0 secs
     start = now - 1.0 * u.day
     stop = start + args.hours * u.hour
+
+    # NOTE: for some reason django messes with the time zone, despite the environment
+    # variable TZ hack in kadi/events/models.py. Once `get_radzones()` is run on HEAD
+    # linux then the local timezone is set to Chicago, so we need to run
+    # get_comms_avail_for_humans() before that.
+    comms_avail = get_comms_avail(now, stop)
+    comms_avail_humans = get_comms_avail_for_humans(comms_avail)
+
     states = kadi_states.get_states(start=start, stop=stop)
     radzones = get_radzones()
     comms = get_comms()
@@ -642,7 +650,6 @@ def main(args_sys=None):
     rates = np.ones_like(fluence_times) * max(avg_flux, 0.0) * args.dt
     fluence = calc_fluence(fluence_times, fluence0, rates, states)
     zero_fluence_at_radzone(fluence_times, fluence, radzones)
-    comms_avail = get_comms_avail(now, stop)
 
     # Initialize the main plot figure
     fig = plt.figure(1, figsize=(9, 5))
@@ -713,7 +720,9 @@ def main(args_sys=None):
         hrc_vals,
         hrc_times,
     )
-    write_comms_avail(comms_avail, comms_avail_file(args.data_dir, test=args.test))
+    write_comms_avail(
+        comms_avail_humans, comms_avail_file(args.data_dir, test=args.test)
+    )
 
 
 def draw_log_scale_axes(fig, y0, y1):
@@ -964,8 +973,10 @@ def date_to_zulu(date):
     return CxoTime(date).date[9:14].replace(":", "")
 
 
-def write_comms_avail(comms_avail: Table, filename: str | Path):
-    """Make a simple HTML table of the available communication passes.
+def get_comms_avail_for_humans(comms_avail: Table) -> Table:
+    """Make table of available communication passes with human-readable fields.
+
+    This converts ``comms_avail`` from get_comms_avail() to the nicer format.
 
     Support (GMT)   BOT  EOT  Station   Site       Track time (local)
     --------------- ---- ---- --------- ---------  -------------------------
@@ -1025,7 +1036,7 @@ def write_comms_avail(comms_avail: Table, filename: str | Path):
         )
         rows.append(row)
 
-    comms_avail = Table(
+    out = Table(
         rows=rows,
         names=(
             "Support (GMT)",
@@ -1037,9 +1048,17 @@ def write_comms_avail(comms_avail: Table, filename: str | Path):
             "Dur",
         ),
     )
+    return out
 
+
+def write_comms_avail(comms_avail_humans: Table, filename: str | Path) -> None:
+    """Write the human-readable available comms as an HTML table in ``filename``.
+
+    This includes the javascipt to make this visible / hidden with a button. The HTML
+    is inserted directly into the arc3 index.html by arc3.pl.
+    """
     out = io.StringIO()
-    comms_avail.write(out, format="ascii.html")
+    comms_avail_humans.write(out, format="ascii.html")
     # Get the text between <table> and </table> and write out.
     match = re.search("<table>(.*)</table>", out.getvalue(), re.DOTALL)
     Path(filename).write_text(
