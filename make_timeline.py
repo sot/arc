@@ -1086,9 +1086,7 @@ def write_comms_avail(comms_avail_humans: Table | None, filename: str | Path) ->
         match = re.search("<table>(.*)</table>", out.getvalue(), re.DOTALL)
         text = match.group(0)
 
-    Path(filename).write_text(
-        COMMS_AVAIL_HTML_HEADER + text + COMMS_AVAIL_HTML_FOOTER
-    )
+    Path(filename).write_text(COMMS_AVAIL_HTML_HEADER + text + COMMS_AVAIL_HTML_FOOTER)
 
 
 def write_states_json(
