@@ -121,7 +121,7 @@ P3_BAD = -100000
 AXES_LOC = [0.08, 0.15, 0.83, 0.6]
 SKA = Path(os.environ["SKA"])
 DATA_ARC3 = SKA / "data" / "arc3"
-URL_AVAIL_COMMS = (
+COMMS_AVAIL_URL = (
     "https://occweb.cfa.harvard.edu/mission/MissionPlanning/DSN/DSN_Modifications.csv"
 )
 
@@ -298,7 +298,7 @@ def get_fluence(filename):
     return start, p3_fluence
 
 
-def get_comms_avail(start: CxoTime, stop: CxoTime) -> Table:
+def get_comms_avail(start: CxoTime, stop: CxoTime) -> Table | None:
     """Get the available DSN comms from OCCweb
 
     Parameters
@@ -310,15 +310,19 @@ def get_comms_avail(start: CxoTime, stop: CxoTime) -> Table:
 
     Returns
     -------
-    dat : Table
-        Table of available DSN comms
+    dat : Table | None
+        Table of available DSN comms, or None if URL could not be read
     """
-
     try:
-        text = occweb.get_occweb_page(URL_AVAIL_COMMS)
+        text = occweb.get_occweb_page(COMMS_AVAIL_URL)
+        if os.environ.get("ARC_TEST_SCENARIO") == "avail-comms-read-fail":
+            # Test failed read
+            raise Exception
     except Exception:
-        # Do not disrupt rest of processing for this. Consider logging a warning?
+        # Return None, which gets handled in the downstream processing with a warning
+        # on the web page that the URL could not be read.
         return None
+
     dat = Table.read(text, format="ascii", fill_values=[("NaN", "0")])
 
     # Deleted comms are ones that have been superseded by combined comms in this table.
@@ -330,6 +334,10 @@ def get_comms_avail(start: CxoTime, stop: CxoTime) -> Table:
         & (dat["type"] != "Deleted")
     )
     dat = dat[ok]
+
+    # Test that no comms are available in the range
+    if os.environ.get("ARC_TEST_SCENARIO") == "avail-comms-zero-len":
+        dat = dat[0:0]
 
     return dat["station", "avail_bot", "avail_eot", "avail_soa", "avail_eoa"]
 
@@ -758,8 +766,12 @@ def draw_hrc_acis_states(start, stop, states, ax, x0, x1):
     ax.text(x1 + dx, y_si, "HRC/ACIS", ha="left", va="center", size="small")
 
 
-def draw_comms_avail(comms_avail: Table, ax, x0, x1):
+def draw_comms_avail(comms_avail: Table | None, ax, x0, x1):
     """Draw available comms as a gray strip below the ACE/HRC multi-line plot"""
+    if comms_avail is None:
+        # Could not read URL, just make an empty list and carry on.
+        comms_avail = []
+
     y_comm0 = -0.38
     dy_comm = 0.05
     dx = (x1 - x0) * 0.01
@@ -973,7 +985,7 @@ def date_to_zulu(date):
     return CxoTime(date).date[9:14].replace(":", "")
 
 
-def get_comms_avail_for_humans(comms_avail: Table) -> Table:
+def get_comms_avail_for_humans(comms_avail: Table | None) -> Table | None:
     """Make table of available communication passes with human-readable fields.
 
     This converts ``comms_avail`` from get_comms_avail() to the nicer format.
@@ -984,6 +996,10 @@ def get_comms_avail_for_humans(comms_avail: Table) -> Table:
     318/2115-0000   2215 2345 DSS-26    GOLDSTONE  1715-1845 EST, Wed 13 Nov
     319/1100-1315   1200 1300 DSS-54    MADRID     0700-0800 EST, Thu 14 Nov
     """
+    # Could not read comms avail URL so just pass back None. This is handled later.
+    if comms_avail is None:
+        return None
+
     rows = []
     for comm in comms_avail:
         soa = CxoTime(comm["avail_soa"])
@@ -1036,33 +1052,42 @@ def get_comms_avail_for_humans(comms_avail: Table) -> Table:
         )
         rows.append(row)
 
-    out = Table(
-        rows=rows,
-        names=(
-            "Support (GMT)",
-            "BOT",
-            "EOT",
-            "Station",
-            "Site",
-            "Track time (local)",
-            "Dur",
-        ),
+    names = (
+        "Support (GMT)",
+        "BOT",
+        "EOT",
+        "Station",
+        "Site",
+        "Track time (local)",
+        "Dur",
+    )
+    out = (
+        Table(rows=rows, names=names)
+        if len(rows) > 0
+        else Table(names=names, dtype=["U"] * len(names))
     )
     return out
 
 
-def write_comms_avail(comms_avail_humans: Table, filename: str | Path) -> None:
+def write_comms_avail(comms_avail_humans: Table | None, filename: str | Path) -> None:
     """Write the human-readable available comms as an HTML table in ``filename``.
 
     This includes the javascipt to make this visible / hidden with a button. The HTML
     is inserted directly into the arc3 index.html by arc3.pl.
+
+    If comms_avail_humans is None that means the comms avail URL could not be read.
     """
-    out = io.StringIO()
-    comms_avail_humans.write(out, format="ascii.html")
-    # Get the text between <table> and </table> and write out.
-    match = re.search("<table>(.*)</table>", out.getvalue(), re.DOTALL)
+    if comms_avail_humans is None:
+        text = f"WARNING: could not read {COMMS_AVAIL_URL}"
+    else:
+        out = io.StringIO()
+        comms_avail_humans.write(out, format="ascii.html")
+        # Get the text between <table> and </table> and write out.
+        match = re.search("<table>(.*)</table>", out.getvalue(), re.DOTALL)
+        text = match.group(0)
+
     Path(filename).write_text(
-        COMMS_AVAIL_HTML_HEADER + match.group(0) + COMMS_AVAIL_HTML_FOOTER
+        COMMS_AVAIL_HTML_HEADER + text + COMMS_AVAIL_HTML_FOOTER
     )
 
 
