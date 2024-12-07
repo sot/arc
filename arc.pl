@@ -528,6 +528,9 @@ sub make_web_page {
 
     $html .= $opt{timeline_html};
 
+    my $avail_comms_html < io("$TaskData/comms_avail.html");
+    $html .= $avail_comms_html;
+
     $html .= $q->p . make_event_table($event) . $q->p;
 
     $html .= HTML::Table->new(-align => 'center',

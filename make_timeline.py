@@ -9,6 +9,10 @@ passages, instrument configuration.
 
 Testing
 =======
+This section documents regression testing of the Replan Central timeline plot code. For
+full testing of Replan Central including the ``arc.pl`` Perl script and other Python
+scripts see: https://github.com/sot/arc/wiki/Set-up-test-Replan-Central.
+
 First some setup which applies to testing both on HEAD and local::
 
   cd ~/git/arc
@@ -85,6 +89,7 @@ Compare the timeline_states.js files::
 
 import argparse
 import functools
+import io
 import json
 import os
 import re
@@ -103,8 +108,9 @@ import numpy as np
 import ska_numpy
 import tables
 import yaml
+from astropy.table import Table
 from cxotime import CxoTime, CxoTimeLike
-from kadi import events
+from kadi import events, occweb
 from ska_matplotlib import lineid_plot, plot_cxctime
 
 import calc_fluence_dist as cfd
@@ -115,6 +121,39 @@ P3_BAD = -100000
 AXES_LOC = [0.08, 0.15, 0.83, 0.6]
 SKA = Path(os.environ["SKA"])
 DATA_ARC3 = SKA / "data" / "arc3"
+COMMS_AVAIL_URL = (
+    "https://occweb.cfa.harvard.edu/mission/MissionPlanning/DSN/DSN_Modifications.csv"
+)
+
+# Define HTML to support showing available comms as a table that is hidden by default.
+# The table content is inserted between the two. In a nicer world this would be in a
+# Jinja template, but let's keep the footprint small.
+COMMS_AVAIL_HTML_HEADER = """
+<script>
+    function toggleCommsAvail() {
+        var x = document.getElementById("timeline-comms-available");
+        var button = document.querySelector("button");
+        if (x.style.display === "none") {
+            x.style.display = "block";
+            button.textContent = "Hide available comms";
+        } else {
+            x.style.display = "none";
+            button.textContent = "Show available comms";
+        }
+    };
+</script>
+<br>
+<div style="text-align: center;">
+    <button onclick="toggleCommsAvail()">Show available comms</button>
+</div>
+<div id="timeline-comms-available" style="display: none; font-family: monospace;">
+    <br>
+    <div style="display: flex; justify-content: center;">
+"""
+COMMS_AVAIL_HTML_FOOTER = """
+    </div>
+</div>
+"""
 
 
 def cxc2pd(times: CxoTimeLike) -> float | np.ndarray:
@@ -214,6 +253,7 @@ ace_hourly_avg_file = functools.partial(arc_data_file, DATA_ARC3, "ACE_hourly_av
 goes_x_h5_file = functools.partial(arc_data_file, DATA_ARC3, "GOES_X.h5")
 ace_h5_file = functools.partial(arc_data_file, DATA_ARC3, "ACE.h5")
 hrc_h5_file = functools.partial(arc_data_file, DATA_ARC3, "hrc_shield.h5")
+comms_avail_file = functools.partial(arc_data_file, DATA_ARC3, "comms_avail.html")
 
 
 def get_web_data(data_dir):
@@ -256,6 +296,50 @@ def get_fluence(filename):
     vals = lines[-1].split()
     p3_fluence = float(vals[9])
     return start, p3_fluence
+
+
+def get_comms_avail(start: CxoTime, stop: CxoTime) -> Table | None:
+    """Get the available DSN comms from OCCweb
+
+    Parameters
+    ----------
+    start : CxoTime
+        Start time for the available DSN comms table
+    stop : CxoTime
+        Stop time for the available DSN comms table
+
+    Returns
+    -------
+    dat : Table | None
+        Table of available DSN comms, or None if URL could not be read
+    """
+    try:
+        text = occweb.get_occweb_page(COMMS_AVAIL_URL)
+        if os.environ.get("ARC_TEST_SCENARIO") == "avail-comms-read-fail":
+            # Test failed read
+            raise Exception
+    except Exception:
+        # Return None, which gets handled in the downstream processing with a warning
+        # on the web page that the URL could not be read.
+        return None
+
+    dat = Table.read(text, format="ascii", fill_values=[("NaN", "0")])
+
+    # Deleted comms are ones that have been superseded by combined comms in this table.
+    datestart = start.date
+    datestop = stop.date
+    ok = (
+        (dat["avail_bot"] < datestop)
+        & (dat["avail_eot"] > datestart)
+        & (dat["type"] != "Deleted")
+    )
+    dat = dat[ok]
+
+    # Test that no comms are available in the range
+    if os.environ.get("ARC_TEST_SCENARIO") == "avail-comms-zero-len":
+        dat = dat[0:0]
+
+    return dat["station", "avail_bot", "avail_eot", "avail_soa", "avail_eoa"]
 
 
 def get_avg_flux(
@@ -539,6 +623,14 @@ def main(args_sys=None):
     now = CxoTime(now.date[:14] + ":00")  # truncate to 0 secs
     start = now - 1.0 * u.day
     stop = start + args.hours * u.hour
+
+    # NOTE: for some reason django messes with the time zone, despite the environment
+    # variable TZ hack in kadi/events/models.py. Once `get_radzones()` is run on HEAD
+    # linux then the local timezone is set to Chicago, so we need to run
+    # get_comms_avail_for_humans() before that.
+    comms_avail = get_comms_avail(now, stop)
+    comms_avail_humans = get_comms_avail_for_humans(comms_avail)
+
     states = kadi_states.get_states(start=start, stop=stop)
     radzones = get_radzones()
     comms = get_comms()
@@ -593,6 +685,11 @@ def main(args_sys=None):
     ax.grid()
     ax.set_ylabel("Attenuated fluence / 1e9")
     ax.legend(loc="upper center", labelspacing=0.15, fontsize=10)
+    # NOTE: this function call must be BEFORE any functions that add ax.text() labels to
+    # the plot. For some reason if there are ax.text() labels you get an exception:
+    #     box.xyann = (wlp[i], box.xyann[1])
+    #                          ^^^^^^^^^
+    # AttributeError: 'Text' object has no attribute 'xyann'
     lineid_plot.plot_line_ids(
         cxc2pd([start.secs, stop.secs]),
         [y1, y1],
@@ -603,6 +700,7 @@ def main(args_sys=None):
         label1_size=10,
     )
 
+    draw_comms_avail(comms_avail, ax, x0, x1)
     draw_goes_x_data(goes_x_times, goes_x_vals, ax)
     draw_ace_p3_and_limits(now, start, p3_times, p3_vals, ax)
     draw_hrc_proxy(hrc_times, hrc_vals, ax)
@@ -629,6 +727,9 @@ def main(args_sys=None):
         avg_flux,
         hrc_vals,
         hrc_times,
+    )
+    write_comms_avail(
+        comms_avail_humans, comms_avail_file(args.data_dir, test=args.test)
     )
 
 
@@ -663,6 +764,31 @@ def draw_hrc_acis_states(start, stop, states, ax, x0, x1):
     plot_multi_line(x, y, z, [0, 1], ["c", "r"], ax)
     dx = (x1 - x0) * 0.01
     ax.text(x1 + dx, y_si, "HRC/ACIS", ha="left", va="center", size="small")
+
+
+def draw_comms_avail(comms_avail: Table | None, ax, x0, x1):
+    """Draw available comms as a gray strip below the ACE/HRC multi-line plot"""
+    if comms_avail is None:
+        # Could not read URL, just make an empty list and carry on.
+        comms_avail = []
+
+    y_comm0 = -0.38
+    dy_comm = 0.05
+    dx = (x1 - x0) * 0.01
+
+    # Draw comm passes
+    for comm in comms_avail:
+        pd0, pd1 = cxc2pd([comm["avail_bot"], comm["avail_eot"]])
+        patch = matplotlib.patches.Rectangle(
+            (pd0, y_comm0),
+            pd1 - pd0,
+            dy_comm,
+            alpha=0.5,
+            facecolor="k",
+            edgecolor="none",
+        )
+        ax.add_patch(patch)
+    ax.text(x1 + dx, y_comm0, "Avail comms", ha="left", va="center", size="small")
 
 
 def draw_hrc_proxy(hrc_times, hrc_vals, ax):
@@ -852,8 +978,119 @@ def get_si(simpos):
     return si
 
 
+def date_to_zulu(date):
+    """
+    Convert a date string to a Zulu time string.
+    """
+    return CxoTime(date).date[9:14].replace(":", "")
+
+
+def get_comms_avail_for_humans(comms_avail: Table | None) -> Table | None:
+    """Make table of available communication passes with human-readable fields.
+
+    This converts ``comms_avail`` from get_comms_avail() to the nicer format.
+
+    Support (GMT)   BOT  EOT  Station   Site       Track time (local)
+    --------------- ---- ---- --------- ---------  -------------------------
+    318/1345-1600   1445 1545 DSS-24    GOLDSTONE  0945-1045 EST, Wed 13 Nov
+    318/2115-0000   2215 2345 DSS-26    GOLDSTONE  1715-1845 EST, Wed 13 Nov
+    319/1100-1315   1200 1300 DSS-54    MADRID     0700-0800 EST, Thu 14 Nov
+    """
+    # Could not read comms avail URL so just pass back None. This is handled later.
+    if comms_avail is None:
+        return None
+
+    rows = []
+    for comm in comms_avail:
+        soa = CxoTime(comm["avail_soa"])
+        eoa = CxoTime(comm["avail_eoa"])
+        bot = CxoTime(comm["avail_bot"])
+        eot = CxoTime(comm["avail_eot"])
+
+        support_doy = soa.date[5:8]
+        support_startz = date_to_zulu(soa)
+        support_endz = date_to_zulu(eoa)
+        support_gmt = f"{support_doy}/{support_startz}-{support_endz}"
+
+        station = comm["station"]
+        station_num = int(station[-2:])
+        if station_num < 30:
+            site = "GOLDSTONE"
+        elif station_num < 50:
+            site = "CANBERRA"
+        else:
+            site = "MADRID"
+
+        # local time looks like '2024 Sun Nov 17 04:58:09 AM EST'
+        pattern = (
+            r"(?P<year>\d{4}) (?P<day_name>\w{3}) (?P<month>\w{3}) "
+            r"(?P<day>\d{2}) (?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2}) "
+            r"(?P<period>AM|PM) (?P<tz>\w{3})"
+        )
+        match = re.match(pattern, bot.get_conversions()["local"])
+        bot_local = match.groupdict()
+        track_bot = (
+            f"{bot_local['day_name']} {bot_local['month']} {bot_local['day']} "
+            f"{bot_local['hour']}:{bot_local['minute']} "
+            f"{bot_local['period']} {bot_local['tz']}"
+        )
+
+        dur = eot - bot
+        dur_secs = np.round(dur.sec)
+        dur_hr = int(dur_secs // 3600)
+        dur_min = int((dur_secs - dur_hr * 3600) // 60)
+        dur_hr_min = f"{dur_hr}:{dur_min:02d}"
+
+        row = (
+            support_gmt,
+            date_to_zulu(comm["avail_bot"]),
+            date_to_zulu(comm["avail_eot"]),
+            station,
+            site,
+            track_bot,
+            dur_hr_min,
+        )
+        rows.append(row)
+
+    names = (
+        "Support (GMT)",
+        "BOT",
+        "EOT",
+        "Station",
+        "Site",
+        "Track time (local)",
+        "Dur",
+    )
+    out = (
+        Table(rows=rows, names=names)
+        if len(rows) > 0
+        else Table(names=names, dtype=["U"] * len(names))
+    )
+    return out
+
+
+def write_comms_avail(comms_avail_humans: Table | None, filename: str | Path) -> None:
+    """Write the human-readable available comms as an HTML table in ``filename``.
+
+    This includes the javascipt to make this visible / hidden with a button. The HTML
+    is inserted directly into the arc3 index.html by arc3.pl.
+
+    If comms_avail_humans is None that means the comms avail URL could not be read.
+    """
+    if comms_avail_humans is None:
+        text = f"WARNING: could not read {COMMS_AVAIL_URL}"
+    else:
+        out = io.StringIO()
+        comms_avail_humans.write(out, format="ascii.html")
+        # Get the text between <table> and </table> and write out.
+        match = re.search("<table>(.*)</table>", out.getvalue(), re.DOTALL)
+        text = match.group(0)
+
+    Path(filename).write_text(COMMS_AVAIL_HTML_HEADER + text + COMMS_AVAIL_HTML_FOOTER)
+
+
 def write_states_json(
-    fn,
+    filename,
     fig,
     ax,
     states,
@@ -979,7 +1216,7 @@ def write_states_json(
 
     # Finally write this all out as a simple javascript program that defines a single
     # variable ``data``.
-    with open(fn, "w") as f:
+    with open(filename, "w") as f:
         f.write("var data = {}".format(json.dumps(data)))
 
 
