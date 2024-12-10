@@ -245,7 +245,7 @@ def arc_data_file(
 acis_fluence_file = functools.partial(
     arc_data_file, "/proj/web-cxc/htdocs/acis/Fluence", "current.dat"
 )
-ace_rates_file = functools.partial(arc_data_file, "/data/mta4/www", "ace.html")
+ace_rates_file = functools.partial(arc_data_file, "/data/mta4/www", "RADIATION_new/ACE/ace.html")
 dsn_comms_file = functools.partial(
     arc_data_file, SKA / "data" / "dsn_summary", "dsn_summary.yaml"
 )
@@ -265,7 +265,7 @@ def get_web_data(data_dir):
 
     urls_file_funcs = [
         ("/acis/Fluence/current.dat", acis_fluence_file),
-        ("/mta/ace.html", ace_rates_file),
+        ("/mta/RADIATION_new/ACE/ace.html", ace_rates_file),
         ("/mta/ASPECT/dsn_summary/dsn_summary.yaml", dsn_comms_file),
     ]
 
