@@ -87,7 +87,6 @@ my $occweb_passwd = $netrc->password;
 
     make_maneuver_obsid_links(\@event);
 
-    push @event, get_violation_events($obsid, \%snap, \@event);
     push @event, now_event();	# Add a special event for Now
     push @event, scs107_detected_event() if $SCS107date;
 
@@ -207,7 +206,6 @@ sub get_obsid_event {
     }
 
     # Failed to find obsid event corresponding to current obsid and attitude.
-    # So return empty handed, which in turn causes get_violation_events to do nothing.
     return;
 }
 
@@ -251,190 +249,6 @@ sub make_maneuver_obsid_links {
 	}
 
     }
-}
-
-####################################################################################
-sub get_violation_events {
-####################################################################################
-    my $obsid = shift;
-    my $snap = shift;
-    my $event = shift;
-    my $evt;
-    my @violation;
-    local $_;
-
-    my $obsid_evt = get_obsid_event($obsid, $snap, $event) or return;
-    my ($time_maneuver, $date_maneuver, $load_name);
-    eval {
-	$time_maneuver = $obsid_evt->maneuver->tstop;
-	$date_maneuver = $obsid_evt->maneuver->date_stop;
-	$load_name = $obsid_evt->load_segment->load_name;
-    };
-    if ($@) {
-	warning("Problem in get_violation_events, no PCAD violation events");
-	print STDERR "ERROR - $@";
-	return;
-    }
-    my @constraints;
-    push @constraints, get_constraints($load_name, '');		# PCAD constraints
-
-    my $constraint;
-    for $constraint (@constraints) {
-	my $time_constr = date2time($constraint->{date}, 'unix');
-	my $delta_t = $time_constr - $time_maneuver;
-	if (abs($delta_t) < 60) {
-	    if ($Debug) {
-		print "Found matching PCAD constraint record (delta = $delta_t):\n";
-		print " type: ", $constraint->{violation}{type}, "\n";
-		print " pcad: ", $constraint->{date}, "\n";
-		print " manv: $date_maneuver\n";
-	    }
-
-	    my $violation_descr = $constraint->{violation}{type};
-	    if ($constraint->{violation}{subtype}) {
-		$violation_descr .= ": $constraint->{violation}{subtype}";
-	    }
-
-	    push @violation, Event->new('Type Description'=> 'Violation',
-					'TStart (GMT)'    => $constraint->{violation}{date},
-					'TStop (GMT)'     => $constraint->{violation}{date},
-					'violation'       => $violation_descr,
-				       );
-	}
-    }
-
-    return @violation;
-}
-
-####################################################################################
-sub get_constraints_text {
-####################################################################################
-    my $load_name = shift;
-    my $prefix = shift;
-    local $_;
-    my $error;
-
-    # Get the constraint check file.  Try a pre-existing local version
-    # first, then try approved products, and finally the backstop products.
-
-    my ($mon, $day, $yr, $rev) = ($load_name =~ /(\w\w\w)(\d\d)(\d\d)(\w)/);
-    my $occ_web_name = "${prefix}${load_name}.txt";
-    my $year = $yr + 1900 + ($yr<97 ? 100 : 0);
-    my $path_approved = "PRODUCTS/APPR_LOADS/$year/$mon/$load_name";
-    my $path_backstop = "Backstop/$load_name";
-    my $file = io("$TaskData/$opt{file}{pcad_constraints}/$occ_web_name");
-    $load_info{name} = $load_name;
-    if (-r "$file") {
-	$file > $_;
-	$load_info{URL} = (/% URL: (.+)/) ? $1 : 'NotFound';
-    } else {
-	my $error;
-	foreach my $path ($path_approved, $path_backstop) {
-	    $load_info{URL} = "$opt{url}{mission_planning}/$path";
-	    ($_, $error) = get_url("$load_info{URL}/output/$occ_web_name",
-				   user => $occweb_user,
-				   passwd => $occweb_passwd,
-				   timeout => $opt{timeout}
-			      );
-	    last if not defined $error;
-	}
-	if (defined $error) {
-	    $load_info{URL} = 'NotFound';
-	    return ('', $error);
-	}
-	# Write content to file.  Assert ensures that path exists
-	"% URL: $load_info{URL}\n" > $file->assert;
-	$_ >> $file;
-    }
-    return ($_, $error);
-}
-
-####################################################################################
-sub get_constraints {
-####################################################################################
-    my $load_name = shift;
-    my $prefix = shift;
-    my @constraint;
-    local $_;
-    my $error;
-
-    # Get the constraint check file.  Try the specified load revision
-    # (e.g. "C") then step back to "B" and "A" to try to find constraints file.
-
-    my ($mon, $day, $yr, $rev) = ($load_name =~ /(\w\w\w)(\d\d)(\d\d)(\w)/);
-    my $orig_load_name = $load_name;
-    while ($rev ge "A") {
-	($_, $error) = get_constraints_text($load_name, $prefix);
-	if (defined $error) {
-	    $rev = chr(ord($rev) - 1);
-	    $load_name = "${mon}${day}${yr}${rev}";
-	} else {
-	    last
-	}
-    }
-    if (defined $error) {
-	warning("Could not find constraints file for any load version of "
-		. substr("${prefix}${orig_load_name}", 0, -1));
-	return;
-    } elsif ($load_name ne $orig_load_name) {
-	warning("Using constraints file ${prefix}${load_name} instead of ${prefix}${orig_load_name}");
-    }
-
-    # Parse the constraints
-    #
-    # Attitude Hold violation predictions
-    # %-----------------------------------------------------------
-    # Target Start Time:  2005:247:23:31:33.993
-    # Target Quaternion:  0.46452128 0.21824985 -0.03489846 0.85753663
-    # Target RA/Dec/Roll: 9.00 -24.00 58.80
-    # PLINE Violation:    2005:251:18:16:33.000
-    # TEPHIN Violation:   +Inf
-    #
-    # Target Start Time:  2005:247:23:31:33.993
-    # Target Quaternion:  0.46452128 0.21824985 -0.03489846 0.85753663
-    # Target RA/Dec/Roll: 9.00 -24.00 58.80
-    # Attitude Violation: SPM 2005:253:09:06:33.000
-    # High Momentum:      2005:250:07:41:33.993
-
-    my @match;
-    s/.+?Attitude Hold violation predictions//s; # Chuck everything before the att. viol. predicts
-    my @constraint_lines = split "\n", $_;
-
-    my ($date, $quat, $att);
-    my $violation_RE = qr/Attitude Violation|High Momentum|PLINE Violation|TEPHIN Violation|TCYLAFT6 Violation/;
-
-    foreach (@constraint_lines) {
-	if (/^Target Start Time:\s*($DateRE)\s*\z/) {
-	    $date = $1;
-	}
-	if (/^Target Quaternion:\s*($FloatRE)\s+($FloatRE)\s+($FloatRE)\s+($FloatRE)\s*\z/) {
-	    $quat = [$1, $2, $3, $4];
-	}
-	if (/^Target RA\/Dec\/Roll:\s*($FloatRE)\s+($FloatRE)\s+($FloatRE)\s*\z/) {
-	    $att = [$1, $2, $3];
-	}
-	if (/^($violation_RE):\s*(\S*?)\s+($DateRE|\+Inf)/) {
-	    my $viol = { type    => $1,
-			 subtype => $2, # Sub-type of violation, e.g. SPM = Sun Position Monitor
-			 date    => $3 };
-
-	    $viol->{type} .= ' (POSSIBLY UNRELIABLE)' if ($viol->{type} =~ /TEPHIN Violation/);
-
-	    if ($viol->{date} eq '+Inf') {  # Add 12 days to current time if constraint date = +Inf
-		$viol->{date} = $conv_time->date($CURRENT_TIME->unix + 86400*12);
-		$viol->{subtype} = 'NONE';
-	    }
-
-	    push @constraint, {date      => $date,
-			       quat      => $quat,
-			       att       => $att,
-			       violation => $viol ,
-			      };
-	}
-    }
-
-
-    return @constraint;
 }
 
 ####################################################################################
