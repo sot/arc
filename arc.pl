@@ -165,52 +165,6 @@ sub scs107_detected_event {
 }
 
 ####################################################################################
-sub get_obsid_event {
-####################################################################################
-    my $obsid = shift;
-    my $snap  = shift;
-    my $event = shift;
-    my $warn_msg = "Unable to include PCAD violation events";
-
-    my @obsid_evt = grep { defined $_->obsid } @{$event};
-    my @index = grep { $obsid_evt[$_]->obsid == $obsid } (0..$#obsid_evt);
-    if (@index != 1) {
-	my $num = (@index == 0) ? 'No' : 'Multiple';
-	warning("$num events found matching obsid=$obsid: $warn_msg");
-	return;
-    }
-
-    # Temporarily disable pcad checking
-    # return $obsid_evt[$index[0]];
-
-    # Check if pcadmode is NPM, and if so look at attitude and make sure it matches
-    # expected for obsid.  If not, try the next maneuver after current obsid.
-
-    if ($snap->{pcadmode}{value} eq 'NPNT') {
-	my $snap_quat = Quat->new($snap->{ra}{value}, $snap->{dec}{value}, $snap->{roll}{value});
-	for my $i ($index[0], $index[0]+1) {
-	    unless (defined $obsid_evt[$i]->target_quat) {
-		dbg Dumper $obsid_evt[$i];
-		next;
-	    }
-	    my $target_quat = $obsid_evt[$i]->target_quat->quat;
-	    my $dq = $target_quat->divide($snap_quat);
-	    if (abs($dq->{ra0}) < 0.1 and abs($dq->{dec}) < 0.1 and abs($dq->{roll0}) < 1) {
-		return $obsid_evt[$i];
-	    }
-	}
-	warning("No obsid event matching snapshot attitude: $warn_msg");
-    } else {
-	# Not in NPM, so all bets are off
-	warning("Not in NPM: $warn_msg");
-    }
-
-    # Failed to find obsid event corresponding to current obsid and attitude.
-    return;
-}
-
-
-####################################################################################
 sub make_maneuver_obsid_links {
 ####################################################################################
     my $event = shift;
