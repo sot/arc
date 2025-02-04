@@ -4,9 +4,8 @@ import shutil
 from ska_helpers.web_utils import get_last_referenced_web_image
 
 
-
 URL = "https://www.solen.info/solar/index.html"
-
+IMAGE_SRC_PATTERN = r'(images/AR_CH_\d{8}.png)'
 
 def get_options():
     parser = argparse.ArgumentParser(description="Get solar flare png")
@@ -22,7 +21,7 @@ def main(sys_args=None):
 
     img = get_last_referenced_web_image(
         url=URL,
-        img_src_pattern=r'(images/AR_CH_\d{8}.png)',
+        img_src_pattern=IMAGE_SRC_PATTERN,
         cache_dir=Path(args.image_cache_dir))
 
     # Copy the image to the standard name
