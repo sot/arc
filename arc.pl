@@ -352,7 +352,7 @@ sub make_web_page {
     $html .= $q->p({style => $image_title_style},
 		   $q->a({href => $opt{url}{solar_flare_monitor}, target => "_blank"}, "Solar Flare Monitor"),
 		   $q->br,
-		   $q->img({class=>"boxed", src => $web_data->{solar_flare_monitor}{image}{solar_flare_monitor}{file}})
+		   $q->img({class=>"boxed", src => "solar_flare.png", height => 600})
 		  );
 
     $html .= $q->end_html;
