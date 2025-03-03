@@ -109,6 +109,8 @@ def main(sys_args=None):
 if __name__ == "__main__":
     try:
         main()
+    except requests.exceptions.HTTPError as e:
+        print(f"Failed to get page or image: {e}")
     except Exception:
         import traceback
 
