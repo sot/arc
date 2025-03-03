@@ -7,6 +7,7 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 import requests
+from ska_helpers import retry
 
 URL = "https://www.solen.info/solar/index.html"
 IMAGE_SRC_PATTERN = r"<img src=\"(images/AR_CH_\d{8}\.png)\""
@@ -23,6 +24,7 @@ def get_options():
     return parser
 
 
+@retry.retry(exceptions=requests.exceptions.RequestException, delay=5, tries=3)
 def get_last_referenced_web_image(
     url: str, img_src_pattern: str, cache_dir: str | Path
 ) -> Path:
@@ -55,6 +57,8 @@ def get_last_referenced_web_image(
 
     # Fetch the web page and get the html
     response = requests.get(url)
+    # Check that the request was successful
+    response.raise_for_status()
     html = response.text
 
     # get absolute url of the image that matches the supplied pattern
@@ -80,6 +84,9 @@ def get_last_referenced_web_image(
 
     # Download the new image and save it to the cache directory
     response = requests.get(img_url)
+    # Check that the request was successful
+    response.raise_for_status()
+
     with open(cached_image_file, "wb") as f:
         f.write(response.content)
 
