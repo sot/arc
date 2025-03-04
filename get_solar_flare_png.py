@@ -24,7 +24,12 @@ def get_options():
     return parser
 
 
-@retry.retry(exceptions=requests.exceptions.RequestException, delay=5, tries=3)
+@retry.retry(
+    exceptions=requests.exceptions.RequestException,
+    delay=5,
+    tries=3,
+    mangle_alert_words=True,
+)
 def get_last_referenced_web_image(
     url: str, img_src_pattern: str, cache_dir: str | Path
 ) -> Path:
