@@ -108,7 +108,7 @@ def main(sys_args=None):
 
     # Copy the image to the standard name
     standard_image_path = Path(args.out_file)
-    shutil.copy(img_file, standard_image_path)
+    shutil.copyfile(img_file, standard_image_path)
 
 
 if __name__ == "__main__":
