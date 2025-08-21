@@ -101,7 +101,6 @@ os.environ["MPLBACKEND"] = "Agg"
 
 import astropy.units as u
 import kadi.commands.states as kadi_states
-
 import matplotlib.cbook
 import matplotlib.patches
 import matplotlib.pyplot as plt
