@@ -101,6 +101,7 @@ os.environ["MPLBACKEND"] = "Agg"
 
 import astropy.units as u
 import kadi.commands.states as kadi_states
+
 import matplotlib.cbook
 import matplotlib.patches
 import matplotlib.pyplot as plt
@@ -631,7 +632,7 @@ def main(args_sys=None):
     comms_avail = get_comms_avail(now, stop)
     comms_avail_humans = get_comms_avail_for_humans(comms_avail)
 
-    states = kadi_states.get_states(start=start, stop=stop)
+    states = kadi_states.get_states(start=start, stop=stop, scenario="flight")
     radzones = get_radzones()
     comms = get_comms()
 
