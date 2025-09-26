@@ -245,7 +245,9 @@ def arc_data_file(
 acis_fluence_file = functools.partial(
     arc_data_file, "/proj/web-cxc/htdocs/acis/Fluence", "current.dat"
 )
-ace_rates_file = functools.partial(arc_data_file, "/data/mta4/www", "ace.html")
+ace_rates_file = functools.partial(
+    arc_data_file, "/data/mta4/www/RADIATION/ACE", "ace.html"
+)
 dsn_comms_file = functools.partial(
     arc_data_file, SKA / "data" / "dsn_summary", "dsn_summary.yaml"
 )
@@ -265,7 +267,7 @@ def get_web_data(data_dir):
 
     urls_file_funcs = [
         ("/acis/Fluence/current.dat", acis_fluence_file),
-        ("/mta/ace.html", ace_rates_file),
+        ("/mta/RADIATION/ACE/ace.html", ace_rates_file),
         ("/mta/ASPECT/dsn_summary/dsn_summary.yaml", dsn_comms_file),
     ]
 
@@ -631,7 +633,7 @@ def main(args_sys=None):
     comms_avail = get_comms_avail(now, stop)
     comms_avail_humans = get_comms_avail_for_humans(comms_avail)
 
-    states = kadi_states.get_states(start=start, stop=stop)
+    states = kadi_states.get_states(start=start, stop=stop, scenario="flight")
     radzones = get_radzones()
     comms = get_comms()
 
