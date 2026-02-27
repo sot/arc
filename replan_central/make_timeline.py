@@ -736,9 +736,7 @@ def main(args_sys=None):
         hrc_vals,
         hrc_times,
     )
-    write_comms_avail(
-        comms_avail_humans, comms_avail_file(output_dir, test=args.test)
-    )
+    write_comms_avail(comms_avail_humans, comms_avail_file(output_dir, test=args.test))
 
 
 def draw_log_scale_axes(fig, y0, y1):
