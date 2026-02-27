@@ -100,7 +100,7 @@ from pathlib import Path
 os.environ["MPLBACKEND"] = "Agg"
 
 import astropy.units as u
-import calc_fluence_dist as cfd
+import replan_central.calc_fluence_dist as cfd
 import kadi.commands.states as kadi_states
 import matplotlib.cbook
 import matplotlib.patches
@@ -653,6 +653,7 @@ def main(args_sys=None):
     # Get the realtime ACE P3 and HRC proxy values over the time range
     goes_x_times, goes_x_vals = get_goes_x(start, now, args.data_dir, args.test)
     p3_times, p3_vals = get_ace_p3(start, now, args.data_dir, args.test)
+    p3_avg = np.mean(p3_vals)
     hrc_times, hrc_vals = get_hrc(start, now, args.data_dir, args.test)
 
     # For testing: inject predefined values for different scenarios
@@ -1091,7 +1092,7 @@ def write_comms_avail(comms_avail_humans: Table | None, filename: str | Path) ->
         # Get the text between <table> and </table> and write out.
         match = re.search("<table>(.*)</table>", out.getvalue(), re.DOTALL)
         text = match.group(0)
-
+    raise ValueError
     Path(filename).write_text(COMMS_AVAIL_HTML_HEADER + text + COMMS_AVAIL_HTML_FOOTER)
 
 

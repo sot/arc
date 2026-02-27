@@ -2,6 +2,8 @@
 
 use warnings;
 use strict;
+use FindBin;
+use Net::Netrc;
 use IO::All;
 use Ska::RDB qw(read_rdb);
 use Ska::Run;
@@ -23,13 +25,23 @@ use Chandra::Time;
 use Safe;
 use Getopt::Long;
 
-my $output_dir;
+my $outdir;
+my $Debug = 0;
+my $config_file;
+my $data_dir = File::Spec->catdir($FindBin::Bin, '..', 'data');
+
+
+# Set default config file to arc3.cfg in the data directory if not provided
 GetOptions(
-    'output-dir=s' => \$output_dir,
+    'out=s' => \$outdir,
     'debug' => \$Debug,
+    'config=s' => \$config_file,
 );
-unless ($output_dir) {
-    die "Usage: $0 --output-dir <output directory> [--debug]\n";
+unless ($config_file) {
+    $config_file = File::Spec->catfile($FindBin::Bin, '..', 'data', 'arc3.cfg');
+}
+unless ($outdir) {
+    die "Usage: $0 --out <output directory> [--debug]\n";
 }
 
 # ToDo:
@@ -47,7 +59,8 @@ if (-e $version_file) {
     $VERSION = 'unknown';
 }
 
-my $perl_dir = File::Spec->catdir($FindBin::Bin, '..', 'perl');
+my $perl_dir = $FindBin::Bin;
+
 require File::Spec->catfile($perl_dir, 'Event.pm');
 require File::Spec->catfile($perl_dir, 'Snap.pm');
 require File::Spec->catfile($perl_dir, 'parse_cm_file.pl');
@@ -55,7 +68,7 @@ require File::Spec->catfile($perl_dir, 'parse_cm_file.pl');
 my $FloatRE = qr/[+-]?(?:\d+[.]?\d*|[.]\d+)(?:[dDeE][+-]?\d+)?/;
 my $DateRE  = qr/\d\d\d\d:\d+:\d+:\d+:\d\d\.?\d*/;
 
-my %opt = get_config_options();
+my %opt = parse_config();
 
 # Set global current time at beginning of execution
 my $CurrentTime = @ARGV ? date2time(shift @ARGV, 'unix') : time;
@@ -64,7 +77,6 @@ my $conv_time = Chandra::Time->new({format => 'unix'}); # Generic time converter
 
 my $SCS107date;
 my %load_info;
-my $Debug = 0;
 my @warn;    # Global set of processing warnings (warn but don't die)
 
 Event::set_CurrentTime($CurrentTime);
@@ -82,7 +94,7 @@ my $occweb_passwd = $netrc->password;
     interpolate_config_file_options();
 
     # Get web data & pointers to downloaded image files from get_web_content.pl task
-    my %web_content = ParseConfig(-ConfigFile => File::Spec->catfile($data_dir, $opt{file}{web_content}));
+    my %web_content = ParseConfig(-ConfigFile => File::Spec->catfile($outdir, $opt{file}{web_content}));
 
     my ($snap_warning_ref, %snap) = Snap::get_snap( $opt{file}{snap_archive},
 						    [ $opt{file}{snap},
@@ -106,7 +118,7 @@ my $occweb_passwd = $netrc->password;
     @event = sort { $a->tstart <=> $b->tstart } @event;
 
     my $html  = make_web_page(\%snap, \@event, \%web_content);
-    $html > io(File::Spec->catfile($output_dir, $opt{file}{web_page}));
+    $html > io(File::Spec->catfile($outdir, $opt{file}{web_page}));
     install_web_files($html, \%web_content);
 
     print_iFOT_events(\@event) if $Debug;
@@ -138,21 +150,12 @@ sub interpolate_config_file_options {
 }
 
 ####################################################################################
-sub get_config_options {
+sub parse_config {
 ####################################################################################
-# Read in config options and an optional test config options
-    my %opt = ('config' => "arc3");
-    GetOptions(\%opt,
-	       'config=s');
-
-    Hash::Merge::set_behavior( 'RIGHT_PRECEDENT' );
-    foreach (split(':', $opt{config})) {
-        my $cfg_file = File::Spec->catfile($data_dir, "$_" . '.cfg');
-        if (-r $cfg_file) {
-            my %new_opt = ParseConfig(-ConfigFile => $cfg_file);
-            %opt = %{ Hash::Merge::merge(\%opt, \%new_opt)};
-        }
-    }
+# Read in config options from a single config file path
+    my $cfg_file = $config_file // die "No config file specified!";
+    die "Config file $cfg_file does not exist or is not readable!" unless -r $cfg_file;
+    my %opt = ParseConfig(-ConfigFile => $cfg_file);
     return %opt;
 }
 
@@ -307,10 +310,9 @@ sub make_web_page {
 					  $snap_table]],
 			     )->getTable;
 
-    my $data_dir = File::Spec->catdir($FindBin::Bin, '..', 'data');
     $html .= File::Spec->catfile($data_dir, 'timeline.html');
 
-    my $avail_comms_html < io(File::Spec->catfile($output_dir, 'comms_avail.html'));
+    my $avail_comms_html < io(File::Spec->catfile($outdir, 'comms_avail.html'));
     $html .= $avail_comms_html;
 
     $html .= $q->p . make_event_table($event) . $q->p;
@@ -389,7 +391,7 @@ sub install_web_files {
 
 
     foreach (qw(timeline_png timeline_states)){
-	my $in = io(File::Spec->catfile($output_dir, $opt{file}{$_}));
+	my $in = io(File::Spec->catfile($outdir, $opt{file}{$_}));
 	my $out =io(File::Spec->catfile($opt{file}{web_dir}, $opt{file}{$_}));
 	$in > $out if (not -e "$out" or $in->mtime > $out->mtime);
     }
@@ -557,7 +559,6 @@ sub make_ace_table {
     my $footnotes = "ACE data from $ace_date";
     $footnotes .= "<br>Orbital fluence: integrated attenuated ACE flux";
     $footnotes .= "<br>Grating attenuation not factored into current or 2hr flux numbers";
-    my $data_dir = File::Spec->catdir($FindBin::Bin, '..', 'data');
     $footnotes .= qq{<br><a href="" . File::Spec->catfile($data_dir, 'alert_limits.html') . "">RADMON and SOT alert limits information</a>};
     $table[$n_row][0] = $footnotes;
 
@@ -894,7 +895,7 @@ sub get_iFOT_events {
     foreach my $table_id (@table_id) {
 	my $cutoff_time = (defined $opt{stop_at_scs107}{$table_id} and defined $SCS107date) ?
 	  date2time($SCS107date, 'unix') :  $CurrentTime+10 ;
-	my @files = reverse sort glob(File::Spec->catfile($output_dir, $opt{file}{iFOT_events}, $table_id, '*.rdb'));
+	my @files = reverse sort glob(File::Spec->catfile($outdir, $opt{file}{iFOT_events}, $table_id, '*.rdb'));
       FILE: foreach (@files) {
 	    next unless m!/ ($DateRE) \.rdb \Z!x;
 	    if (date2time($1, 'unix') < $cutoff_time) {
@@ -938,7 +939,7 @@ sub check_for_scs107 {
 # to ensure "seeing" the initial detection of SCS107 in the event of switching in and out
 # of EPS subformat
 
-    my $scs107_history_file = File::Spec->catfile($output_dir, $opt{file}{scs107_history});
+    my $scs107_history_file = File::Spec->catfile($outdir, $opt{file}{scs107_history});
     my $load_running = (grep { $scs_state{"scs$_"} eq 'ACT' } qw(131 132 133)) ? 1 : 0;
 
     my $scs107_not_inac = ($scs_state{scs107} ne 'INAC') ? 1 : 0;

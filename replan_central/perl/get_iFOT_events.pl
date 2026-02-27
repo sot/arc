@@ -14,6 +14,7 @@ use Ska::RDB qw(write_rdb);
 use Ska::Web;
 use Carp;
 use Getopt::Long;
+use FindBin;
 
 my $output_dir;
 my $Debug    = 0;

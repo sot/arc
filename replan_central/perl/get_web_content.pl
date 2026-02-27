@@ -13,6 +13,7 @@ use Ska::Web;
 use Clone qw(clone);
 use Carp;
 use Getopt::Long;
+use FindBin;
 
 
 my $output_dir;
@@ -70,9 +71,12 @@ while (my ($web_name, $web) = each %web_data) {
 	    warning($content, "$error for web content $content_name ($url)");
 	}
 
-	if ($content->{file}) {
-	    $content->{outfile} = File::Spec->catfile($output_dir, $content->{file});
-	    $html_content > io($content->{outfile});
+        if ($content->{file}) {
+            $content->{outfile} = File::Spec->catfile($output_dir, $content->{file});
+            # Ensure parent directory exists
+            my $outdir = File::Spec->catpath((File::Spec->splitpath($content->{outfile}))[0,1], '');
+            io($outdir)->mkpath;
+            $html_content > io($content->{outfile});
             if (defined $header->last_modified){
                 utime($header->last_modified, $header->last_modified, $content->{outfile});
             }
@@ -121,7 +125,15 @@ while (my ($web_name, $web) = each %web_data) {
             last TRY if $got_image == 1;
         }
         if (($got_image == 0) and (defined $image->{warn_age_hours})){
-            if (((-M $image->{outfile}) * 24) > $image->{warn_age_hours}){
+            my $mtime = -M $image->{outfile};
+            unless (defined $mtime) {
+                warn "DEBUG: -M for $image->{outfile} is undefined";
+            }
+            unless (defined $image->{warn_age_hours}) {
+                warn "DEBUG: warn_age_hours for $img_file is undefined";
+            }
+            warn sprintf("DEBUG: mtime=%.3f, warn_age_hours=%s, outfile=%s", ($mtime // 'undef'), ($image->{warn_age_hours} // 'undef'), ($image->{outfile} // 'undef'));
+            if ((($mtime // 0) * 24) > ($image->{warn_age_hours} // 0)){
                 warning(
                     $image,
                     "Did not get $img_file and more than $image->{warn_age_hours} hours old");
