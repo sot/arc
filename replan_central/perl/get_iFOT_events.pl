@@ -13,18 +13,29 @@ use Ska::Convert qw(:all);
 use Ska::RDB qw(write_rdb);
 use Ska::Web;
 use Carp;
+use Getopt::Long;
 
-our $Task     = 'arc3';
-our $TaskShare = "$ENV{SKA_SHARE}/$Task";
-our $TaskData = "$ENV{SKA_DATA}/$Task";
-our $Debug    = 0;
-our $CurrentTime = time;	# Use time at start of program for output names
+my $output_dir;
+my $Debug    = 0;
+my $CurrentTime = time;    # Use time at start of program for output names
+my $data_dir = File::Spec->catdir($FindBin::Bin, '..', 'data');
 
-# Global task options
-our %opt  = ParseConfig(-ConfigFile => "$TaskShare/$Task.cfg");
+# Parse command-line options
+GetOptions(
+    'output-dir=s' => \$output_dir,
+    'debug' => \$Debug,
+);
+unless ($output_dir) {
+    die "Usage: $0 --output-dir <output directory> [--debug]\n";
+}
 
 # iFOT query definitions
-our %ifot = ParseConfig(-ConfigFile => "$TaskShare/iFOT_queries.cfg");
+our $data_dir = File::Spec->catdir($FindBin::Bin, '..', 'data');
+our %ifot = ParseConfig(-ConfigFile => "$data_dir/iFOT_queries.cfg");
+
+# Global task options
+our %opt  = ParseConfig(-ConfigFile => File::Spec->catfile($data_dir, "arc3.cfg"));
+
 
 foreach my $query_id (@{$opt{query_name}}) {
     print "Getting $query_id from iFOT\n" if $Debug;
@@ -58,17 +69,17 @@ sub update_iFOT_archive {
     # Write data to RDB table named by date
     my $time = $CurrentTime;
     my $date = time2date($time, 'unix_time');
-    my $path = "$TaskData/$opt{file}{iFOT_events}/$name";
-    io("$path")->mkpath;
+    my $path = File::Spec->catdir($output_dir, $opt{file}{iFOT_events}, $name);
+    io($path)->mkpath;
 
-    write_rdb("$path/${date}.rdb", $table, @{$cols});
-    print "Wrote $path/${date}.rdb\n" if $Debug;
+    write_rdb(File::Spec->catfile($path, "${date}.rdb"), $table, @{$cols});
+    print "Wrote " . File::Spec->catfile($path, "${date}.rdb") . "\n" if $Debug;
 
     # Delete tables older than $opt{keep_event_days}
-    foreach (glob("$path/*.rdb")) {
-	($date) = / ([^\/]+) \.rdb /x;
-	my $file_time = date2time($date, 'unix_time');
-	unlink if ($time - $file_time > $opt{keep_event_days} * 86400);
+    foreach (glob(File::Spec->catfile($path, '*.rdb'))) {
+        ($date) = / ([^\/]+) \.rdb /x;
+        my $file_time = date2time($date, 'unix_time');
+        unlink if ($time - $file_time > $opt{keep_event_days} * 86400);
     }
 }
 
@@ -112,7 +123,7 @@ sub extract_iFOT_table {
 # die "ERROR - HTML table does not have the required headers" if (@ts < 1);
     return if (@ts < 1);  # No data in table
 
-    # Find the table coordinates and now parse the entire table, not just the 
+    # Find the table coordinates and now parse the entire table, not just the
     # spec'd header columns
     my @table_coords = $ts[0]->coords;
     $te = new HTML::TableExtract;
@@ -122,7 +133,7 @@ sub extract_iFOT_table {
     # Get the data into a useful form (hash of arrays)
     my @rows = $ts->rows();
     my @cols = @{$rows[0]};
-    map { s/\A [\s<>]+ | [\s<>]+ \Z//gx } @cols;  # clean column names 
+    map { s/\A [\s<>]+ | [\s<>]+ \Z//gx } @cols;  # clean column names
     my %data;
     foreach my $i (0 .. $#cols) {
 	$data{$cols[$i]} = [ map { $_->[$i] } @rows[1..$#rows] ];
@@ -169,12 +180,12 @@ sub make_iFOT_query {
 	$query{tstart} = time2date(time + $query{rel_date_start}*86400, 'unix');
 	$query{tstop} = time2date(time + $query{rel_date_stop}*86400, 'unix');
     }
-	
-    # Now make the actual http query, starting with the http address. 
+
+    # Now make the actual http query, starting with the http address.
     $http = "$query{http}?";
     delete $query{http};
 
-    # Put these special parameters in order at the front 
+    # Put these special parameters in order at the front
     foreach (qw(r t a size format columns e)) {
 	push @query, "$_=$query{$_}" if defined $query{$_};
 	delete $query{$_};

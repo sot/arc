@@ -176,6 +176,11 @@ def get_parser():
         help="Data directory (default=t_now)",
     )
     parser.add_argument(
+        "--output-dir",
+        default=".",
+        help="Output directory for products (default: same as --data-dir)",
+    )
+    parser.add_argument(
         "--hours",
         default=72.0,
         type=float,
@@ -616,6 +621,8 @@ def main(args_sys=None):
     parser = get_parser()
     args = parser.parse_args(args_sys)
 
+    output_dir = args.output_dir if args.output_dir else args.data_dir
+
     if args.test_get_web:
         get_web_data(args.data_dir)
         sys.exit(0)
@@ -711,10 +718,10 @@ def main(args_sys=None):
     # Draw log scale y-axis on left
     draw_log_scale_axes(fig, y0, y1)
 
-    fig.savefig(os.path.join(args.data_dir, "timeline.png"))
+    fig.savefig(os.path.join(output_dir, "timeline.png"))
 
     write_states_json(
-        os.path.join(args.data_dir, "timeline_states.js"),
+        os.path.join(output_dir, "timeline_states.js"),
         fig,
         ax,
         states,
@@ -726,12 +733,12 @@ def main(args_sys=None):
         fluence_times,
         p3_vals,
         p3_times,
-        avg_flux,
+        p3_avg,
         hrc_vals,
         hrc_times,
     )
     write_comms_avail(
-        comms_avail_humans, comms_avail_file(args.data_dir, test=args.test)
+        comms_avail_humans, comms_avail_file(output_dir, test=args.test)
     )
 
 

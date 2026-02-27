@@ -12,17 +12,28 @@ use Ska::Convert qw(time2date date2time);
 use Ska::Web;
 use Clone qw(clone);
 use Carp;
+use Getopt::Long;
 
-our $Task     = 'arc3';
-our $TaskData = "$ENV{SKA_DATA}/$Task";
-our $TaskShare = "$ENV{SKA_SHARE}/$Task";
+
+my $output_dir;
+my $Debug = 0;
+my @warn;
+my $data_dir = File::Spec->catdir($FindBin::Bin, '..', 'data');
+
+# Parse command-line options
+GetOptions(
+    'output-dir=s' => \$output_dir,
+    'debug' => \$Debug,
+);
+unless ($output_dir) {
+    die "Usage: $0 --output-dir <output directory> [--debug]\n";
+}
+
 
 # Set global current time at beginning of execution
-our $CurrentTime = @ARGV ? date2time(shift @ARGV, 'unix') : time;	
-our $Debug = 0;
-our @warn;	# Global set of processing warnings (warn but don't die)
-our %opt = ParseConfig(-ConfigFile => "$TaskShare/$Task.cfg");
-our %web_content_cfg = ParseConfig(-ConfigFile => "$TaskShare/$opt{file}{web_content_cfg}");
+our $CurrentTime = @ARGV ? date2time(shift @ARGV, 'unix') : time;
+our %opt = ParseConfig(-ConfigFile => File::Spec->catfile($data_dir, "arc3.cfg"));
+our %web_content_cfg = ParseConfig(-ConfigFile => File::Spec->catfile($data_dir, $opt{file}{web_content_cfg}));
 
 our %web_data = %{ clone(\%web_content_cfg) };
 
@@ -42,7 +53,7 @@ while (my ($web_name, $web) = each %web_data) {
 	$web_opt{user} = $netrc->login;
 	$web_opt{passwd} = $netrc->password;
     }
-        
+
     my ($html, $error, $header) = Ska::Web::get_url($url, %web_opt);
 
     if ($error) {
@@ -60,7 +71,7 @@ while (my ($web_name, $web) = each %web_data) {
 	}
 
 	if ($content->{file}) {
-	    $content->{outfile} = "$TaskData/".$content->{file};
+	    $content->{outfile} = File::Spec->catfile($output_dir, $content->{file});
 	    $html_content > io($content->{outfile});
             if (defined $header->last_modified){
                 utime($header->last_modified, $header->last_modified, $content->{outfile});
@@ -74,7 +85,7 @@ while (my ($web_name, $web) = each %web_data) {
     while (my ($image_name, $image) = each %{$web->{image}}) {
         my $tries = $image->{tries} || 1;
         my $img_file = $image->{file};
-        $image->{outfile} = "$TaskData/$img_file";
+        $image->{outfile} = File::Spec->catfile($output_dir, $img_file);
         my $got_image = 0;
       TRY: for my $try (1 .. $tries) {
             try {
@@ -120,7 +131,7 @@ while (my ($web_name, $web) = each %web_data) {
 }
 
 # Save the data.
-Config::General->new(\%web_data)->save_file("$TaskData/$opt{file}{web_content}");
+Config::General->new(\%web_data)->save_file(File::Spec->catfile($output_dir, $opt{file}{web_content}));
 
 print STDERR join("\n", @warn), "\n" if @warn;
 

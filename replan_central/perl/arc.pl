@@ -22,7 +22,15 @@ use subs qw(dbg);
 use Chandra::Time;
 use Safe;
 use Getopt::Long;
-use Net::Netrc;
+
+my $output_dir;
+GetOptions(
+    'output-dir=s' => \$output_dir,
+    'debug' => \$Debug,
+);
+unless ($output_dir) {
+    die "Usage: $0 --output-dir <output directory> [--debug]\n";
+}
 
 # ToDo:
 # - Fix Ska::Convert to make time2date having configurable format
@@ -30,29 +38,34 @@ use Net::Netrc;
 # - Improve get_obsid_event so that it does violation checks during manv'r
 # - Make sure logs and all other files w/ passwd are secure
 
-our $Task     = 'arc3';
-our $TaskData = "$ENV{SKA_DATA}/$Task";
-our $TaskShare = "$ENV{SKA_SHARE}/$Task";
-our $VERSION = '4.10.3';
+my $VERSION;
+my $version_file = File::Spec->catfile($FindBin::Bin, '..', 'data', 'VERSION');
+if (-e $version_file) {
+    $VERSION = io($version_file)->slurp;
+    chomp $VERSION;
+} else {
+    $VERSION = 'unknown';
+}
 
-require "$ENV{SKA_SHARE}/$Task/Event.pm";
-require "$ENV{SKA_SHARE}/$Task/Snap.pm";
-require "$ENV{SKA_SHARE}/$Task/parse_cm_file.pl";
+my $perl_dir = File::Spec->catdir($FindBin::Bin, '..', 'perl');
+require File::Spec->catfile($perl_dir, 'Event.pm');
+require File::Spec->catfile($perl_dir, 'Snap.pm');
+require File::Spec->catfile($perl_dir, 'parse_cm_file.pl');
 
-our $FloatRE = qr/[+-]?(?:\d+[.]?\d*|[.]\d+)(?:[dDeE][+-]?\d+)?/;
-our $DateRE  = qr/\d\d\d\d:\d+:\d+:\d+:\d\d\.?\d*/;
+my $FloatRE = qr/[+-]?(?:\d+[.]?\d*|[.]\d+)(?:[dDeE][+-]?\d+)?/;
+my $DateRE  = qr/\d\d\d\d:\d+:\d+:\d+:\d\d\.?\d*/;
 
-our %opt = get_config_options();
+my %opt = get_config_options();
 
 # Set global current time at beginning of execution
-our $CurrentTime = @ARGV ? date2time(shift @ARGV, 'unix') : time;
-our $CURRENT_TIME = Chandra::Time->new($CurrentTime, {format => 'unix'});
-our $conv_time = Chandra::Time->new({format => 'unix'}); # Generic time converter box
+my $CurrentTime = @ARGV ? date2time(shift @ARGV, 'unix') : time;
+my $CURRENT_TIME = Chandra::Time->new($CurrentTime, {format => 'unix'});
+my $conv_time = Chandra::Time->new({format => 'unix'}); # Generic time converter box
 
-our $SCS107date;
-our %load_info;
-our $Debug = 0;
-our @warn;	# Global set of processing warnings (warn but don't die)
+my $SCS107date;
+my %load_info;
+my $Debug = 0;
+my @warn;    # Global set of processing warnings (warn but don't die)
 
 Event::set_CurrentTime($CurrentTime);
 Snap::set_CurrentTime($CurrentTime);
@@ -69,7 +82,7 @@ my $occweb_passwd = $netrc->password;
     interpolate_config_file_options();
 
     # Get web data & pointers to downloaded image files from get_web_content.pl task
-    my %web_content = ParseConfig(-ConfigFile => "$TaskData/$opt{file}{web_content}");
+    my %web_content = ParseConfig(-ConfigFile => File::Spec->catfile($data_dir, $opt{file}{web_content}));
 
     my ($snap_warning_ref, %snap) = Snap::get_snap( $opt{file}{snap_archive},
 						    [ $opt{file}{snap},
@@ -93,7 +106,7 @@ my $occweb_passwd = $netrc->password;
     @event = sort { $a->tstart <=> $b->tstart } @event;
 
     my $html  = make_web_page(\%snap, \@event, \%web_content);
-    $html > io("$TaskData/$opt{file}{web_page}");
+    $html > io(File::Spec->catfile($output_dir, $opt{file}{web_page}));
     install_web_files($html, \%web_content);
 
     print_iFOT_events(\@event) if $Debug;
@@ -134,11 +147,11 @@ sub get_config_options {
 
     Hash::Merge::set_behavior( 'RIGHT_PRECEDENT' );
     foreach (split(':', $opt{config})) {
-	my $cfg_file = "$TaskShare/$_.cfg";
-	if (-r $cfg_file) {
-	    my %new_opt = ParseConfig(-ConfigFile => $cfg_file);
-	    %opt = %{ Hash::Merge::merge(\%opt, \%new_opt)};
-	}
+        my $cfg_file = File::Spec->catfile($data_dir, "$_" . '.cfg');
+        if (-r $cfg_file) {
+            my %new_opt = ParseConfig(-ConfigFile => $cfg_file);
+            %opt = %{ Hash::Merge::merge(\%opt, \%new_opt)};
+        }
     }
     return %opt;
 }
@@ -258,11 +271,11 @@ sub make_web_page {
 
     $html .= $q->start_html(-title => $opt{web_page}{title_short},
 			    -style => [{-code => $opt{web_page}{style} },
-				       {-src => "timeline.css",}
+                    {-src => File::Spec->catfile($FindBin::Bin, '..', 'data', 'timeline.css'),}
 				       ],
 			    -noScript => $opt{web_refresh}{NoScript},
 			    -script => [{ -src => 'timeline_states.js'},
-					{ -src => 'timeline.js'},
+                    { -src => File::Spec->catfile($FindBin::Bin, '..', 'data', 'timeline.js')},
 					{ -language => 'JavaScript',
 					  -code     => $opt{web_refresh}{JavaScript},
 					},
@@ -294,9 +307,10 @@ sub make_web_page {
 					  $snap_table]],
 			     )->getTable;
 
-    $html .= $opt{timeline_html};
+    my $data_dir = File::Spec->catdir($FindBin::Bin, '..', 'data');
+    $html .= File::Spec->catfile($data_dir, 'timeline.html');
 
-    my $avail_comms_html < io("$TaskData/comms_avail.html");
+    my $avail_comms_html < io(File::Spec->catfile($output_dir, 'comms_avail.html'));
     $html .= $avail_comms_html;
 
     $html .= $q->p . make_event_table($event) . $q->p;
@@ -375,15 +389,15 @@ sub install_web_files {
 
 
     foreach (qw(timeline_png timeline_states)){
-	my $in = io("$TaskData/$opt{file}{$_}");
-	my $out =io("$opt{file}{web_dir}/$opt{file}{$_}");
+	my $in = io(File::Spec->catfile($output_dir, $opt{file}{$_}));
+	my $out =io(File::Spec->catfile($opt{file}{web_dir}, $opt{file}{$_}));
 	$in > $out if (not -e "$out" or $in->mtime > $out->mtime);
     }
 
     foreach (qw(title_image blue_paper blue_paper_test
 		timeline_js timeline_css vert_line)) {
-	my $in = io("$TaskShare/$opt{file}{$_}");
-	my $out =io("$opt{file}{web_dir}/$opt{file}{$_}");
+	my $in = io(File::Spec->catfile($data_dir, $opt{file}{$_}));
+	my $out =io(File::Spec->catfile($opt{file}{web_dir}, $opt{file}{$_}));
 	$in > $out if (not -e "$out" or $in->mtime > $out->mtime);
     }
 
@@ -543,7 +557,8 @@ sub make_ace_table {
     my $footnotes = "ACE data from $ace_date";
     $footnotes .= "<br>Orbital fluence: integrated attenuated ACE flux";
     $footnotes .= "<br>Grating attenuation not factored into current or 2hr flux numbers";
-    $footnotes .= qq{<br><a href="alert_limits.html">RADMON and SOT alert limits information</a>};
+    my $data_dir = File::Spec->catdir($FindBin::Bin, '..', 'data');
+    $footnotes .= qq{<br><a href="" . File::Spec->catfile($data_dir, 'alert_limits.html') . "">RADMON and SOT alert limits information</a>};
     $table[$n_row][0] = $footnotes;
 
     my $table = new HTML::Table(-align => 'center',
@@ -879,7 +894,7 @@ sub get_iFOT_events {
     foreach my $table_id (@table_id) {
 	my $cutoff_time = (defined $opt{stop_at_scs107}{$table_id} and defined $SCS107date) ?
 	  date2time($SCS107date, 'unix') :  $CurrentTime+10 ;
-	my @files = reverse sort glob("$TaskData/$opt{file}{iFOT_events}/$table_id/*.rdb");
+	my @files = reverse sort glob(File::Spec->catfile($output_dir, $opt{file}{iFOT_events}, $table_id, '*.rdb'));
       FILE: foreach (@files) {
 	    next unless m!/ ($DateRE) \.rdb \Z!x;
 	    if (date2time($1, 'unix') < $cutoff_time) {
@@ -923,7 +938,7 @@ sub check_for_scs107 {
 # to ensure "seeing" the initial detection of SCS107 in the event of switching in and out
 # of EPS subformat
 
-    my $scs107_history_file = "$TaskData/$opt{file}{scs107_history}";
+    my $scs107_history_file = File::Spec->catfile($output_dir, $opt{file}{scs107_history});
     my $load_running = (grep { $scs_state{"scs$_"} eq 'ACT' } qw(131 132 133)) ? 1 : 0;
 
     my $scs107_not_inac = ($scs_state{scs107} ne 'INAC') ? 1 : 0;

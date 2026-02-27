@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel", "setuptools_scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arc-replan-central"
+dynamic = ["version"]
+description = "ARC replan_central package for solar and ops data analysis"
+authors = [
+    { name = "SOT ARC Team", email = "arc@sot.org" }
+]
+readme = "LICENSE.rst"
+license = "BSD-3-Clause"
+requires-python = ">=3.8"
+
+
+[tool.setuptools_scm]
+fallback_version = "0.1.0"
+
+[project.urls]
+Homepage = "https://github.com/sot/arc"
+
+[project.scripts]
+replan-central-get-web-content = "replan_central.run_get_web_content_pl:main"
+replan-central-get-ifot-events = "replan_central.run_get_iFOT_events_pl:main"
+replan-central-arc = "replan_central.run_arc_pl:main"
+replan-central-calc-fluence-dist = "replan_central.calc_fluence_dist:main"
+replan-central-get-ace = "replan_central.get_ace:main"
+replan-central-get-goes-x = "replan_central.get_goes_x:main"
+replan-central-get-hrc = "replan_central.get_hrc:main"
+replan-central-get-solar-flare-png = "replan_central.get_solar_flare_png:main"
+replan-central-make-timeline = "replan_central.make_timeline:main"
+replan-central-plot-goes-x = "replan_central.plot_goes_x:main"
+replan-central-plot-hrc = "replan_central.plot_hrc:main"
+
+[tool.setuptools]
+packages = ["replan_central", "replan_central.utils"]
