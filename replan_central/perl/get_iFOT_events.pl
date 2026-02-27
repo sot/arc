@@ -30,11 +30,10 @@ unless ($output_dir) {
 }
 
 # iFOT query definitions
-our $data_dir = File::Spec->catdir($FindBin::Bin, '..', 'data');
-our %ifot = ParseConfig(-ConfigFile => "$data_dir/iFOT_queries.cfg");
+my %ifot = ParseConfig(-ConfigFile => "$data_dir/iFOT_queries.cfg");
 
 # Global task options
-our %opt  = ParseConfig(-ConfigFile => File::Spec->catfile($data_dir, "arc3.cfg"));
+my %opt  = ParseConfig(-ConfigFile => File::Spec->catfile($data_dir, "arc3.cfg"));
 
 
 foreach my $query_id (@{$opt{query_name}}) {
