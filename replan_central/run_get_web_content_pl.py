@@ -1,5 +1,6 @@
-import subprocess
 import importlib.resources
+import subprocess
+
 
 def main():
     perl_script = importlib.resources.files("replan_central.perl") / "get_web_content.pl"
