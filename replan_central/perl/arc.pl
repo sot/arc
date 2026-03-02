@@ -27,19 +27,23 @@ use Getopt::Long;
 
 my $outdir;
 my $Debug = 0;
-my $config_file;
-my $data_dir = File::Spec->catdir($FindBin::Bin, '..', 'data');
+my $config_file = File::Spec->catfile($FindBin::Bin, "..", 'data', 'arc3.cfg');
+my $opt_config_file;
+my $data_dir;
+my $pkg_data = File::Spec->catdir($FindBin::Bin, '..', 'data');
 
 
 # Set default config file to arc3.cfg in the data directory if not provided
 GetOptions(
     'out=s' => \$outdir,
+    'data_dir=s' => \$data_dir,
     'debug' => \$Debug,
-    'config=s' => \$config_file,
+    'config=s' => \$opt_config_file,
 );
-unless ($config_file) {
-    $config_file = File::Spec->catfile($FindBin::Bin, '..', 'data', 'arc3.cfg');
+if ($opt_config_file) {
+    $config_file = File::Spec->catfile($FindBin::Bin, "..", 'data', $opt_config_file);
 }
+
 unless ($outdir) {
     die "Usage: $0 --out <output directory> [--debug]\n";
 }
@@ -68,7 +72,7 @@ require File::Spec->catfile($perl_dir, 'parse_cm_file.pl');
 my $FloatRE = qr/[+-]?(?:\d+[.]?\d*|[.]\d+)(?:[dDeE][+-]?\d+)?/;
 my $DateRE  = qr/\d\d\d\d:\d+:\d+:\d+:\d\d\.?\d*/;
 
-my %opt = parse_config();
+my %opt = parse_config($config_file);
 
 # Set global current time at beginning of execution
 my $CurrentTime = @ARGV ? date2time(shift @ARGV, 'unix') : time;
@@ -94,7 +98,8 @@ my $occweb_passwd = $netrc->password;
     interpolate_config_file_options();
 
     # Get web data & pointers to downloaded image files from get_web_content.pl task
-    my %web_content = ParseConfig(-ConfigFile => File::Spec->catfile($outdir, $opt{file}{web_content}));
+    my $web_content_file = File::Spec->catfile($data_dir, "web_content.dat");
+    my %web_content = ParseConfig(-ConfigFile => $web_content_file);
 
     my ($snap_warning_ref, %snap) = Snap::get_snap( $opt{file}{snap_archive},
 						    [ $opt{file}{snap},
@@ -118,7 +123,6 @@ my $occweb_passwd = $netrc->password;
     @event = sort { $a->tstart <=> $b->tstart } @event;
 
     my $html  = make_web_page(\%snap, \@event, \%web_content);
-    $html > io(File::Spec->catfile($outdir, $opt{file}{web_page}));
     install_web_files($html, \%web_content);
 
     print_iFOT_events(\@event) if $Debug;
@@ -153,7 +157,7 @@ sub interpolate_config_file_options {
 sub parse_config {
 ####################################################################################
 # Read in config options from a single config file path
-    my $cfg_file = $config_file // die "No config file specified!";
+    my $cfg_file = shift;
     die "Config file $cfg_file does not exist or is not readable!" unless -r $cfg_file;
     my %opt = ParseConfig(-ConfigFile => $cfg_file);
     return %opt;
@@ -384,23 +388,24 @@ sub install_web_files {
     local $_;
 
     # Ensure that web dir exists
-    eval { io($opt{file}{web_dir})->mkpath };
-    die "ERROR - could not create web directory $opt{file}{web_dir}: $@\n" if $@;
+    unless (-d $outdir){
+        mkdir $outdir or die "Failed to create output directory $outdir: $!";
+    }
 
-    $html > io("$opt{file}{web_dir}/$opt{file}{web_page}");
+    $html > io(File::Spec->catfile($outdir, $opt{file}{web_page}));
 
 
     foreach (qw(timeline_png timeline_states)){
-	my $in = io(File::Spec->catfile($outdir, $opt{file}{$_}));
-	my $out =io(File::Spec->catfile($opt{file}{web_dir}, $opt{file}{$_}));
-	$in > $out if (not -e "$out" or $in->mtime > $out->mtime);
+        my $in = io(File::Spec->catfile($data_dir, $opt{file}{$_}));
+        my $out =io(File::Spec->catfile($outdir, $opt{file}{$_}));
+        $in > $out;
     }
 
     foreach (qw(title_image blue_paper blue_paper_test
 		timeline_js timeline_css vert_line)) {
-	my $in = io(File::Spec->catfile($data_dir, $opt{file}{$_}));
-	my $out =io(File::Spec->catfile($opt{file}{web_dir}, $opt{file}{$_}));
-	$in > $out if (not -e "$out" or $in->mtime > $out->mtime);
+        my $in = io(File::Spec->catfile($pkg_data, $opt{file}{$_}));
+        my $out =io(File::Spec->catfile($outdir, $opt{file}{$_}));
+        $in > $out;
     }
 
 
@@ -414,7 +419,7 @@ sub install_web_files {
 	    # Copy new image file if infile exists and outfile either does not exist
 	    # or is older than infile
 	    my $in = io($image->{outfile});
-	    my $out = io($opt{file}{web_dir} . "/" . $image->{file});
+	    my $out = io($outdir . "/" . $image->{file});
 	    next unless -e "$in";
 	    if ((not -e "$out") or $in->mtime > $out->mtime) {
 		if ($image->{convert}) {
@@ -559,7 +564,7 @@ sub make_ace_table {
     my $footnotes = "ACE data from $ace_date";
     $footnotes .= "<br>Orbital fluence: integrated attenuated ACE flux";
     $footnotes .= "<br>Grating attenuation not factored into current or 2hr flux numbers";
-    $footnotes .= qq{<br><a href="" . File::Spec->catfile($data_dir, 'alert_limits.html') . "">RADMON and SOT alert limits information</a>};
+    $footnotes .= qq{<br><a href="" . File::Spec->catfile($pkg_data, 'alert_limits.html') . "">RADMON and SOT alert limits information</a>};
     $table[$n_row][0] = $footnotes;
 
     my $table = new HTML::Table(-align => 'center',
@@ -595,9 +600,9 @@ sub make_ephin_goes_table {
     my %val;
     my %tab_def = %{$opt{ephin_goes_table}};
 
-    my ($hrc_shield_proxy, $hrc_time) = split(' ', io($opt{file}{hrc_shield})->slurp());
-    my ($p4gm_proxy, $p4gm_time) = split(' ', io($opt{file}{p4gm})->slurp());
-    my ($p41gm_proxy, $p41gm_time) = split(' ', io($opt{file}{p41gm})->slurp());
+    my ($hrc_shield_proxy, $hrc_time) = split(' ', io(File::Spec->catfile($data_dir, $opt{file}{hrc_shield}))->slurp());
+    my ($p4gm_proxy, $p4gm_time) = split(' ', io(File::Spec->catfile($data_dir, $opt{file}{p4gm}))->slurp());
+    my ($p41gm_proxy, $p41gm_time) = split(' ', io(File::Spec->catfile($data_dir, $opt{file}{p41gm}))->slurp());
 
     my $ephin_date = $snap->{obt}{value} . ' (' .
 		  Event::calc_delta_date($snap->{obt}{value}) . ')';
@@ -895,7 +900,7 @@ sub get_iFOT_events {
     foreach my $table_id (@table_id) {
 	my $cutoff_time = (defined $opt{stop_at_scs107}{$table_id} and defined $SCS107date) ?
 	  date2time($SCS107date, 'unix') :  $CurrentTime+10 ;
-	my @files = reverse sort glob(File::Spec->catfile($outdir, $opt{file}{iFOT_events}, $table_id, '*.rdb'));
+	my @files = reverse sort glob(File::Spec->catfile($data_dir, $opt{file}{iFOT_events}, $table_id, '*.rdb'));
       FILE: foreach (@files) {
 	    next unless m!/ ($DateRE) \.rdb \Z!x;
 	    if (date2time($1, 'unix') < $cutoff_time) {
