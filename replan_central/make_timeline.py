@@ -119,7 +119,6 @@ warnings.filterwarnings("ignore", category=matplotlib.MatplotlibDeprecationWarni
 P3_BAD = -100000
 AXES_LOC = [0.08, 0.15, 0.83, 0.6]
 SKA = Path(os.environ["SKA"])
-DATA_ARC3 = SKA / "data" / "arc3"
 COMMS_AVAIL_URL = (
     "https://occweb.cfa.harvard.edu/mission/MissionPlanning/DSN/DSN_Modifications.csv"
 )
@@ -255,11 +254,7 @@ ace_rates_file = functools.partial(
 dsn_comms_file = functools.partial(
     arc_data_file, SKA / "data" / "dsn_summary", "dsn_summary.yaml"
 )
-ace_hourly_avg_file = functools.partial(arc_data_file, DATA_ARC3, "ACE_hourly_avg.npy")
-goes_x_h5_file = functools.partial(arc_data_file, DATA_ARC3, "GOES_X.h5")
-ace_h5_file = functools.partial(arc_data_file, DATA_ARC3, "ACE.h5")
-hrc_h5_file = functools.partial(arc_data_file, DATA_ARC3, "hrc_shield.h5")
-comms_avail_file = functools.partial(arc_data_file, DATA_ARC3, "comms_avail.html")
+
 
 
 def get_web_data(data_dir):
@@ -466,7 +461,7 @@ def get_ace_p3(
     Get the historical ACE P3 rates and filter out bad values.
     """
     times, vals = get_h5_data(
-        ace_h5_file(data_dir, test), "time", "p3", tstart, tstop, test
+        Path(data_dir) / "ACE.h5", "time", "p3", tstart, tstop, test
     )
     return times, vals
 
@@ -474,7 +469,7 @@ def get_ace_p3(
 def get_goes_x(
     tstart: float,
     tstop: float,
-    data_dir: str | Path | None = None,
+    data_dir: str | Path,
     test: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
@@ -488,7 +483,7 @@ def get_goes_x(
         X-ray flux
     """
     times, vals = get_h5_data(
-        goes_x_h5_file(data_dir, test), "time", "long", tstart, tstop, test
+        Path(data_dir) / "GOES_X.h5", "time", "long", tstart, tstop, test
     )
     return times, vals
 
@@ -560,7 +555,7 @@ def get_hrc(
     Get the historical HRC proxy rates and filter out bad values.
     """
     times, vals = get_h5_data(
-        hrc_h5_file(data_dir, test), "time", "hrc_shield", tstart, tstop, test
+        Path(data_dir) / "hrc_shield.h5", "time", "hrc_shield", tstart, tstop, test
     )
     return times, vals * 256.0
 
@@ -669,7 +664,7 @@ def main(args_sys=None):
     zero_fluence_at_radzone(fluence_times, fluence, radzones)
 
     # Initialize the main plot figure
-    fig = plt.figure(1, figsize=(9, 5))
+    fig = plt.figure(figsize=(9, 5))
     fig.patch.set_alpha(0.0)
     ax = fig.add_axes(AXES_LOC, facecolor="w")
     ax.yaxis.tick_right()
@@ -737,7 +732,7 @@ def main(args_sys=None):
         hrc_vals,
         hrc_times,
     )
-    write_comms_avail(comms_avail_humans, comms_avail_file(output_dir, test=args.test))
+    write_comms_avail(comms_avail_humans, Path(output_dir) / "comms_avail.html")
 
 
 def draw_log_scale_axes(fig, y0, y1):
@@ -897,7 +892,7 @@ def draw_fluence_percentiles(
         p3_slope = get_p3_slope(p3_times, p3_vals)
         if p3_slope is not None and avg_flux > 0:
             p3_fits, p3_samps, fluences = cfd.get_fluences(
-                ace_hourly_avg_file(args.data_dir, test=args.test),
+                Path(args.data_dir) / "ACE_hourly_avg.npy",
             )
             hrs, fl10, fl50, fl90 = cfd.get_fluence_percentiles(
                 avg_flux,
@@ -1092,7 +1087,6 @@ def write_comms_avail(comms_avail_humans: Table | None, filename: str | Path) ->
         # Get the text between <table> and </table> and write out.
         match = re.search("<table>(.*)</table>", out.getvalue(), re.DOTALL)
         text = match.group(0)
-    raise ValueError
     Path(filename).write_text(COMMS_AVAIL_HTML_HEADER + text + COMMS_AVAIL_HTML_FOOTER)
 
 
