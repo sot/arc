@@ -278,11 +278,11 @@ sub make_web_page {
 
     $html .= $q->start_html(-title => $opt{web_page}{title_short},
 			    -style => [{-code => $opt{web_page}{style} },
-                    {-src => File::Spec->catfile($FindBin::Bin, '..', 'data', 'timeline.css'),}
+                    {-src => 'timeline.css'}
 				       ],
 			    -noScript => $opt{web_refresh}{NoScript},
 			    -script => [{ -src => 'timeline_states.js'},
-                    { -src => File::Spec->catfile($FindBin::Bin, '..', 'data', 'timeline.js')},
+                    { -src => 'timeline.js'},
 					{ -language => 'JavaScript',
 					  -code     => $opt{web_refresh}{JavaScript},
 					},
@@ -314,7 +314,7 @@ sub make_web_page {
 					  $snap_table]],
 			     )->getTable;
 
-    $html .= File::Spec->catfile($data_dir, 'timeline.html');
+    $html .= $opt{timeline_html};
 
     my $avail_comms_html < io(File::Spec->catfile($outdir, 'comms_avail.html'));
     $html .= $avail_comms_html;
@@ -564,7 +564,7 @@ sub make_ace_table {
     my $footnotes = "ACE data from $ace_date";
     $footnotes .= "<br>Orbital fluence: integrated attenuated ACE flux";
     $footnotes .= "<br>Grating attenuation not factored into current or 2hr flux numbers";
-    $footnotes .= qq{<br><a href="" . File::Spec->catfile($pkg_data, 'alert_limits.html') . "">RADMON and SOT alert limits information</a>};
+    $footnotes .= '<br><a href="alert_limits.html">RADMON and SOT alert limits information</a>';
     $table[$n_row][0] = $footnotes;
 
     my $table = new HTML::Table(-align => 'center',

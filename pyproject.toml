@@ -37,3 +37,7 @@ replan-central-plot-hrc = "replan_central.plot_hrc:main"
 
 [tool.setuptools]
 packages = ["replan_central", "replan_central.utils"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"replan_central" = ["task_schedule.cfg"]
