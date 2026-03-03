@@ -615,7 +615,7 @@ def main(args_sys=None):
     parser = get_parser()
     args = parser.parse_args(args_sys)
 
-    output_dir = args.output_dir
+    output_dir = args.out
 
     if args.test_get_web:
         get_web_data(args.data_dir)

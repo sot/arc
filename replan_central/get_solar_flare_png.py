@@ -107,6 +107,8 @@ def main(sys_args=None):
     )
 
     # Copy the image to the standard name
+    # First make sure the directory exists
+    Path(args.out_file).parent.mkdir(parents=True, exist_ok=True)
     standard_image_path = Path(args.out_file)
     shutil.copyfile(img_file, standard_image_path)
 

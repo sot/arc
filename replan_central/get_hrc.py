@@ -128,7 +128,7 @@ def main():
 
     try:
         with tables.open_file(
-            args.h5, mode="r", filters=tables.Filters(complevel=5, complib="zlib")
+            Path(args.out) / "hrc_shield.h5", mode="r", filters=tables.Filters(complevel=5, complib="zlib")
         ) as h5:
             table = h5.root.data
             descrs = table.dtype
@@ -149,9 +149,8 @@ def main():
         dat = get_json_data(URL_7D)
         newdat, hrc_bad = format_proton_data(dat, descrs=descrs)
 
-    h5_file = Path(args.out) / "hrc_shield.h5"
     with tables.open_file(
-        h5_file, mode="a", filters=tables.Filters(complevel=5, complib="zlib")
+        Path(args.out) / "hrc_shield.h5", mode="a", filters=tables.Filters(complevel=5, complib="zlib")
     ) as h5:
         try:
             table = h5.root.data
