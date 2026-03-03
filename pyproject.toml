@@ -3,11 +3,11 @@ requires = ["setuptools>=61.0", "wheel", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "arc-replan-central"
+name = "replan_central"
 dynamic = ["version"]
-description = "ARC replan_central package for solar and ops data analysis"
+description = "Replan Central"
 authors = [
-    { name = "SOT ARC Team", email = "arc@sot.org" }
+    { name = "Aspect Team", email = "aca@cfa.harvard.edu" }
 ]
 readme = "LICENSE.rst"
 license = "BSD-3-Clause"
