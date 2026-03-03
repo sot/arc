@@ -257,7 +257,6 @@ dsn_comms_file = functools.partial(
 )
 
 
-
 def get_web_data(data_dir):
     """Get ACIS fluence, ACE rates, and DSN comms from CXC web pages
 

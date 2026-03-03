@@ -11,10 +11,13 @@ from Ska.Matplotlib import plot_cxctime
 
 def get_options():
     parser = argparse.ArgumentParser(description="Plot HRC")
-    parser.add_argument("--out-file", type=str, default="hrc_shield.png", help="Plot file name")
+    parser.add_argument(
+        "--out-file", type=str, default="hrc_shield.png", help="Plot file name"
+    )
     parser.add_argument("--h5", default="hrc_shield.h5", help="HDF5 file name")
     args = parser.parse_args()
     return args
+
 
 def main():
     args = get_options()

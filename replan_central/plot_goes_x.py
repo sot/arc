@@ -18,10 +18,13 @@ from Ska.Matplotlib import plot_cxctime
 
 def get_options():
     parser = argparse.ArgumentParser(description="Plot GOES X data for Replan Central")
-    parser.add_argument("--out-file", type=str, default="goes_x.png", help="Plot file name")
+    parser.add_argument(
+        "--out-file", type=str, default="goes_x.png", help="Plot file name"
+    )
     parser.add_argument("--h5", default="GOES_X.h5", help="HDF5 file name")
     args = parser.parse_args()
     return args
+
 
 def main():
     args = get_options()
@@ -38,7 +41,9 @@ def main():
     ):
         vals = table[col]
         vals = vals.clip(min=1e-10)
-        plot_cxctime(table["time"], vals, color=color, linewidth=0.5, label=f"{wavelength}")
+        plot_cxctime(
+            table["time"], vals, color=color, linewidth=0.5, label=f"{wavelength}"
+        )
     plt.ylim(1e-9, 1e-2)
     plt.yscale("log")
     plt.grid()
