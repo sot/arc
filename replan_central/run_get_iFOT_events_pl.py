@@ -1,7 +1,8 @@
 
-import subprocess
-import importlib.resources
 import argparse
+import importlib.resources
+import subprocess
+
 
 def main():
     parser = argparse.ArgumentParser(description="Run get_iFOT_events.pl Perl script")

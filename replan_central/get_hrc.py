@@ -128,7 +128,8 @@ def main():
 
     try:
         with tables.open_file(
-            Path(args.out) / "hrc_shield.h5", mode="r", filters=tables.Filters(complevel=5, complib="zlib")
+            Path(args.out) / "hrc_shield.h5", mode="r",
+            filters=tables.Filters(complevel=5, complib="zlib")
         ) as h5:
             table = h5.root.data
             descrs = table.dtype
@@ -150,7 +151,8 @@ def main():
         newdat, hrc_bad = format_proton_data(dat, descrs=descrs)
 
     with tables.open_file(
-        Path(args.out) / "hrc_shield.h5", mode="a", filters=tables.Filters(complevel=5, complib="zlib")
+        Path(args.out) / "hrc_shield.h5", mode="a",
+        filters=tables.Filters(complevel=5, complib="zlib")
     ) as h5:
         try:
             table = h5.root.data

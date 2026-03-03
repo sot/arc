@@ -15,6 +15,7 @@ import tables
 from Chandra.Time import DateTime
 from Ska.Matplotlib import plot_cxctime
 
+
 def get_options():
     parser = argparse.ArgumentParser(description="Plot GOES X data for Replan Central")
     parser.add_argument("--out-file", type=str, default="goes_x.png", help="Plot file name")

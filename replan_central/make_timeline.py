@@ -100,7 +100,6 @@ from pathlib import Path
 os.environ["MPLBACKEND"] = "Agg"
 
 import astropy.units as u
-import replan_central.calc_fluence_dist as cfd
 import kadi.commands.states as kadi_states
 import matplotlib.cbook
 import matplotlib.patches
@@ -113,6 +112,8 @@ from astropy.table import Table
 from cxotime import CxoTime, CxoTimeLike
 from kadi import events, occweb
 from ska_matplotlib import lineid_plot, plot_cxctime
+
+import replan_central.calc_fluence_dist as cfd
 
 warnings.filterwarnings("ignore", category=matplotlib.MatplotlibDeprecationWarning)
 

@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import tables
 from Ska.Matplotlib import plot_cxctime
 
+
 def get_options():
     parser = argparse.ArgumentParser(description="Plot HRC")
     parser.add_argument("--out-file", type=str, default="hrc_shield.png", help="Plot file name")

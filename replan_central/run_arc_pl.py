@@ -1,6 +1,7 @@
-import subprocess
 import argparse
 import importlib.resources
+import subprocess
+
 
 def main():
     parser = argparse.ArgumentParser(description="Run arc.pl Perl script")

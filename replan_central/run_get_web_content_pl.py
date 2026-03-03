@@ -1,6 +1,7 @@
+import argparse
 import importlib.resources
 import subprocess
-import argparse
+
 
 def main():
     parser = argparse.ArgumentParser(description="Run get_web_content.pl Perl script")
