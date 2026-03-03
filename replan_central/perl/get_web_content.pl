@@ -23,7 +23,7 @@ my $data_dir = File::Spec->catdir($FindBin::Bin, '..', 'data');
 
 # Parse command-line options
 GetOptions(
-    'output-dir=s' => \$output_dir,
+    'out=s' => \$output_dir,
     'debug' => \$Debug,
 );
 unless ($output_dir) {

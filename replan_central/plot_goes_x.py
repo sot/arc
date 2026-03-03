@@ -17,7 +17,7 @@ from Ska.Matplotlib import plot_cxctime
 
 def get_options():
     parser = argparse.ArgumentParser(description="Plot GOES X data for Replan Central")
-    parser.add_argument("--out", type=str, default="goes_x.png", help="Plot file name")
+    parser.add_argument("--out-file", type=str, default="goes_x.png", help="Plot file name")
     parser.add_argument("--h5", default="GOES_X.h5", help="HDF5 file name")
     args = parser.parse_args()
     return args
@@ -57,6 +57,6 @@ def main():
     plt.text(xlims[1] + 0.25, 1e-4, "Xray Flare Class", rotation=270)
 
     # Make directory if it doesn't exist using pathlib
-    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+    Path(args.out_file).parent.mkdir(parents=True, exist_ok=True)
     # Save image
-    plt.savefig(args.out)
+    plt.savefig(args.out_file)

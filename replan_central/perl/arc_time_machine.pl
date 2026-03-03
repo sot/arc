@@ -4,7 +4,7 @@
 # use mercurial to "check in" change
 # the iFOT_time_machine mercurial repository can then be used to get the iFOT status
 # at any time with something like:
-# 
+#
 # hg pull -u $ska/data/arc3/iFOT_time_machine
 # hg update --date " < <date-time> "
 
@@ -30,7 +30,11 @@ my $time_machine_dir = "$TaskData/iFOT_time_machine";
 my %opt  = ParseConfig(-ConfigFile => "$TaskShare/$Task.cfg");
 
 my %cmd_opt = ( verbose => 0 );
+my $arc_data_dir;
+my $time_machine_dir;
 GetOptions( \%cmd_opt,
+        "arc-data-dir=s" => \$arc_data_dir,
+        "time-machine-dir=s" => \$time_machine_dir,
 	    "verbose!");
 
 foreach my $query_id (@{$opt{query_name}}) {

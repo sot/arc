@@ -27,9 +27,8 @@ def get_options():
         description="Archive GOES data and HRC shield rate proxy"
     )
     parser.add_argument(
-        "--data-dir", type=str, default=".", help="Directory for output data files"
+        "--out", type=str, default=".", help="Directory for output data files"
     )
-    parser.add_argument("--h5", default="hrc_shield.h5", help="HDF5 file name")
     args = parser.parse_args()
     return args
 
@@ -150,8 +149,9 @@ def main():
         dat = get_json_data(URL_7D)
         newdat, hrc_bad = format_proton_data(dat, descrs=descrs)
 
+    h5_file = Path(args.out) / "hrc_shield.h5"
     with tables.open_file(
-        args.h5, mode="a", filters=tables.Filters(complevel=5, complib="zlib")
+        h5_file, mode="a", filters=tables.Filters(complevel=5, complib="zlib")
     ) as h5:
         try:
             table = h5.root.data
@@ -169,8 +169,8 @@ def main():
     hrc_shield = newdat["hrc_shield"][-3:]
     ok = ~hrc_bad[-3:]
     if len(hrc_shield[ok]) > 0:
-        Path(args.data_dir).mkdir(exist_ok=True)
-        with open(Path(args.data_dir, "hrc_shield.dat"), "w") as f:
+        Path(args.out).mkdir(exist_ok=True)
+        with open(Path(args.out, "hrc_shield.dat"), "w") as f:
             print(hrc_shield[ok].mean(), times[ok].mean(), file=f)
 
     # For GOES earlier than 16:
@@ -183,7 +183,7 @@ def main():
         proxy = newdat[colname][-3:] * scale
         ok = proxy > 0
         if len(proxy[ok]) > 0:
-            with open(Path(args.data_dir, filename), "w") as f:
+            with open(Path(args.out, filename), "w") as f:
                 print(proxy[ok].mean(), times[ok].mean(), file=f)
 
 
