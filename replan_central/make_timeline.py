@@ -648,7 +648,6 @@ def main(args_sys=None):
     # Get the realtime ACE P3 and HRC proxy values over the time range
     goes_x_times, goes_x_vals = get_goes_x(start, now, args.data_dir, args.test)
     p3_times, p3_vals = get_ace_p3(start, now, args.data_dir, args.test)
-    p3_avg = np.mean(p3_vals)
     hrc_times, hrc_vals = get_hrc(start, now, args.data_dir, args.test)
 
     # For testing: inject predefined values for different scenarios
@@ -728,7 +727,7 @@ def main(args_sys=None):
         fluence_times,
         p3_vals,
         p3_times,
-        p3_avg,
+        avg_flux,
         hrc_vals,
         hrc_times,
     )
