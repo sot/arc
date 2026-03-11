@@ -28,7 +28,6 @@ use Getopt::Long;
 my $outdir;
 my $Debug = 0;
 my $config_file = File::Spec->catfile($FindBin::Bin, "..", 'data', 'arc3.cfg');
-my $opt_config_file;
 my $data_dir;
 my $pkg_data = File::Spec->catdir($FindBin::Bin, '..', 'data');
 
@@ -38,11 +37,7 @@ GetOptions(
     'out=s' => \$outdir,
     'data_dir=s' => \$data_dir,
     'debug' => \$Debug,
-    'config=s' => \$opt_config_file,
 );
-if ($opt_config_file) {
-    $config_file = File::Spec->catfile($FindBin::Bin, "..", 'data', $opt_config_file);
-}
 
 unless ($outdir) {
     die "Usage: $0 --out <output directory> [--debug]\n";
