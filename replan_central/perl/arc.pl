@@ -49,14 +49,6 @@ unless ($outdir) {
 # - Improve get_obsid_event so that it does violation checks during manv'r
 # - Make sure logs and all other files w/ passwd are secure
 
-my $VERSION;
-my $version_file = File::Spec->catfile($FindBin::Bin, '..', 'data', 'VERSION');
-if (-e $version_file) {
-    $VERSION = io($version_file)->slurp;
-    chomp $VERSION;
-} else {
-    $VERSION = 'unknown';
-}
 
 my $perl_dir = $FindBin::Bin;
 
